@@ -6,7 +6,9 @@
 
 *Early squad test. The Sniper has just interrupted the boss's charged blast.*
 
-> **Status: early development.** The squad prototype works, and the first public build is on its way.
+**[Play it in your browser](https://huntling94.github.io/the-new-frontier/)**, on a desktop with a mouse and keyboard.
+
+> **Status: early development.** One island, three characters and one boss, playable from the start screen to victory.
 
 ## Purpose
 
@@ -25,7 +27,7 @@ The New Frontier expands my original text-based port into a full-fledged 3D game
 
 - **Three bodies, one player.** Your squad fights by itself. You decide where they stand and when to spend their spells.
 - **Choices that sting.** XP splits among the living, and every upgrade past +4 can destroy the item.
-- **No grind.** Auto-combat handles what is dull, and bosses need you at the controls.
+- **No grind.** Auto-combat handles what is dull, and you choose which characters it runs.
 
 ## How it's made
 

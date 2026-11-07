@@ -12,6 +12,8 @@ export interface Camera {
   yaw: number;
   tiltAdjust: number;
   follow: boolean;
+  /** Shake strength, from 0 to 1 (S2.3b decision 14). */
+  shake: number;
 }
 
 const C = FEEL.camera;
@@ -20,7 +22,7 @@ const lerp = (a: number, b: number, t: number): number => a + (b - a) * t;
 
 /** The camera starts over the squad, with follow on (D-013). */
 export function createCamera(at: Point): Camera {
-  return { x: at.x, z: at.z, zoom: C.startZoom, zoomTarget: C.startZoom, yaw: 0, tiltAdjust: 0, follow: true };
+  return { x: at.x, z: at.z, zoom: C.startZoom, zoomTarget: C.startZoom, yaw: 0, tiltAdjust: 0, follow: true, shake: 0 };
 }
 
 export function poseOf(camera: Camera, groundLevel: number): CameraPose {
@@ -100,4 +102,24 @@ export function clampToZone(camera: Camera, zone: { readonly x: number; readonly
     camera.x = zone.x + (dx * limit) / distance;
     camera.z = zone.z + (dz * limit) / distance;
   }
+}
+
+/** Shakes the camera; a stronger shake replaces a weaker one. */
+export function addShake(camera: Camera, strength: number): void {
+  camera.shake = Math.max(camera.shake, strength);
+}
+
+/**
+ * Jolts the eye sideways by the shake, and lets the shake fade. `random` gives
+ * numbers from 0 to 1, and `still` is true when the player asks for reduced motion.
+ */
+export function shakePose(camera: Camera, pose: CameraPose, dt: number, random: () => number, still: boolean): CameraPose {
+  const { fade, reach } = FEEL.shake;
+  const jolt = still ? 0 : camera.shake * camera.shake * reach;
+  camera.shake = Math.max(0, camera.shake - dt * fade);
+  if (jolt === 0) return pose;
+  return {
+    eye: { x: pose.eye.x + (random() * 2 - 1) * jolt, y: pose.eye.y, z: pose.eye.z + (random() * 2 - 1) * jolt },
+    target: pose.target,
+  };
 }

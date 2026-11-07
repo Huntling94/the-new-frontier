@@ -10,6 +10,9 @@
     "typecheck": "tsc --noEmit -p tsconfig.json"
   },
   "dependencies": {
+    "@fontsource/alegreya-sans": "5.3.0",
+    "@fontsource/im-fell-english-sc": "5.3.0",
+    "@fontsource/vt323": "5.3.0",
     "@new-frontier/core": "workspace:*",
     "@new-frontier/render": "workspace:*"
   },

@@ -1,6 +1,12 @@
-import { currentZone, type BotKind, type GameEvent } from '@new-frontier/core';
-import { createWorldView, type WorldView } from '@new-frontier/render';
+import '@fontsource/alegreya-sans/latin-400.css';
+import '@fontsource/alegreya-sans/latin-500.css';
+import '@fontsource/alegreya-sans/latin-700.css';
+import '@fontsource/im-fell-english-sc/latin-400.css';
+import '@fontsource/vt323/latin-400.css';
+import { currentZone, isNearAnvil, upgradeOffer, type BotKind, type GameEvent, type GearSlot } from '@new-frontier/core';
+import { createWorldView, zoneLook, type CameraPose, type WorldView } from '@new-frontier/render';
 import {
+  addShake,
   clampToZone,
   createCamera,
   easeZoom,
@@ -8,13 +14,18 @@ import {
   pan,
   poseOf,
   rotate,
+  shakePose,
   type Camera,
 } from './camera';
 import { Clock } from './clock';
-import { HELD, squadCentre } from './controls';
+import { followPoint, HELD, squadCentre, type KeyAction } from './controls';
 import { FEEL } from './feel';
+import { Hud, HUD_SECONDS } from './hud';
 import { Input } from './input';
+import { Reactions, type Reaction } from './reactions';
+import { Anvil, showStart, showVictory, upgradeResult } from './screens';
 import { Session } from './session';
+import { Sound } from './sound';
 import { fitViewport } from './viewport';
 
 function element<T extends HTMLElement>(id: string): T {
@@ -29,10 +40,15 @@ function element<T extends HTMLElement>(id: string): T {
 const params = new URLSearchParams(window.location.search);
 const MAX_SPEED = 64;
 const MAX_RECENT = 2000;
+/** The start screen circles the island, as the squad test's does. */
+const ORBIT = { radius: 130, height: 64, lookHeight: 4, turn: 0.1 };
+/** Banners last this long, and the victory screen follows the beacon's banner after it. */
+const BANNER_SECONDS = 2.6;
 const seed = params.has('seed') ? Number(params.get('seed')) >>> 0 : Math.floor(Math.random() * 2 ** 31);
 const speed = Math.min(Math.max(Number(params.get('speed') ?? 1) || 1, 0), MAX_SPEED);
 const botParam = params.get('bot');
 const bot: BotKind | null = botParam === 'careful' || botParam === 'sloppy' ? botParam : null;
+const stillMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
 const canvas = element<HTMLCanvasElement>('game');
 const overlay = element<HTMLCanvasElement>('overlay');
@@ -51,12 +67,82 @@ try {
 
 if (world) start(world);
 
+type Mode = 'start' | 'play' | 'won';
+
+interface PageState {
+  readonly mode: Mode;
+  readonly paused: boolean;
+  readonly sound: Sound;
+  readonly help: boolean;
+}
+
 function start(world: WorldView): void {
+  let mode: Mode = 'start';
+  let shown = 0;
+  let victoryIn = 0;
+  let hudIn = 0;
   const camera = createCamera(squadCentre(session.view));
-  const input = new Input(canvas, session, world, camera);
+  const sound = new Sound();
+  const reactions = new Reactions();
   const recent: GameEvent[] = [];
-  const hook = params.has('test') ? exposeHook(world, camera, recent) : null;
   const groundLevel = currentZone(session.view).ground.relief.groundLevel;
+
+  const anvil = new Anvil(
+    (unitId, slot: GearSlot) => {
+      const offer = upgradeOffer(session.view, unitId, slot);
+      const events = session.applyNow([{ type: 'upgrade', unitId, slot }]);
+      recent.push(...events);
+      for (const event of events) {
+        if (event.type === 'upgraded') {
+          reactions.tally.upgrades += 1;
+          sound.play('forge');
+        }
+        if (event.type === 'item-destroyed') {
+          reactions.tally.destroyed += 1;
+          sound.play('fail');
+        }
+      }
+      return upgradeResult(session.view, unitId, slot, offer?.chance ?? 0, events);
+    },
+    () => anvil.hide(),
+  );
+
+  const hud = new Hud(
+    (id) => {
+      if (mode !== 'play' || anvil.open) return;
+      session.selectOnly([id]);
+      camera.follow = true;
+      sound.play('click');
+    },
+    (place, slot) => {
+      if (mode !== 'play' || anvil.open) return;
+      session.act({ kind: 'spell', place, slot }, null);
+    },
+  );
+
+  const input = new Input(canvas, session, world, camera, {
+    playing: () => mode === 'play' && !anvil.open,
+    menu: (action: KeyAction) => {
+      if (mode !== 'play') return;
+      if (anvil.open) {
+        // Only closing works while the anvil is open, as in the squad test.
+        if (action.kind === 'anvil' || action.kind === 'close') anvil.hide();
+        return;
+      }
+      if (action.kind === 'anvil' && !session.view.victory && isNearAnvil(session.view)) {
+        input.letGo();
+        anvil.show(session.view);
+        sound.play('click');
+      }
+      if (action.kind === 'help') hud.toggleHelp();
+      if (action.kind === 'mute') sound.toggleMute();
+    },
+    cue: () => sound.play('click'),
+  });
+
+  const hook = params.has('test')
+    ? exposeHook(world, camera, recent, () => ({ mode, paused: anvil.open, sound, help: hud.helpShown }))
+    : null;
 
   const fit = (): void => {
     const { width, height, pixelRatio } = fitViewport(canvas.clientWidth, canvas.clientHeight, window.devicePixelRatio);
@@ -65,13 +151,33 @@ function start(world: WorldView): void {
   fit();
   window.addEventListener('resize', fit);
 
-  const moveCamera = (dt: number): void => {
+  showStart(() => {
+    sound.start();
+    mode = 'play';
+    hud.show(true);
+    hud.log({ text: 'Squad ready. Right click to move.', tone: 'plain' });
+    hud.banner({ title: zoneLook(currentZone(session.view).id).name, line: 'Clear the camps, then visit the anvil', seconds: BANNER_SECONDS });
+  });
+
+  const react = (reaction: Reaction): void => {
+    for (const name of reaction.sounds) sound.play(name);
+    for (const line of reaction.log) hud.log(line);
+    if (reaction.banner) hud.banner(reaction.banner);
+    if (reaction.shake > 0) addShake(camera, reaction.shake);
+    if (reaction.hitStop) clock.hitStop();
+    if (reaction.victory && mode === 'play') {
+      mode = 'won';
+      victoryIn = BANNER_SECONDS;
+    }
+  };
+
+  const moveCamera = (dt: number): CameraPose => {
     const right = (input.held(HELD.panRight) ? 1 : 0) - (input.held(HELD.panLeft) ? 1 : 0);
     const back = (input.held(HELD.panDown) ? 1 : 0) - (input.held(HELD.panUp) ? 1 : 0);
     pan(camera, right, back, dt);
     const turn = (input.held(HELD.rotateRight) ? 1 : 0) - (input.held(HELD.rotateLeft) ? 1 : 0);
     rotate(camera, turn, dt);
-    if (session.auto || camera.follow) followSquad(camera, squadCentre(session.view), dt);
+    if (session.auto || camera.follow) followSquad(camera, followPoint(session.view, session.selected), dt);
     const zone = currentZone(session.view);
     clampToZone(camera, zone);
     easeZoom(camera, dt);
@@ -83,9 +189,20 @@ function start(world: WorldView): void {
         camera.x += input.grip.x - under.x;
         camera.z += input.grip.z - under.z;
         clampToZone(camera, zone);
-        world.setCamera(poseOf(camera, groundLevel));
       }
     }
+    // No jolt while paused, and none when the player asks for reduced motion.
+    return shakePose(camera, poseOf(camera, groundLevel), dt, Math.random, stillMotion || dt === 0);
+  };
+
+  /** The start screen's slow circle around the zone. */
+  const orbitPose = (): CameraPose => {
+    const zone = currentZone(session.view);
+    const angle = shown * ORBIT.turn;
+    return {
+      eye: { x: zone.x + Math.cos(angle) * ORBIT.radius, y: ORBIT.height, z: zone.z + Math.sin(angle) * ORBIT.radius },
+      target: { x: zone.x, y: ORBIT.lookHeight, z: zone.z },
+    };
   };
 
   let last = performance.now();
@@ -94,26 +211,51 @@ function start(world: WorldView): void {
     const real = Math.max(0, (now - last) / 1000);
     last = now;
     const dt = Math.min(real, FEEL.longestFrame);
-    const ticks = clock.advance(real, input.wantsSlow);
+    shown += dt;
+    // The anvil pauses the game: no ticks run while it is open (decision 4).
+    const running = mode !== 'start' && !anvil.open;
+    const ticks = running ? clock.advance(real, input.wantsSlow) : 0;
     for (let index = 0; index < ticks; index += 1) {
+      reactions.remember(session.view);
       world.beforeTick(session.view);
       const events = session.tick();
       world.afterTick(session.view, events);
+      react(reactions.react(session.view, events));
       if (hook) {
         recent.push(...events);
         if (recent.length > MAX_RECENT) recent.splice(0, recent.length - MAX_RECENT);
       }
     }
-    moveCamera(dt);
-    session.frame(dt);
-    world.frame(session.view, clock.alpha, dt, { selected: session.selected, move: session.move, box: input.box, auto: session.auto });
+    for (const note of session.notes.splice(0)) hud.log(note);
+    world.setCamera(mode === 'start' ? orbitPose() : moveCamera(running ? dt : 0));
+    if (running) session.frame(dt);
+    world.frame(session.view, clock.alpha, running ? dt : 0, { selected: session.selected, move: session.move, box: input.box });
+    hud.ageBanner(dt);
+    hudIn -= dt;
+    if (mode !== 'start' && hudIn <= 0) {
+      hudIn = HUD_SECONDS;
+      hud.update(session.view, {
+        selected: session.selected,
+        autoIds: session.autoIds,
+        slowMeter: clock.meter,
+        slowed: running && clock.slowed,
+        paused: anvil.open,
+      });
+    }
+    if (mode === 'won' && victoryIn > 0) {
+      victoryIn -= dt;
+      if (victoryIn <= 0) {
+        hud.show(false);
+        showVictory(session.view, reactions.tally);
+      }
+    }
     if (hook) hook.frames += 1;
   };
   requestAnimationFrame(frame);
 }
 
 /** A read-only window onto the game, only when `?test` is in the address. */
-function exposeHook(world: WorldView, camera: Camera, recent: readonly GameEvent[]): { frames: number } {
+function exposeHook(world: WorldView, camera: Camera, recent: readonly GameEvent[], page: () => PageState): { frames: number } {
   const hook = {
     frames: 0,
     seed,
@@ -126,6 +268,24 @@ function exposeHook(world: WorldView, camera: Camera, recent: readonly GameEvent
     get auto() {
       return session.auto;
     },
+    get mode() {
+      return page().mode;
+    },
+    get paused() {
+      return page().paused;
+    },
+    get muted() {
+      return page().sound.muted;
+    },
+    get volume() {
+      return page().sound.level;
+    },
+    get audio() {
+      return page().sound.running;
+    },
+    get help() {
+      return page().help;
+    },
     camera: camera as Readonly<Camera>,
     clock: clock as Readonly<Clock>,
     events: recent,
@@ -136,6 +296,7 @@ function exposeHook(world: WorldView, camera: Camera, recent: readonly GameEvent
       pickables: () => world.pickables(session.view),
       rebuildZone: () => world.rebuildZone(session.view),
       memory: world.memory,
+      floating: world.floating,
     },
   };
   Object.assign(window, { __tnf: hook });

@@ -12,6 +12,7 @@ import {
 } from 'three';
 import { Effects } from './effects';
 import { EntityLayer, type Marks } from './entities';
+import { Floats } from './floats';
 import { monsterLook } from './looks';
 import { ZoneScene } from './zone-scene';
 
@@ -37,8 +38,6 @@ export interface Box {
 
 export interface ScreenState extends Marks {
   readonly box: Box | null;
-  /** Shows a small tag while auto-combat runs, until S2.3b's HUD. */
-  readonly auto: boolean;
 }
 
 export interface ScreenPoint {
@@ -58,8 +57,12 @@ export interface WorldView {
   /** Copies positions before a tick (decision 2). */
   beforeTick(view: GameView): void;
   afterTick(view: GameView, events: readonly GameEvent[]): void;
-  /** Draws a frame `alpha` of the way between ticks. `dt` is real seconds. */
+  /**
+   * Draws a frame `alpha` of the way between ticks. `dt` is real seconds.
+   */
   frame(view: GameView, alpha: number, dt: number, screen: ScreenState): void;
+  /** How many floating texts are showing, for tests. */
+  floating(): number;
   setCamera(pose: CameraPose): void;
   /** The point on the ground plane under a page pixel, as the squad test picks it. */
   groundAt(x: number, y: number): Point | null;
@@ -134,19 +137,14 @@ export function createWorldView(canvas: HTMLCanvasElement, overlay: HTMLCanvasEl
     };
   };
 
-  const drawOverlay = (current: GameView, screen: ScreenState): void => {
+  const floats = new Floats();
+
+  const drawOverlay = (current: GameView, screen: ScreenState, dt: number): void => {
     if (!context) return;
     const ratio = overlay.width / size.width;
     context.setTransform(ratio, 0, 0, ratio, 0, 0);
     context.clearRect(0, 0, size.width, size.height);
     const { box } = screen;
-    if (screen.auto) {
-      context.font = '600 15px system-ui, sans-serif';
-      context.fillStyle = '#000a';
-      context.fillRect(12, 12, 104, 26);
-      context.fillStyle = '#8fd6c4';
-      context.fillText('Auto-combat', 20, 30);
-    }
     if (box) {
       context.fillStyle = '#8fd6c426';
       context.strokeStyle = '#8fd6c4';
@@ -155,7 +153,8 @@ export function createWorldView(canvas: HTMLCanvasElement, overlay: HTMLCanvasEl
       context.strokeRect(box.x0, box.y0, box.x1 - box.x0, box.y1 - box.y0);
     }
     for (const enemy of loaded.entities.drawnEnemies(current)) {
-      if (enemy.share >= 1) continue;
+      // A boss's health is in the HUD (S2.3b).
+      if (enemy.share >= 1 || !monsterLook(enemy.kind).overheadBar) continue;
       const at = screenOf({ x: enemy.x, y: enemy.y + monsterLook(enemy.kind).barHeight, z: enemy.z });
       if (!at.visible) continue;
       const width = 24 + enemy.size * 10;
@@ -173,6 +172,7 @@ export function createWorldView(canvas: HTMLCanvasElement, overlay: HTMLCanvasEl
       context.fillStyle = unit.share < LOW_HEALTH ? '#ef6a54' : '#9be8a6';
       context.fillRect(at.x - UNIT_BAR_WIDTH / 2, at.y, UNIT_BAR_WIDTH * unit.share, BAR_THICKNESS);
     }
+    floats.draw(context, dt, (x, y, z) => screenOf({ x, y, z }));
   };
 
   return {
@@ -181,6 +181,13 @@ export function createWorldView(canvas: HTMLCanvasElement, overlay: HTMLCanvasEl
     },
     afterTick(current, events) {
       loaded.entities.events(current, events);
+      const units = loaded.entities.drawnUnits();
+      const enemies = loaded.entities.drawnEnemies(current);
+      floats.fromEvents(
+        events,
+        (id) => units.find((unit) => unit.id === id) ?? null,
+        (id) => enemies.find((enemy) => enemy.id === id) ?? null,
+      );
     },
     frame(current, alpha, dt, screen) {
       if (currentZone(current).id !== loaded.scene.zone.id) {
@@ -195,7 +202,10 @@ export function createWorldView(canvas: HTMLCanvasElement, overlay: HTMLCanvasEl
         : current.anchor;
       loaded.scene.update(current, dt, focus, squad);
       renderer.render(loaded.scene.scene, camera);
-      drawOverlay(current, screen);
+      drawOverlay(current, screen, dt);
+    },
+    floating() {
+      return floats.count;
     },
     setCamera({ eye, target }) {
       camera.position.set(eye.x, eye.y, eye.z);

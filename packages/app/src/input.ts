@@ -1,7 +1,7 @@
 import type { Point } from '@new-frontier/core';
 import type { Box, WorldView } from '@new-frontier/render';
 import { orbit, resetView, snapTo, zoomBy, type Camera } from './camera';
-import { CLAIMED, pressAction, squadCentre } from './controls';
+import { CLAIMED, followPoint, pressAction, type KeyAction } from './controls';
 import { FEEL } from './feel';
 import { pickInBox, pickNearest } from './picking';
 import type { Session } from './session';
@@ -11,7 +11,19 @@ const LEFT = 0;
 const MIDDLE = 1;
 const RIGHT = 2;
 
-/** Mouse and keyboard, from D-003, D-013, D-031 and D-034. */
+/** What the page tells input about screens and sound (S2.3b). */
+export interface InputGate {
+  /** The squad can be commanded: a run has started, and nothing is paused. */
+  playing(): boolean;
+  /** The anvil, close, help and mute keys, which work outside play too. */
+  menu(action: KeyAction): void;
+  /** A click sound, played on the press (S2.3b decision 3). */
+  cue(): void;
+}
+
+const MENU_KEYS = new Set<KeyAction['kind']>(['anvil', 'close', 'help', 'mute']);
+
+/** Mouse and keyboard, from D-003, D-013, D-031, D-034 and D-035. */
 export class Input {
   readonly keys = new Set<string>();
   readonly mouse = { x: 0, y: 0 };
@@ -26,11 +38,13 @@ export class Input {
   private readonly session: Session;
   private readonly world: WorldView;
   private readonly camera: Camera;
+  private readonly gate: InputGate;
 
-  constructor(canvas: HTMLCanvasElement, session: Session, world: WorldView, camera: Camera) {
+  constructor(canvas: HTMLCanvasElement, session: Session, world: WorldView, camera: Camera, gate: InputGate) {
     this.session = session;
     this.world = world;
     this.camera = camera;
+    this.gate = gate;
     this.mouse = { x: canvas.clientWidth / 2, y: canvas.clientHeight / 2 };
     window.addEventListener('keydown', (event) => this.keyDown(event));
     window.addEventListener('keyup', (event) => this.keys.delete(event.code));
@@ -46,18 +60,23 @@ export class Input {
       'wheel',
       (event) => {
         event.preventDefault();
-        zoomBy(this.camera, event.deltaY);
+        if (this.gate.playing()) zoomBy(this.camera, event.deltaY);
       },
       { passive: false },
     );
   }
 
   held(code: string): boolean {
-    return this.keys.has(code);
+    return this.gate.playing() && this.keys.has(code);
   }
 
   get wantsSlow(): boolean {
-    return this.keys.has('ShiftLeft') || this.keys.has('ShiftRight');
+    return this.held('ShiftLeft') || this.held('ShiftRight');
+  }
+
+  /** Lets go of every key and drag, as when the anvil opens. */
+  letGo(): void {
+    this.release();
   }
 
   cursorGround(): Point | null {
@@ -79,13 +98,25 @@ export class Input {
     this.keys.add(event.code);
     const action = pressAction(event.code);
     if (!action) return;
+    if (MENU_KEYS.has(action.kind)) {
+      this.gate.menu(action);
+      return;
+    }
+    if (!this.gate.playing()) return;
+    if (action.kind === 'select' || action.kind === 'select-all' || action.kind === 'regroup') this.gate.cue();
     if (action.kind === 'snap') {
-      snapTo(this.camera, squadCentre(this.session.view));
+      snapTo(this.camera, followPoint(this.session.view, this.session.selected));
     } else if (action.kind === 'reset-view') {
       resetView(this.camera);
     } else {
       this.session.act(action, this.cursorGround());
+      if (action.kind === 'select') this.followOne();
     }
+  }
+
+  /** Selecting one character on their own turns follow on, onto them (D-037). */
+  private followOne(): void {
+    if (this.session.selected.size === 1) this.camera.follow = true;
   }
 
   private pointerMove(event: PointerEvent): void {
@@ -105,6 +136,7 @@ export class Input {
   private pointerDown(event: PointerEvent, canvas: HTMLCanvasElement): void {
     this.mouse.x = event.clientX;
     this.mouse.y = event.clientY;
+    if (!this.gate.playing()) return;
     canvas.setPointerCapture(event.pointerId);
     if (event.button === MIDDLE) {
       // A middle drag grips the ground and pans (D-034).
@@ -130,6 +162,7 @@ export class Input {
   /** Orders turn follow back on, so the camera goes with the squad (D-034). */
   private order(give: () => void): void {
     give();
+    this.gate.cue();
     this.camera.follow = true;
   }
 
@@ -139,10 +172,17 @@ export class Input {
       if (this.leftDown) {
         const { units } = this.world.pickables(this.session.view);
         if (this.box) {
-          this.session.selectOnly(pickInBox(units, this.box, P.boxMargin));
+          const ids = pickInBox(units, this.box, P.boxMargin);
+          this.session.selectOnly(ids);
+          if (ids.length > 0) this.gate.cue();
+          if (ids.length === 1) this.followOne();
         } else {
           const id = pickNearest(units, event.clientX, event.clientY, P.characterRadius);
-          if (id !== null) this.session.selectOnly([id]);
+          if (id !== null) {
+            this.session.selectOnly([id]);
+            this.gate.cue();
+            this.followOne();
+          }
         }
       }
       this.leftDown = null;

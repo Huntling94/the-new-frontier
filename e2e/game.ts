@@ -8,10 +8,25 @@ export interface Hook {
     tick: number;
     anchor: { x: number; z: number };
     victory: boolean;
-    units: { id: number; x: number; z: number; alive: boolean; hold: boolean; dest: unknown; spellTicks: Record<string, number> }[];
+    marks: number;
+    units: {
+      id: number;
+      x: number;
+      z: number;
+      alive: boolean;
+      hold: boolean;
+      dest: unknown;
+      spellTicks: Record<string, number>;
+      gear: Record<string, { upgrade: number }>;
+    }[];
     enemies: { id: number; kind: string; alive: boolean; awake: boolean }[];
   };
   selected: number[];
+  mode: 'start' | 'play' | 'won';
+  paused: boolean;
+  muted: boolean;
+  volume: number;
+  audio: boolean;
   camera: { x: number; z: number; zoom: number; zoomTarget: number; yaw: number; tiltAdjust: number; follow: boolean };
   events: { type: string; tick: number; order?: string; unitId?: number; spell?: string }[];
   world: {
@@ -21,6 +36,7 @@ export interface Hook {
     pickables(): { units: { id: number; screen: { x: number; y: number } }[]; enemies: unknown[] };
     rebuildZone(): void;
     memory(): { geometries: number; textures: number; programs: number };
+    floating(): number;
   };
 }
 
@@ -40,10 +56,19 @@ export function watchErrors(page: Page): string[] {
   return errors;
 }
 
-export async function openGame(page: Page, query = 'seed=1'): Promise<void> {
+/** Opens the page on the start screen, without starting a run. */
+export async function openStart(page: Page, query = 'seed=1'): Promise<void> {
   await page.goto(`./?test&${query}`);
   await expect(page.locator('#fatal')).toBeHidden();
   await page.waitForFunction(() => window.__tnf?.frames > 5);
+}
+
+/** Opens the page and presses Start, as a player would. */
+export async function openGame(page: Page, query = 'seed=1'): Promise<void> {
+  await openStart(page, query);
+  await page.locator('#go').click();
+  await expect(page.locator('#start')).toBeHidden();
+  await page.waitForFunction(() => window.__tnf.mode === 'play' && window.__tnf.view.tick > 2);
 }
 
 export async function ticksPass(page: Page, ticks: number): Promise<void> {

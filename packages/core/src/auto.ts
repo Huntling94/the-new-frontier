@@ -96,7 +96,16 @@ function autoStop(view: GameView): AutoStop | null {
   if (lowestShare(livingIn(view)) < AUTO.dangerBelow && view.potions === 0) {
     return 'danger';
   }
-  return view.enemies.some((enemy) => enemy.boss && enemy.awake) ? 'boss' : null;
+  return null;
+}
+
+/**
+ * With the boss awake, auto-combat fights it rather than stopping (D-036). Characters
+ * with no fight and no walk of their own are sent at the boss; the rest carry on.
+ */
+function fightBoss(view: GameView, bossId: number): Command | null {
+  const idle = livingIn(view).filter((unit) => unit.targetId === null && unit.dest === null);
+  return idle.length > 0 ? { type: 'target', unitIds: idle.map(({ id }) => id), enemyId: bossId } : null;
 }
 
 function drink(view: GameView, named: boolean): Command[] {
@@ -110,8 +119,9 @@ function drink(view: GameView, named: boolean): Command[] {
 }
 
 /**
- * Space: roam the island, killing and looting, and stop for bosses or danger (D-007).
- * Given unit IDs, it runs only those characters, and the rest stay the player's (D-035).
+ * Space: roam the island, killing and looting, and stop for danger (D-007). With the
+ * boss awake it fights the boss (D-036). Given unit IDs, it runs only those characters,
+ * and the rest stay the player's (D-035).
  */
 export function autoCommands(whole: GameView, unitIds?: readonly number[]): AutoResult {
   const view = unitIds ? { ...whole, units: whole.units.filter(({ id }) => unitIds.includes(id)) } : whole;
@@ -121,6 +131,12 @@ export function autoCommands(whole: GameView, unitIds?: readonly number[]): Auto
   const stop = autoStop(view);
   if (stop || view.tick % TICKS.autoThink !== 0) {
     return { commands: [], stop };
+  }
+  const boss = view.enemies.find((enemy) => enemy.boss && enemy.awake && enemy.alive);
+  if (boss) {
+    const attack = fightBoss(view, boss.id);
+    const commands = drink(view, unitIds !== undefined);
+    return { commands: attack ? [...commands, attack] : commands, stop: null };
   }
   const next = roam(view);
   if (!next) {

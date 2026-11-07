@@ -50,6 +50,25 @@ export interface Feel {
     /** Seconds regained each second when not slowed. */
     readonly recharge: number;
   };
+  /** On a crit, ticks run slower for a moment (S2.3b decision 2). */
+  readonly hitStop: {
+    /** Game seconds it lasts. */
+    readonly seconds: number;
+    /** Share of normal speed while it lasts. */
+    readonly share: number;
+  };
+  /** The camera shakes on big hits (S2.3b decision 14). Strength is from 0 to 1. */
+  readonly shake: {
+    readonly hurt: number;
+    readonly slam: number;
+    readonly boss: number;
+    readonly blast: number;
+    readonly interrupt: number;
+    /** Strength lost each second. */
+    readonly fade: number;
+    /** World units of jolt at full strength, which grows with the square of strength. */
+    readonly reach: number;
+  };
   /** A frame never counts as longer than this, so a stall cannot jump the game ahead. */
   readonly longestFrame: number;
 }
@@ -85,6 +104,19 @@ export const FEEL: Feel = {
     share: 0.3,
     limit: 6,
     recharge: 0.45,
+  },
+  hitStop: {
+    seconds: 0.05,
+    share: 0.15,
+  },
+  shake: {
+    hurt: 0.3,
+    slam: 0.7,
+    boss: 1,
+    blast: 1,
+    interrupt: 0.5,
+    fade: 2.4,
+    reach: 1.3,
   },
   longestFrame: 0.05,
 };

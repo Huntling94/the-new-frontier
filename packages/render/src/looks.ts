@@ -1,7 +1,7 @@
 /**
  * What things look like, in one place (decision 13, D-029). Every table is keyed
  * by the core's type ID and has a plain default, so a new class, monster or zone
- * in the data never breaks the screen. Names are here too, for S2.3b's labels.
+ * in the data never breaks the screen. Names and labels for the HUD are here too.
  */
 
 export interface CharacterLook {
@@ -9,15 +9,17 @@ export interface CharacterLook {
   readonly coat: number;
   readonly hat: 'helm' | 'brim' | 'hood' | null;
   readonly weapon: 'sword' | 'rifle' | 'staff' | null;
+  /** What the anvil calls the weapon. */
+  readonly weaponName: string;
 }
 
 const CHARACTERS: Readonly<Record<string, CharacterLook>> = {
-  fighter: { name: 'Fighter', coat: 0x8a3a2a, hat: 'helm', weapon: 'sword' },
-  sniper: { name: 'Sniper', coat: 0x2f5a7a, hat: 'brim', weapon: 'rifle' },
-  healer: { name: 'Healer', coat: 0xd8d0b8, hat: 'hood', weapon: 'staff' },
+  fighter: { name: 'Fighter', coat: 0x8a3a2a, hat: 'helm', weapon: 'sword', weaponName: 'Sword' },
+  sniper: { name: 'Sniper', coat: 0x2f5a7a, hat: 'brim', weapon: 'rifle', weaponName: 'Rifle' },
+  healer: { name: 'Healer', coat: 0xd8d0b8, hat: 'hood', weapon: 'staff', weaponName: 'Lamp Staff' },
 };
 
-const PLAIN_CHARACTER: CharacterLook = { name: 'Adventurer', coat: 0x7a7468, hat: null, weapon: null };
+const PLAIN_CHARACTER: CharacterLook = { name: 'Adventurer', coat: 0x7a7468, hat: null, weapon: null, weaponName: 'Weapon' };
 
 export function characterLook(classId: string): CharacterLook {
   return CHARACTERS[classId] ?? PLAIN_CHARACTER;
@@ -36,15 +38,19 @@ export interface MonsterLook {
   readonly crowned: boolean;
   /** Where its health bar floats, above the ground. */
   readonly barHeight: number;
+  /** A boss's health shows in the HUD instead of over its head. */
+  readonly overheadBar: boolean;
+  /** What its cast bar calls the cast, if it casts. */
+  readonly castName: string | null;
 }
 
 const MONSTERS: Readonly<Record<string, MonsterLook>> = {
-  swarm: { name: 'Sand Skitter', body: 'swarm', colour: 0xd8b878, trim: 0x8a6a3a, modelSize: 0.8, crowned: false, barHeight: 0.8 },
-  runner: { name: 'Tide Crab', body: 'runner', colour: 0xd86a4a, trim: 0xf0c090, modelSize: 1.15, crowned: false, barHeight: 0.8 },
-  spitter: { name: 'Spit Anemone', body: 'spitter', colour: 0xc86aa8, trim: 0xf4d0e0, modelSize: 1.2, crowned: false, barHeight: 0.8 },
-  brute: { name: 'Slag Golem', body: 'brute', colour: 0x6c6a70, trim: 0xff9a40, modelSize: 2, crowned: false, barHeight: 3.5 },
-  boss: { name: 'The Warden', body: 'brute', colour: 0x3f4a55, trim: 0xffb648, modelSize: 1.5, crowned: true, barHeight: 13 },
-  dummy: { name: 'Training Dummy', body: 'post', colour: 0x8a6a48, trim: 0xd8c8a0, modelSize: 1.15, crowned: false, barHeight: 4 },
+  swarm: { name: 'Sand Skitter', body: 'swarm', colour: 0xd8b878, trim: 0x8a6a3a, modelSize: 0.8, crowned: false, barHeight: 0.8, overheadBar: true, castName: null },
+  runner: { name: 'Tide Crab', body: 'runner', colour: 0xd86a4a, trim: 0xf0c090, modelSize: 1.15, crowned: false, barHeight: 0.8, overheadBar: true, castName: null },
+  spitter: { name: 'Spit Anemone', body: 'spitter', colour: 0xc86aa8, trim: 0xf4d0e0, modelSize: 1.2, crowned: false, barHeight: 0.8, overheadBar: true, castName: null },
+  brute: { name: 'Slag Golem', body: 'brute', colour: 0x6c6a70, trim: 0xff9a40, modelSize: 2, crowned: false, barHeight: 3.5, overheadBar: true, castName: null },
+  boss: { name: 'The Warden', body: 'brute', colour: 0x3f4a55, trim: 0xffb648, modelSize: 1.5, crowned: true, barHeight: 13, overheadBar: false, castName: 'Warden’s Light' },
+  dummy: { name: 'Training Dummy', body: 'post', colour: 0x8a6a48, trim: 0xd8c8a0, modelSize: 1.15, crowned: false, barHeight: 4, overheadBar: true, castName: null },
 };
 
 const PLAIN_MONSTER: MonsterLook = {
@@ -55,6 +61,8 @@ const PLAIN_MONSTER: MonsterLook = {
   modelSize: 1,
   crowned: false,
   barHeight: 2,
+  overheadBar: true,
+  castName: null,
 };
 
 export function monsterLook(kind: string): MonsterLook {
@@ -63,6 +71,7 @@ export function monsterLook(kind: string): MonsterLook {
 
 /** A zone's palette (D-022, D-030). Light runs from storm dusk to sunrise, as in the squad test. */
 export interface ZoneLook {
+  readonly name: string;
   readonly lowland: number;
   readonly highland: number;
   readonly rock: number;
@@ -86,6 +95,7 @@ export interface Light {
 }
 
 const MEADOW: ZoneLook = {
+  name: 'Test Island',
   lowland: 0x5f7f47,
   highland: 0xa5ae5e,
   rock: 0x7c786c,
@@ -138,6 +148,44 @@ const SPELLS: Readonly<Record<string, SpellLook>> = {
 
 export function spellLook(spell: string): SpellLook | null {
   return SPELLS[spell] ?? null;
+}
+
+/** What the HUD calls a spell. Spells not listed get their ID, tidied. */
+const SPELL_NAMES: Readonly<Record<string, string>> = {
+  taunt: 'Taunt',
+  cleave: 'Cleave',
+  guard: 'Guard',
+  'aimed-shot': 'Aimed Shot',
+  'crippling-shot': 'Crippling Shot',
+  volley: 'Volley',
+  mend: 'Mend',
+  rally: 'Rally',
+  revive: 'Revive',
+};
+
+const tidy = (id: string): string =>
+  id
+    .split('-')
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(' ');
+
+export function spellName(spell: string): string {
+  return SPELL_NAMES[spell] ?? tidy(spell);
+}
+
+/** What the anvil calls a gear slot's item. The weapon takes its name from the class. */
+const SLOT_NAMES: Readonly<Record<string, string>> = {
+  chest: 'Coat',
+  gloves: 'Gloves',
+  boots: 'Boots',
+  head: 'Hat',
+  necklace: 'Necklace',
+  'off-hand': 'Off Hand',
+};
+
+export function gearName(classId: string, slot: string): string {
+  if (slot === 'weapon' || slot === 'main-hand') return characterLook(classId).weaponName;
+  return SLOT_NAMES[slot] ?? tidy(slot);
 }
 
 /** Colours of the marks the player makes. */

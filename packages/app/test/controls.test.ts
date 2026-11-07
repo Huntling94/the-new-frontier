@@ -1,6 +1,6 @@
 import { createGame, ISLAND_SCENARIO, spellsOf, step, type GameState } from '@new-frontier/core';
 import { describe, expect, it } from 'vitest';
-import { castFor, characterAt, orderedIds, pressAction, SPELL_ROWS } from '../src/controls';
+import { castFor, characterAt, followPoint, orderedIds, pressAction, SPELL_ROWS, spellKey, squadCentre } from '../src/controls';
 import { Session } from '../src/session';
 
 /** A family of three Fighters (D-025). The core cannot build one until S3, so the test does. */
@@ -28,7 +28,22 @@ describe('keys (D-031)', () => {
     expect(pressAction('KeyB')).toEqual({ kind: 'scatter' });
     expect(pressAction('Digit5')).toEqual({ kind: 'potion' });
     expect(pressAction('Backspace')).toEqual({ kind: 'reset-view' });
-    expect(pressAction('KeyH')).toBeNull();
+  });
+
+  it('puts the anvil on Y, closes it on Escape, and keeps H and N for help and sound (S2.3b)', () => {
+    expect(pressAction('KeyY')).toEqual({ kind: 'anvil' });
+    expect(pressAction('Escape')).toEqual({ kind: 'close' });
+    expect(pressAction('KeyH')).toEqual({ kind: 'help' });
+    expect(pressAction('KeyN')).toEqual({ kind: 'mute' });
+    expect(pressAction('KeyE')).toEqual({ kind: 'spell', place: 0, slot: 2 });
+  });
+
+  it('labels each spell button with its key', () => {
+    expect(spellKey(0, 0)).toBe('Q');
+    expect(spellKey(1, 3)).toBe('F');
+    expect(spellKey(2, 2)).toBe('C');
+    expect(spellKey(2, 4)).toBeNull();
+    expect(spellKey(3, 0)).toBeNull();
   });
 });
 
@@ -114,5 +129,17 @@ describe('orders', () => {
       moved = session.state.units.filter((unit) => unit.dest !== null).map(({ id }) => id);
     }
     expect(moved).toEqual([2]);
+  });
+});
+
+describe('what the camera follows (D-037)', () => {
+  it('follows one selected character on their own, and the squad otherwise', () => {
+    const state = createGame(3, ISLAND_SCENARIO);
+    const [first, second] = state.units;
+    if (!first || !second) throw new Error('No units.');
+    expect(followPoint(state, new Set([first.id]))).toEqual({ x: first.x, z: first.z });
+    expect(followPoint(state, new Set([first.id, second.id]))).toEqual(squadCentre(state));
+    first.alive = false;
+    expect(followPoint(state, new Set([first.id]))).toEqual(squadCentre(state));
   });
 });

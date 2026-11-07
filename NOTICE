@@ -6,3 +6,7 @@ Files under legacy/ are excluded.
 
 Third-party software:
 - three.js, MIT licence, Copyright 2010-2026 three.js authors
+- Alegreya Sans, SIL Open Font License 1.1, Copyright 2013 The Alegreya Sans Project Authors
+- IM Fell English SC, SIL Open Font License 1.1, Copyright Google Inc., from the Fell Types by Igino Marini
+- VT323, SIL Open Font License 1.1, Copyright 2011 The VT323 Project Authors
+  The three fonts are bundled through the Fontsource packages, which include each licence.

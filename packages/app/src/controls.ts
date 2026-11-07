@@ -13,7 +13,11 @@ export type KeyAction =
   | { readonly kind: 'potion' }
   | { readonly kind: 'auto' }
   | { readonly kind: 'snap' }
-  | { readonly kind: 'reset-view' };
+  | { readonly kind: 'reset-view' }
+  | { readonly kind: 'anvil' }
+  | { readonly kind: 'close' }
+  | { readonly kind: 'help' }
+  | { readonly kind: 'mute' };
 
 /** One row of spell keys for each place in the active three. */
 export const SPELL_ROWS: readonly (readonly string[])[] = [
@@ -38,10 +42,25 @@ const PRESSES: Readonly<Record<string, KeyAction>> = {
   Space: { kind: 'auto' },
   Home: { kind: 'snap' },
   Backspace: { kind: 'reset-view' },
+  KeyY: { kind: 'anvil' },
+  Escape: { kind: 'close' },
+  KeyH: { kind: 'help' },
+  KeyN: { kind: 'mute' },
 };
 
 export function pressAction(code: string): KeyAction | null {
   return PRESSES[code] ?? null;
+}
+
+/** What a key is called on screen: `KeyQ` is Q. */
+export function keyLabel(code: string): string {
+  return code.replace(/^Key|^Digit/, '');
+}
+
+/** The spell key for a place and slot, or null past the end of the row. */
+export function spellKey(place: number, slot: number): string | null {
+  const code = SPELL_ROWS[place]?.[slot];
+  return code ? keyLabel(code) : null;
 }
 
 /** Keys that act while held. */
@@ -94,4 +113,16 @@ export function squadCentre(view: GameView): Point {
     x: living.reduce((sum, { x }) => sum + x, 0) / living.length,
     z: living.reduce((sum, { z }) => sum + z, 0) / living.length,
   };
+}
+
+/**
+ * What the camera follows (D-037): one selected character on their own, or else the
+ * middle of everyone up.
+ */
+export function followPoint(view: GameView, selected: ReadonlySet<number>): Point {
+  if (selected.size === 1) {
+    const unit = view.units.find(({ id, alive }) => alive && selected.has(id));
+    if (unit) return { x: unit.x, z: unit.z };
+  }
+  return squadCentre(view);
 }

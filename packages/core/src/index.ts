@@ -9,8 +9,8 @@ export { hashState } from './hash';
 export { buildIslandMesh, coastDistanceAt, groundHeightAt, rimRadiusAt } from './island';
 export type { IslandData, IslandMesh } from './island';
 export { applyCommands } from './orders';
-export { currentZone, spellsOf } from './reads';
-export type { ZoneView } from './reads';
+export { cardOf, currentZone, spellInfo, spellsOf } from './reads';
+export type { CardView, SpellView, ZoneView } from './reads';
 export { runReplay } from './replay';
 export { isNearAnvil, upgradeOffer } from './upgrades';
 export type {
@@ -22,6 +22,7 @@ export type {
   GameEvent,
   GameState,
   GameView,
+  GearSlot,
   Obstacle,
   Point,
   Replay,

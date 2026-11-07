@@ -224,5 +224,8 @@ test('a bot plays from the start to victory in the real page with a clean consol
   const errors = watchErrors(page);
   await openGame(page, 'seed=1&bot=careful&speed=32');
   await page.waitForFunction(() => window.__tnf.view.victory, undefined, { timeout: 170_000, polling: 500 });
+  // The beacon's banner, then the victory screen with the squad test's four questions.
+  await expect(page.locator('#end')).toBeVisible({ timeout: 10_000 });
+  await expect(page.locator('#endBox')).toContainText('Could you follow all three during the boss?');
   expect(errors).toEqual([]);
 });

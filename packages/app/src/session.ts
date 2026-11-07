@@ -1,9 +1,11 @@
 import {
+  applyCommands,
   autoCommands,
   botCommands,
   createGame,
   ISLAND_SCENARIO,
   step,
+  type AutoStop,
   type BotKind,
   type Command,
   type GameEvent,
@@ -11,7 +13,9 @@ import {
   type GameView,
   type Point,
 } from '@new-frontier/core';
+import { characterLook } from '@new-frontier/render';
 import { castFor, characterAt, orderedIds, type KeyAction } from './controls';
+import type { LogLine } from './reactions';
 
 /** A move order's marker, which shows on the click, before the next tick (decision 3). */
 export interface MoveMark {
@@ -32,6 +36,8 @@ export class Session {
   readonly autoIds = new Set<number>();
   readonly bot: BotKind | null;
   move: MoveMark | null = null;
+  /** Log lines about the player's own orders, which the page shows and clears. */
+  readonly notes: LogLine[] = [];
   private pending: Command[] = [];
 
   constructor(seed: number, bot: BotKind | null) {
@@ -54,7 +60,8 @@ export class Session {
 
   /** Runs one tick with the commands gathered since the last. */
   tick(): GameEvent[] {
-    let commands = this.pending;
+    const mine = this.pending;
+    let commands = mine;
     this.pending = [];
     if (this.bot) {
       commands = [...commands, ...botCommands(this.state, this.bot)];
@@ -63,11 +70,40 @@ export class Session {
       const auto = autoCommands(this.state, whole ? undefined : [...this.autoIds]);
       if (auto.stop) {
         this.autoIds.clear();
+        this.noteStop(auto.stop);
       } else {
         commands = [...commands, ...auto.commands];
       }
     }
-    return step(this.state, commands);
+    const events = step(this.state, commands);
+    this.noteRefusals(mine, events);
+    return events;
+  }
+
+  /**
+   * Applies commands now, with no time passing, while the game is paused for the
+   * anvil (S2.3b decision 4).
+   */
+  applyNow(commands: readonly Command[]): GameEvent[] {
+    return applyCommands(this.state, commands);
+  }
+
+  private noteStop(stop: AutoStop): void {
+    if (stop === 'danger') this.notes.push({ text: 'Auto-combat stopped: squad in danger', tone: 'bad' });
+    if (stop === 'clear') this.notes.push({ text: 'Auto-combat stopped: island clear', tone: 'blue' });
+  }
+
+  /** The core answers each command in order, first in the tick's events, so refusals pair with the player's own. */
+  private noteRefusals(mine: readonly Command[], events: readonly GameEvent[]): void {
+    const answers = events.filter((event) => event.type === 'order-accepted' || event.type === 'order-refused');
+    mine.forEach((command, index) => {
+      const answer = answers[index];
+      if (answer?.type !== 'order-refused' || command.type !== 'cast') return;
+      const unit = this.state.units.find(({ id }) => id === command.unitId);
+      const name = unit ? characterLook(unit.classId).name : 'Someone';
+      if (answer.reason === 'no-mana') this.notes.push({ text: `${name}: not enough mana`, tone: 'bad' });
+      if (command.spell === 'revive' && answer.reason === 'no-target') this.notes.push({ text: 'Nobody needs reviving', tone: 'blue' });
+    });
   }
 
   /** Right click on the ground, or `Ctrl` and a left click to attack-move (D-034). */
@@ -127,8 +163,10 @@ export class Session {
         const ids = orderedIds(this.state, this.selected);
         if (ids.every((id) => this.autoIds.has(id))) {
           this.release(ids);
+          this.notes.push({ text: 'Auto-combat off', tone: 'blue' });
         } else {
           for (const id of ids) this.autoIds.add(id);
+          this.notes.push({ text: 'Auto-combat on', tone: 'blue' });
         }
         break;
       }

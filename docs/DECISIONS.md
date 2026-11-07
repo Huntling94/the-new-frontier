@@ -10,7 +10,7 @@ Every design and architecture decision, in one place. Entries are never rewritte
 | [D-004](#d-004) | Individual levels, XP split among the living | Accepted | 7 Nov 2026 |
 | [D-005](#d-005) | Upgrades are safe to +4, then risk destruction | Accepted, extended by D-028 | 7 Nov 2026 |
 | [D-006](#d-006) | Five classes, with a Family House to rotate them | Accepted, extended by D-020 | 7 Nov 2026 |
-| [D-007](#d-007) | Space is auto-combat, and also the test bot | Accepted, extended by D-035 | 7 Nov 2026 |
+| [D-007](#d-007) | Space is auto-combat, and also the test bot | Accepted, extended by D-035, changed by D-036 | 7 Nov 2026 |
 | [D-008](#d-008) | The Healer auto-heals one person at a time | Accepted | 7 Nov 2026 |
 | [D-009](#d-009) | TypeScript, three.js and a headless game core | Accepted | 7 Nov 2026 |
 | [D-010](#d-010) | MIT for new code; the 2019 files stay outside it | Accepted | 7 Nov 2026 |
@@ -35,8 +35,10 @@ Every design and architecture decision, in one place. Entries are never rewritte
 | [D-029](#d-029) | Definitions and instances, and a data model document | Accepted | 7 Nov 2026 |
 | [D-030](#d-030) | Graphics come in two steps | Accepted | 7 Nov 2026 |
 | [D-031](#d-031) | Spell keys in a grid, one row per character | Accepted, changed by D-034 | 7 Nov 2026 |
-| [D-034](#d-034) | Controls after the first play of S2.3a | Accepted | 7 Nov 2026 |
+| [D-034](#d-034) | Controls after the first play of S2.3a | Accepted, extended by D-037 | 7 Nov 2026 |
 | [D-035](#d-035) | Auto-combat runs per character | Accepted | 7 Nov 2026 |
+| [D-036](#d-036) | Auto-combat fights bosses | Accepted | 7 Nov 2026 |
+| [D-037](#d-037) | The camera follows a character selected alone | Accepted | 7 Nov 2026 |
 
 ## D-001
 
@@ -266,3 +268,15 @@ Right click, right drag, middle drag, the wheel, left click and left drag, `Spac
 **Auto-combat runs per character.** This extends D-007. `Space` puts the selected characters into auto-combat, or takes them out if they are all in it already. With everyone selected it runs the whole squad, as before. An order takes only the characters it names out of auto-combat, and regroup and scatter take everyone out. Selecting a character no longer stops it. The core's `autoCommands` takes an optional list of unit IDs, and runs only those characters.
 
 **Why:** the maintainer's first play. One character can fight on alone while the player commands the others.
+
+## D-036
+
+**Auto-combat fights bosses.** This changes D-007, which stopped auto-combat for bosses. With a boss awake, `Space` keeps running for the characters in it: any of them not already fighting or walking is sent at the boss, and potions are still used. It still stops for danger, a cleared zone, a wipe or victory.
+
+**Why:** the maintainer's play of S2.3b, which asked for auto-combat to stop refusing while the boss is awake.
+
+## D-037
+
+**The camera follows a character selected alone.** This extends D-034. Selecting one character on their own, by `F1` to `F3`, a click, a card or a box around one, turns follow on, and the camera follows that character. With more than one selected, or if that character goes down, it follows the middle of everyone up. `Home` snaps to whatever the camera follows.
+
+**Why:** the maintainer's play of S2.3b, which asked for the camera to follow a character in individual mode.

@@ -516,7 +516,7 @@ export type GameEvent =
   | { readonly type: 'victory'; readonly tick: number };
 
 /** Why auto-combat has stopped (D-007). */
-export type AutoStop = 'boss' | 'danger' | 'clear' | 'squad-down' | 'victory';
+export type AutoStop = 'danger' | 'clear' | 'squad-down' | 'victory';
 
 export interface AutoResult {
   readonly commands: readonly Command[];

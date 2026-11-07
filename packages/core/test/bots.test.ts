@@ -131,11 +131,21 @@ describe('auto-combat', () => {
     expect(autoCommands(state).commands.map(({ type }) => type)).toContain('potion');
   });
 
-  it('stops for a stated reason', () => {
-    const boss = thinking(island());
-    bossOf(boss).awake = true;
-    expect(autoCommands(boss).stop).toBe('boss');
+  it('fights the boss once it is awake, instead of stopping (D-036)', () => {
+    const state = thinking(island());
+    const boss = bossOf(state);
+    boss.awake = true;
+    const result = autoCommands(state);
+    expect(result.stop).toBeNull();
+    expect(result.commands).toContainEqual({ type: 'target', unitIds: state.units.map(({ id }) => id), enemyId: boss.id });
 
+    // Characters already fighting or walking are left alone.
+    unitOf(state, FIGHTER).targetId = boss.id;
+    const rest = autoCommands(state).commands.find(({ type }) => type === 'target');
+    expect(rest).toEqual({ type: 'target', unitIds: [SNIPER, HEALER], enemyId: boss.id });
+  });
+
+  it('stops for a stated reason', () => {
     const danger = thinking(island());
     danger.potions = 0;
     unitOf(danger, FIGHTER).health = 100;
