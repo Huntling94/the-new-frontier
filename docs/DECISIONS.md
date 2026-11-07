@@ -27,7 +27,7 @@ Every design and architecture decision, in one place. Entries are never rewritte
 | [D-021](#d-021) | Zones joined by gates, with one live at a time | Accepted | 7 Nov 2026 |
 | [D-022](#d-022) | Zone layouts are frozen, with rules and look kept apart | Accepted | 7 Nov 2026 |
 | [D-023](#d-023) | One walkable grid for movement and routes | Accepted | 7 Nov 2026 |
-| [D-024](#d-024) | Saves are automatic, versioned and arrive in S3 | Accepted | 7 Nov 2026 |
+| [D-024](#d-024) | Saves are automatic, versioned and arrive in S3 | Accepted, extended by D-032 | 7 Nov 2026 |
 | [D-025](#d-025) | The family holds the store, and gear moves onto characters | Accepted | 7 Nov 2026 |
 | [D-026](#d-026) | Attributes and stats are calculated in a fixed order | Accepted | 7 Nov 2026 |
 | [D-027](#d-027) | Arts decide what a character can use | Accepted | 7 Nov 2026 |
@@ -35,10 +35,13 @@ Every design and architecture decision, in one place. Entries are never rewritte
 | [D-029](#d-029) | Definitions and instances, and a data model document | Accepted | 7 Nov 2026 |
 | [D-030](#d-030) | Graphics come in two steps | Accepted | 7 Nov 2026 |
 | [D-031](#d-031) | Spell keys in a grid, one row per character | Accepted, changed by D-034 | 7 Nov 2026 |
+| [D-032](#d-032) | Saves go through a storage interface | Accepted | 7 Nov 2026 |
+| [D-033](#d-033) | Optional sign-in and cloud saves, after browser saves work | Proposed | 7 Nov 2026 |
 | [D-034](#d-034) | Controls after the first play of S2.3a | Accepted, extended by D-037 | 7 Nov 2026 |
 | [D-035](#d-035) | Auto-combat runs per character | Accepted | 7 Nov 2026 |
 | [D-036](#d-036) | Auto-combat fights bosses | Accepted | 7 Nov 2026 |
 | [D-037](#d-037) | The camera follows a character selected alone | Accepted | 7 Nov 2026 |
+| [D-038](#d-038) | The world borrows the 2019 shape, with original names and places | Accepted | 8 Nov 2026 |
 
 ## D-001
 
@@ -247,6 +250,27 @@ Right click, right drag, middle drag, the wheel, left click and left drag, `Spac
 
 **Why:** each character's spells sit under one row of the left hand, and each row has room for a fourth spell. The cost is panning from the left hand: it moves to the arrow keys and the right-drag grip.
 
+## D-032
+
+**Saves go through a storage interface.** This extends D-024. The core turns lasting state into a versioned save and back, and never touches storage. The app package reads and writes saves only through a small `SaveStore` interface: load, save and delete one whole save. S3 builds one store, on browser storage. Export and import to a file sit beside the store, not inside it. Migration (D-024) runs on every save loaded, whichever store it came from. The S3 brief sets the exact methods.
+
+**Why:** a cloud store (D-033) can then be added without touching the core or the save format. This is D-019 applied to saves.
+
+## D-033
+
+**Optional sign-in and cloud saves, after browser saves work.** If accepted, this replaces the "no server or accounts" part of D-012. NPC shops, and no trading between players, still stand.
+
+- Signing in is optional. Without it the game plays in full on browser saves.
+- Sign-in and storage come from a hosted service, not a server this project runs. Supabase is the working choice: a Postgres database with sign-in by email link or GitHub. The game stays on GitHub Pages.
+- The project never holds passwords. It holds a sign-in identity, an email address or GitHub account, and that player's save.
+- Row-level security is on: each player reads and writes only their own save. The public key may sit in the repo only because of that. The service key never enters the repo, CI or a log.
+- The cloud store is a second `SaveStore` (D-032), with the same format, versions and migration. When the browser and the cloud both hold a save, the player chooses which to keep, shown with dates and levels.
+- Before sign-in goes live, the game has a short privacy notice and a way to delete an account and its save.
+- Out of scope: trading, chat and leaderboards. Leaderboards may follow, checked by replaying runs on a server (D-015).
+- Not before S3's browser saves ship. Its stage is set when it is accepted.
+
+**Why:** playtesters can keep one save across devices, and the maintainer learns how a backend, sign-in and authorisation work on a real need. Hosted sign-in removes the riskiest part, storing passwords.
+
 ## D-034
 
 **Controls after the first play of S2.3a.** This changes D-003, D-013 and D-031 where they differ.
@@ -280,3 +304,17 @@ Right click, right drag, middle drag, the wheel, left click and left drag, `Spac
 **The camera follows a character selected alone.** This extends D-034. Selecting one character on their own, by `F1` to `F3`, a click, a card or a box around one, turns follow on, and the camera follows that character. With more than one selected, or if that character goes down, it follows the middle of everyone up. `Home` snaps to whatever the camera follows.
 
 **Why:** the maintainer's play of S2.3b, which asked for the camera to follow a character in individual mode.
+
+## D-038
+
+**The world borrows the 2019 shape, with original names and places.** The 2019 game in `legacy/` was modelled on another game's world, so its places, monsters, NPCs and items are not reused. Its structure is reused, as a pattern rather than a map. This extends D-011 and D-021.
+
+- **Borrowed:** towns as safe hubs, fields fanning out from them, dungeons as dead ends that end in a boss, levels that rise with distance from the start, and fast travel as a gate with a cost.
+- **Not borrowed:** any name, map layout, monster, NPC or item from `legacy/assets`. Every land, zone, monster and NPC is new.
+- **Names keep the 2019 feel without its names.** They come from Portuguese, Spanish, Italian and French, mostly describing the place in its own language. No exact names and no near-copies: no one-letter changes, respellings or matching endings. Where a 2019 name was a real town, a real neighbour of it may stand in. The first cities are Montclaire, Port Mondego, City of Dax, Ignota Base Camp and Ilha Brava Island.
+- **Systems from 2019 carry over.** Item tiers by level, potions in rising strengths, crafting materials refined in grades, and level bands across the map are the maintainer's design and stay, with new names.
+- **Levels rise in steps.** A gate's requirements stop a new family walking from a starting field into a much higher one, which the 2019 map allowed.
+- **Every link is checked.** Two-way travel is two gates, and the reachability check in `docs/DATA-MODEL.md` covers every zone, so a misspelt or one-sided link fails a test.
+- `legacy/` stays untouched as the historical record (D-016).
+
+**Why:** the project is public and MIT-licensed, and `NOTICE` already keeps the 2019 files outside that licence. The 2019 game's value is its shape, which suits a squad game, not its names.
