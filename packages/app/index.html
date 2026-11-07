@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en-AU">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>The New Frontier</title>
+    <link
+      rel="icon"
+      href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect width='16' height='16' fill='%232f6f8f'/%3E%3Ccircle cx='8' cy='8' r='5' fill='%235f7f47'/%3E%3C/svg%3E"
+    />
+    <style>
+      html,
+      body {
+        height: 100%;
+        margin: 0;
+        background: #9fc4dc;
+      }
+      canvas {
+        display: block;
+        width: 100%;
+        height: 100%;
+      }
+      p {
+        margin: 0;
+        padding: 2rem;
+        font: 1rem/1.5 system-ui, sans-serif;
+      }
+    </style>
+  </head>
+  <body>
+    <canvas id="game" aria-label="An empty island in the sea"></canvas>
+    <p id="fatal" hidden>
+      The New Frontier needs WebGL, and this browser refused it. Try a current desktop browser with
+      hardware acceleration on.
+    </p>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

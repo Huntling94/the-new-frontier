@@ -1,0 +1,6 @@
+packages:
+  - packages/*
+
+# esbuild's install script only speeds it up, and it works without it.
+allowBuilds:
+  esbuild: false

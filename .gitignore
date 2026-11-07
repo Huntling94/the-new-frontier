@@ -1,0 +1,14 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+
+# Test results
+test-results/
+playwright-report/
+
+# Local tooling and secrets
+.claude/
+.env
+.env.*

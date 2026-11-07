@@ -1,0 +1,8 @@
+# Named file types only. No `*`, `*.txt` or `*.c` pattern: legacy/ must match
+# no rule here, and the legacy guard fails if it does (D-016).
+*.ts text eol=lf
+*.js text eol=lf
+*.json text eol=lf
+*.yml text eol=lf
+*.yaml text eol=lf
+*.html text eol=lf

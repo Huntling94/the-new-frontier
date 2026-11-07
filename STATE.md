@@ -4,11 +4,12 @@
 
 ## Now
 
-Stage S2, Foundation. S1 is closed. Brief S2.1 is agreed and ready to build. Briefs S2.2a, S2.2b and S2.3 are drafted.
+Stage S2, Foundation. S1 is closed. Brief S2.1 is built: the workspace, checks, CI and an empty island are in place. It closes once CI is green and the maintainer has seen the island at its public address. Briefs S2.2a, S2.2b and S2.3 are drafted.
 
 ## Next
 
-1. Build brief S2.1.
+1. Close brief S2.1.
+2. Agree brief S2.2a.
 
 ## Open
 
