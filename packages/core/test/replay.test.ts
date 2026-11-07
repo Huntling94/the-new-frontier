@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { REPLAYS } from '../data/replays';
-import { EMPTY_SCENARIO } from '../data/scenarios';
+import { SPELLS } from '../data/spells';
+import { DUMMY_SCENARIO, EMPTY_SCENARIO } from '../data/scenarios';
 import { createGame, step } from '../src/game';
 import { hashState } from '../src/hash';
 import { runReplay } from '../src/replay';
@@ -66,6 +67,61 @@ describe.each(replays)('replay: %s', (_name, replay) => {
     const loaded = JSON.parse(saved) as GameState;
     playTo(loaded, replay, replay.ticks);
     expect(hashState(loaded)).toBe(hashState(runReplay(replay).state));
+  });
+});
+
+describe('the spell tour', () => {
+  const replay = REPLAYS['spell tour'];
+  if (!replay) throw new Error('No spell tour.');
+  const { events, state } = runReplay(replay);
+
+  it('fires all nine spells', () => {
+    const cast = events.flatMap((event) => (event.type === 'spell-cast' ? [event.spell] : []));
+    expect([...cast].sort()).toEqual(Object.keys(SPELLS).sort());
+  });
+
+  it('fights the dummy, and is hurt by it', () => {
+    const hits = events.filter((event) => event.type === 'hit');
+    expect(hits.some((hit) => hit.targetId === 4)).toBe(true);
+    expect(hits.some((hit) => hit.sourceId === 4)).toBe(true);
+  });
+
+  it('heals, drinks and upgrades', () => {
+    const types = events.map((event) => event.type);
+    expect(types).toContain('healed');
+    expect(types).toContain('upgraded');
+    expect(state.potions).toBe(5);
+    expect(state.marks).toBe(380);
+  });
+
+  it('reaches Revive by leaving the Fighter to fall, with room to spare', () => {
+    const fell = events.find((event) => event.type === 'unit-down');
+    const raised = events.find((event) => event.type === 'unit-revived');
+    if (!fell || !raised) throw new Error('The Fighter never fell or rose.');
+    expect('unitId' in fell && fell.unitId).toBe(1);
+    expect(raised.tick - fell.tick).toBeGreaterThan(150);
+  });
+
+  it('kills the dummy, and it respawns', () => {
+    expect(events.some((event) => event.type === 'enemy-down')).toBe(true);
+    expect(state.enemies[0]?.alive).toBe(true);
+  });
+
+  it.each([332, 392])('saves with shots or strikes in the air, at tick %s', (saveTick) => {
+    const game = createGame(replay.seed, replay.scenario);
+    playTo(game, replay, saveTick);
+    expect(game.shots.length + game.scheduled.length).toBeGreaterThan(0);
+    const saved = JSON.stringify(game);
+
+    const other = createGame(replay.seed + 99, DUMMY_SCENARIO);
+    step(other, [{ type: 'move', unitIds: [1, 2, 3], x: 0, z: 34, attack: true }]);
+    for (let tick = 0; tick < 150; tick += 1) {
+      step(other, tick === 140 ? [{ type: 'cast', unitId: 2, spell: 'volley' }] : []);
+    }
+
+    const loaded = JSON.parse(saved) as GameState;
+    playTo(loaded, replay, replay.ticks);
+    expect(hashState(loaded)).toBe(hashState(state));
   });
 });
 

@@ -19,6 +19,7 @@ export interface ZoneData {
   readonly walkableEdge: number;
   /** Share of the way to the coast that an off-land point is pulled in to. */
   readonly offLandPull: number;
+  readonly anvil: Point;
   readonly fixedObstacles: readonly Obstacle[];
   readonly obstacleGroups: readonly ObstacleGroup[];
   readonly placement: {

@@ -59,7 +59,23 @@ describe('ticks and rounding', () => {
   });
 
   it('converts each timing once', () => {
-    expect(TICKS).toEqual({ giveUp: 21, scatterCooldown: 150, dash: 9, invulnerable: 14 });
+    expect(TICKS).toEqual({
+      giveUp: 21,
+      scatterCooldown: 150,
+      dash: 9,
+      invulnerable: 14,
+      hitInvulnerable: 6,
+      reviveInvulnerable: 45,
+      shotLife: 36,
+      autoHeal: 33,
+      potionCooldown: 45,
+      dummyStrike: 30,
+      dummyRespawn: 300,
+      taunt: 150,
+      guard: 120,
+      slow: 120,
+      rally: 240,
+    });
   });
 
   it('divides per-second values by the tick rate', () => {

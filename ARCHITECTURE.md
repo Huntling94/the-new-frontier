@@ -53,8 +53,11 @@ The rules run in fixed ticks, 30 a second, whatever the frame rate (D-015). A se
 - **Commands go in, and events come out.** Commands carry everything a rule needs, so the core has no cursor, camera or selection. Events report what happened, and are not part of state.
 - **A replay proves it.** `packages/core/data/replays/` holds hand-written replays, each ending on an `expectedHash`. Changing rules or data changes the hash. The failing test prints the new one, updating it is a deliberate edit, and CI's result is the reference.
 - **Time is seconds in the data and whole ticks in state,** converted once in `packages/core/src/time.ts`.
+- **A tick runs in a fixed order:** commands, units, enemies, shots, then delayed effects.
+- **Anything that lands later is a record in state.** Shots and Volley's strikes are plain entries, so a save keeps them.
+- **The core resolves aiming.** A `cast` carries a point or enemy ID, and the rule picks the target. The shared target is in state, and selection stays in `packages/app`.
 
-The viewer at `/viewer.html` plays a replay on a plain 2D canvas under `pnpm dev`. It is dev-only: Vite builds only `index.html`, and `e2e/public-build.spec.ts` proves no viewer page or replay reaches the public build.
+The viewer at `/viewer.html` plays any replay on a plain 2D canvas under `pnpm dev`. It is dev-only: Vite builds only `index.html`, and `e2e/public-build.spec.ts` proves no viewer page or replay reaches the public build.
 
 ## Protecting `legacy/`
 

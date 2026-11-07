@@ -7,4 +7,5 @@ export { buildIslandMesh, coastDistanceAt, groundHeightAt, rimRadiusAt } from '.
 export type { IslandData, IslandMesh } from './island';
 export { applyCommands } from './orders';
 export { runReplay } from './replay';
+export { isNearAnvil, upgradeOffer } from './upgrades';
 export type { Command, GameEvent, GameState, GameView, Replay, Scenario } from './state';

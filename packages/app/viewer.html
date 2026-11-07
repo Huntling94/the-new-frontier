@@ -48,6 +48,7 @@
       }
       dd {
         margin: 0;
+        white-space: pre-line;
         font-family: ui-monospace, monospace;
       }
       ol {
@@ -70,6 +71,10 @@
           <button id="pause" type="button">Pause</button>
           <button id="restart" type="button">Restart</button>
           <label>
+            Replay
+            <select id="replay"></select>
+          </label>
+          <label>
             Speed
             <select id="speed">
               <option value="1">Normal</option>
@@ -83,10 +88,16 @@
           <dd id="tick"></dd>
           <dt>Hash</dt>
           <dd id="hash"></dd>
+          <dt>Squad</dt>
+          <dd id="squad"></dd>
+          <dt>Stock</dt>
+          <dd id="stock"></dd>
         </dl>
         <p class="legend">
           F Fighter, S Shooter, H Healer. A pale ring means holding position. A thin line leads to
-          a unit's destination, and the cross marks the triangle's centre.
+          a unit's destination, and the cross marks the triangle's centre. D is the dummy, and a
+          grey shape is down. Bars show health, and mana for the Healer. Teal is Guard, gold is
+          Rally, small dots are shots, and a large pale ring is a Volley about to land.
         </p>
         <p class="legend">
           This hash will not equal the replay's expected hash. Browsers round sines and angles

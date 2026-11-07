@@ -8,6 +8,7 @@ export const ZONES: readonly ZoneData[] = [
     island: TEST_ISLAND,
     walkableEdge: 0.9,
     offLandPull: 0.86,
+    anvil: { x: 6, z: 66 },
     fixedObstacles: [
       { kind: 'beacon', x: 0, z: 0, radius: 4.2 },
       { kind: 'waystone', x: 6, z: 66, radius: 1.1 },
