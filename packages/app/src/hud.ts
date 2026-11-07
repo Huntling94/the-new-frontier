@@ -248,7 +248,7 @@ export class Hud {
     }
 
     const zone = currentZone(view);
-    const boss = view.enemies.find((enemy) => enemy.boss);
+    const boss = view.live.enemies.find((enemy) => enemy.boss);
     const bossUp = boss?.awake === true && boss.alive && !view.victory;
     setHidden(this.bossWrap, !bossUp);
     if (boss && bossUp) {
@@ -264,10 +264,11 @@ export class Hud {
       }
     }
 
-    const left = view.enemies.filter((enemy) => enemy.alive && !enemy.boss && enemy.kind !== 'dummy').length;
+    const left = view.live.enemies.filter((enemy) => enemy.alive && !enemy.boss && enemy.kind !== 'dummy').length;
     const title = zoneLook(zone.id).name;
-    const goal =
-      bossUp && boss ? `Defeat ${monsterLook(boss.kind).name}` : `${left} monsters about. Upgrade at the anvil, then walk to the beacon.`;
+    // Only a zone with a boss sends the squad on to the anvil and the beacon.
+    const then = boss ? ' Upgrade at the anvil, then walk to the beacon.' : '';
+    const goal = bossUp && boss ? `Defeat ${monsterLook(boss.kind).name}` : `${left} monsters about.${then}`;
     if (this.objective.dataset.text !== title + goal) {
       this.objective.dataset.text = title + goal;
       this.objective.replaceChildren(make('b', '', title), document.createTextNode(goal));

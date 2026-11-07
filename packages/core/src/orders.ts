@@ -18,7 +18,8 @@ import type {
 } from './state';
 import { TICKS } from './time';
 import { applyUpgrade } from './upgrades';
-import { pullOntoLand } from './world';
+import { clearAlong } from './grid';
+import { gridOf, pullOntoLand } from './world';
 
 function sendTo(unit: Unit, dest: Point, attack: boolean): void {
   unit.dest = dest;
@@ -36,31 +37,29 @@ function formTriangle(state: GameState, units: readonly Unit[], point: Point, at
   state.anchor = point;
   for (const unit of units) {
     unit.hold = false;
-    sendTo(unit, triangleSlot(unit.classId, point, state.heading), attack);
+    // A place in the triangle beyond a wall or stone is pulled in short of it.
+    sendTo(unit, clearAlong(gridOf(state), point, triangleSlot(unit.classId, point, state.heading)), attack);
   }
 }
 
-function formLine(units: readonly Unit[], point: Point, attack: boolean): void {
+function formLine(state: GameState, units: readonly Unit[], point: Point, attack: boolean): void {
   const centre = centreOf(units);
   const facing = Math.atan2(point.z - centre.z, point.x - centre.x);
   units.forEach((unit, index) => {
     const offset = (index - (units.length - 1) / 2) * MOVEMENT.lineSpacing;
     unit.hold = true;
-    sendTo(
-      unit,
-      { x: point.x - Math.sin(facing) * offset, z: point.z + Math.cos(facing) * offset },
-      attack,
-    );
+    const place = { x: point.x - Math.sin(facing) * offset, z: point.z + Math.cos(facing) * offset };
+    sendTo(unit, clearAlong(gridOf(state), point, place), attack);
   });
 }
 
 /** All the living form the triangle, and some of them form a line and hold it. */
 function orderMove(state: GameState, units: readonly Unit[], target: Point, attack: boolean): void {
-  const point = pullOntoLand(target.x, target.z);
+  const point = pullOntoLand(state, target.x, target.z);
   if (units.length === livingUnits(state).length) {
     formTriangle(state, units, point, attack);
   } else {
-    formLine(units, point, attack);
+    formLine(state, units, point, attack);
   }
 }
 

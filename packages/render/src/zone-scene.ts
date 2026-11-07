@@ -3,11 +3,13 @@ import {
   groundHeightAt,
   rimRadiusAt,
   type GameView,
+  type IslandData,
   type ZoneView,
 } from '@new-frontier/core';
 import {
   AdditiveBlending,
   BackSide,
+  BoxGeometry,
   BufferAttribute,
   BufferGeometry,
   Color,
@@ -31,6 +33,7 @@ import {
   PointLight,
   Points,
   PointsMaterial,
+  RingGeometry,
   Scene,
   ShaderMaterial,
   SphereGeometry,
@@ -68,8 +71,13 @@ const DAWN_RATE = 0.6;
 const DUSK = 0.12;
 
 /** Model sizes: the core's obstacle radius divided by these gives each prop's scale. */
-const TREE_RADIUS = 1.25;
+const STONE_RADIUS = 1.25;
 const ROCK_RADIUS = 1.3;
+/** A walled zone's walls rise this high, and its outer walls are this thick. */
+const WALL_HEIGHT = 7;
+const OUTER_WALL = 3;
+/** A walled zone's floor is cut into squares this many units across, for its colour patches. */
+const FLOOR_STEP = 2;
 
 const SEA_VERTEX = `uniform float t;varying vec3 vP;varying float vH;void main(){vec4 w=modelMatrix*vec4(position,1.);float h=sin(w.x*.07+t*.9)*.42+sin(w.z*.09-t*.7)*.36+sin((w.x+w.z)*.16+t*1.4)*.16;w.y+=h;vH=h;vP=w.xyz;gl_Position=projectionMatrix*viewMatrix*w;}`;
 const SEA_FRAGMENT = `uniform vec3 deep,shallow,fogC,glint;uniform float t;varying vec3 vP;varying float vH;void main(){float f=clamp(.45+vH*.75,0.,1.);vec3 c=mix(deep,shallow,f);float s=pow(max(0.,sin(vP.x*.31+t*.8+2.*sin(vP.z*.13+t*.3))*sin(vP.z*.37-t*.6+2.*sin(vP.x*.17))),24.);c+=glint*s*.2;float k=smoothstep(170.,780.,distance(vP,cameraPosition));gl_FragColor=vec4(mix(c,fogC,k),1.);}`;
@@ -131,12 +139,15 @@ export class ZoneScene {
     this.sun.shadow.normalBias = 0.4;
     this.scene.add(this.hemisphere, this.sun, this.sun.target, this.lantern, this.world);
 
-    const ground = new Mesh(
-      keep.keep(buildGroundGeometry(zone.ground, buildIslandMesh(zone.ground), this.look)),
-      keep.keep(new MeshPhongMaterial({ vertexColors: true, flatShading: true, shininess: 0, specular: 0 })),
-    );
-    ground.receiveShadow = true;
-    this.scene.add(ground, this.buildFoam());
+    const groundMaterial = keep.keep(new MeshPhongMaterial({ vertexColors: true, flatShading: true, shininess: 0, specular: 0 }));
+    if (zone.ground.shape === 'island') {
+      const island = zone.ground.island;
+      const ground = new Mesh(keep.keep(buildGroundGeometry(island, buildIslandMesh(island), this.look)), groundMaterial);
+      ground.receiveShadow = true;
+      this.scene.add(ground, this.buildFoam(island));
+    } else {
+      this.buildCave(zone.ground, groundMaterial);
+    }
 
     this.sea = {
       t: { value: 0 },
@@ -170,17 +181,22 @@ export class ZoneScene {
       ),
     );
     sky.frustumCulled = false;
-    this.scene.add(sea, sky);
+    // A walled zone is underground: no sea and no sky, only the dark.
+    if (zone.ground.shape === 'island') this.scene.add(sea, sky);
+    else this.scene.background = new Color(this.look.dusk.fog);
 
     this.buildProps();
+    for (const gate of zone.gates) this.buildGate(gate.x, gate.z, gate.radius);
     this.motes = this.buildMotes();
-    this.scene.add(this.motes);
+    // Underground, motes against the dark read as stars, so only open ground has them.
+    if (zone.ground.shape === 'island') this.scene.add(this.motes);
     this.applyLight(this.dawn);
     this.lit = view.victory;
   }
 
   heightAt(x: number, z: number): number {
-    return groundHeightAt(this.zone.ground, x, z);
+    const { ground } = this.zone;
+    return ground.shape === 'island' ? groundHeightAt(ground.island, x, z) : ground.level;
   }
 
   /** Moves light and dressing on. `focus` is where the camera looks. */
@@ -201,7 +217,7 @@ export class ZoneScene {
 
     this.sun.position.set(focus.x + 60, 130, focus.z + 70);
     this.sun.target.position.set(focus.x, 0, focus.z);
-    this.lantern.position.set(squad.x, this.zone.ground.relief.groundLevel + 3, squad.z);
+    this.lantern.position.set(squad.x, this.zone.groundLevel + 3, squad.z);
 
     const positions = this.motes.geometry.getAttribute('position') as BufferAttribute;
     for (let index = 0; index < MOTES; index += 1) {
@@ -242,8 +258,7 @@ export class ZoneScene {
     this.lantern.intensity = (1.1 + (0.2 - 1.1) * t) * LEGACY_LIGHT * LANTERN.lift;
   }
 
-  private buildFoam(): Mesh {
-    const { ground } = this.zone;
+  private buildFoam(ground: IslandData): Mesh {
     const segments = ground.mesh.segments;
     const positions: number[] = [];
     const indices: number[] = [];
@@ -274,17 +289,16 @@ export class ZoneScene {
     const keep = this.resources;
     const look = this.look;
     const parts = {
-      trunk: keep.keep(new CylinderGeometry(0.28, 0.5, 4, 6).translate(0, 2, 0)),
-      blob: keep.keep(new IcosahedronGeometry(2.3, 0).translate(0, 5.1, 0)),
-      blob2: keep.keep(new IcosahedronGeometry(1.6, 0).translate(0.9, 6.6, 0.4)),
+      // A rough four-sided standing stone, a little wider at the foot.
+      stone: keep.keep(new CylinderGeometry(0.62, 0.95, 4.6, 4).translate(0, 2.1, 0)),
+      cap: keep.keep(new DodecahedronGeometry(0.55, 0).scale(1, 0.5, 1).translate(0, 4.5, 0)),
       rock: keep.keep(new DodecahedronGeometry(1.4, 0).translate(0, 0.6, 0)),
       tuft: keep.keep(new ConeGeometry(0.28, 1, 3).translate(0, 0.4, 0)),
     };
     type Part = keyof typeof parts;
     const placed: Record<Part, { x: number; y: number; z: number; s: number; ry: number; c: number }[]> = {
-      trunk: [],
-      blob: [],
-      blob2: [],
+      stone: [],
+      cap: [],
       rock: [],
       tuft: [],
     };
@@ -292,12 +306,11 @@ export class ZoneScene {
       const { x, z } = obstacle;
       const y = this.heightAt(x, z);
       const ry = hash(index, 1) * TAU;
-      if (obstacle.kind === 'tree') {
-        const s = obstacle.radius / TREE_RADIUS;
-        const leaf = look.leaves[Math.floor(hash(index, 2) * look.leaves.length)] ?? look.lowland;
-        placed.trunk.push({ x, y, z, s, ry, c: look.bark });
-        placed.blob.push({ x, y, z, s, ry, c: leaf });
-        placed.blob2.push({ x, y, z, s, ry, c: leaf });
+      if (obstacle.kind === 'stone') {
+        const s = obstacle.radius / STONE_RADIUS;
+        const shade = new Color(look.stone).multiplyScalar(0.85 + hash(index, 2) * 0.3).getHex();
+        placed.stone.push({ x, y, z, s, ry, c: shade });
+        placed.cap.push({ x, y, z, s, ry, c: look.rock });
       } else if (obstacle.kind === 'rock') {
         placed.rock.push({ x, y, z, s: obstacle.radius / ROCK_RADIUS, ry, c: look.rock });
       } else if (obstacle.kind === 'beacon') {
@@ -307,13 +320,13 @@ export class ZoneScene {
       }
     });
     const { ground } = this.zone;
-    for (let index = 0; index < TUFTS; index += 1) {
+    for (let index = 0; ground.shape === 'island' && index < TUFTS; index += 1) {
       const angle = hash(index, 5) * TAU;
       const share = Math.sqrt(0.002 + hash(index, 6) * 0.778);
-      const radius = rimRadiusAt(ground, angle) * share;
-      const x = ground.x + Math.cos(angle) * radius;
-      const z = ground.z + Math.sin(angle) * radius;
-      placed.tuft.push({ x, y: this.heightAt(x, z), z, s: 0.7 + hash(index, 7) * 0.8, ry: hash(index, 8) * TAU, c: look.grass });
+      const radius = rimRadiusAt(ground.island, angle) * share;
+      const x = ground.island.x + Math.cos(angle) * radius;
+      const z = ground.island.z + Math.sin(angle) * radius;
+      placed.tuft.push({ x, y: this.heightAt(x, z), z, s: 0.7 + hash(index, 7) * 0.8, ry: hash(index, 8) * TAU, c: look.tuft });
     }
 
     const material = keep.keep(new MeshPhongMaterial({ flatShading: true }));
@@ -338,6 +351,89 @@ export class ZoneScene {
       keep.keep(mesh);
       this.scene.add(mesh);
     }
+  }
+
+  /** A walled zone: a flat floor in colour patches, its outer walls, and the walls inside it. */
+  private buildCave(ground: Extract<ZoneView['ground'], { shape: 'walled' }>, material: MeshPhongMaterial): void {
+    const keep = this.resources;
+    const { bounds, level } = ground;
+    const width = bounds.maxX - bounds.minX;
+    const depth = bounds.maxZ - bounds.minZ;
+    const floor = keep.keep(
+      new PlaneGeometry(width, depth, Math.ceil(width / FLOOR_STEP), Math.ceil(depth / FLOOR_STEP)).rotateX(-Math.PI / 2),
+    );
+    const positions = floor.getAttribute('position') as BufferAttribute;
+    const low = new Color(this.look.lowland);
+    const high = new Color(this.look.highland);
+    const colour = new Color();
+    const colours: number[] = [];
+    for (let index = 0; index < positions.count; index += 1) {
+      const x = positions.getX(index);
+      const z = positions.getZ(index);
+      positions.setY(index, (hash(x, z) - 0.5) * 0.25);
+      colour.copy(low).lerp(high, hash(Math.floor(x / 6), Math.floor(z / 6)) * 0.8);
+      colours.push(colour.r, colour.g, colour.b);
+    }
+    floor.setAttribute('color', new Float32BufferAttribute(colours, 3));
+    floor.computeVertexNormals();
+    const mesh = new Mesh(floor, material);
+    mesh.position.set((bounds.minX + bounds.maxX) / 2, level, (bounds.minZ + bounds.maxZ) / 2);
+    mesh.receiveShadow = true;
+    this.scene.add(mesh);
+
+    const wallMaterial = keep.keep(new MeshPhongMaterial({ color: this.look.stone, flatShading: true }));
+    const outer = [
+      { minX: bounds.minX - OUTER_WALL, maxX: bounds.maxX + OUTER_WALL, minZ: bounds.minZ - OUTER_WALL, maxZ: bounds.minZ },
+      { minX: bounds.minX - OUTER_WALL, maxX: bounds.maxX + OUTER_WALL, minZ: bounds.maxZ, maxZ: bounds.maxZ + OUTER_WALL },
+      { minX: bounds.minX - OUTER_WALL, maxX: bounds.minX, minZ: bounds.minZ, maxZ: bounds.maxZ },
+      { minX: bounds.maxX, maxX: bounds.maxX + OUTER_WALL, minZ: bounds.minZ, maxZ: bounds.maxZ },
+    ];
+    for (const wall of [...outer, ...ground.walls]) {
+      const box = new Mesh(keep.keep(new BoxGeometry(wall.maxX - wall.minX, WALL_HEIGHT, wall.maxZ - wall.minZ)), wallMaterial);
+      box.position.set((wall.minX + wall.maxX) / 2, level + WALL_HEIGHT / 2, (wall.minZ + wall.maxZ) / 2);
+      box.castShadow = true;
+      box.receiveShadow = true;
+      this.scene.add(box);
+    }
+  }
+
+  /** A gate: two rough pillars and a lintel over a glowing ring on the ground (D-021). */
+  private buildGate(x: number, z: number, radius: number): void {
+    const keep = this.resources;
+    const y = this.heightAt(x, z);
+    const group = new Group();
+    const stone = keep.keep(new MeshPhongMaterial({ color: this.look.rock, flatShading: true }));
+    const pillar = keep.keep(new BoxGeometry(1.1, 5.2, 1.1));
+    for (const side of [-1, 1]) {
+      const post = new Mesh(pillar, stone);
+      post.position.set(side * radius, 2.6, 0);
+      post.castShadow = true;
+      group.add(post);
+    }
+    const lintel = new Mesh(keep.keep(new BoxGeometry(radius * 2 + 2, 1, 1.4)), stone);
+    lintel.position.y = 5.5;
+    lintel.castShadow = true;
+    const ring = new Mesh(
+      keep.keep(new RingGeometry(radius * 0.7, radius, 32).rotateX(-Math.PI / 2)),
+      keep.keep(
+        new MeshBasicMaterial({
+          color: this.look.gate,
+          transparent: true,
+          opacity: 0.45,
+          blending: AdditiveBlending,
+          depthWrite: false,
+          side: DoubleSide,
+        }),
+      ),
+    );
+    ring.position.y = 0.15;
+    const halo = glowSprite(keep, this.glow, this.look.gate, radius * 3);
+    halo.position.y = 2;
+    group.add(lintel, ring, halo);
+    // The arch faces the middle of the zone, so the way in is the way the squad comes.
+    group.rotation.y = Math.atan2(this.zone.x - x, this.zone.z - z);
+    group.position.set(x, y, z);
+    this.scene.add(group);
   }
 
   private buildBeacon(x: number, y: number, z: number): void {

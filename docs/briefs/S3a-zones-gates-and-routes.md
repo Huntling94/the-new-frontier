@@ -96,3 +96,65 @@ S3's world foundation splits in three. This brief builds the world. S3b builds t
 - Any standing trigger in `CLAUDE.md` fires.
 
 ## Outcome (builder fills in)
+
+Built on 8 Nov 2026, from `32e0f0f`. Waiting on the maintainer's play (done means 13), approval of the file list and diff (11), and CI on `master` (12).
+
+**Stop trigger fired, and the maintainer chose the fix.** Seed 1's baked layout failed one decision 12 check: a standing stone stood 1.35 units from the centre of the Lande's second pack, at (38, 52), inside the stone's margin. The maintainer chose to move the pack's centre 2 units to (38, 50) and keep the stone (8 Nov 2026). Its monsters still land at random up to 6 units around it.
+
+**Done means:**
+
+| # | Result |
+|---|---|
+| 1 | `pnpm check` passes: 410 unit tests, lint, typecheck and the `legacy/` guard |
+| 2 | All listed unit tests are in `packages/core/test/zones.test.ts` and `movement.test.ts`. The unreachable case uses a ring of rocks with open ground inside |
+| 3 | The longest Lande routes, corner to corner round the beacon, take 1.1 to 1.25 ms in Node 24 on an Intel i9-9900K (four corner pairs, averaged over 500 runs each). Building the Lande's grid takes about 33 ms, once |
+| 4 | See the reports below. Same finished runs, no stalls, no change in run time |
+| 5 | See the hashes below |
+| 6 | `e2e/zones.spec.ts`: walk into the cave's gate, see the fade, reach a point behind the wall with one right click, walk back out |
+| 7 | The bot run from start to victory in the real page still passes with a clean console. All 21 browser tests pass |
+| 8 | Boss fight, headless Chromium on an RTX 2080 Ti at 1280 by 720, seed 1, frame limit off, 20 seconds once the boss wakes, three runs: slowest 5% of frames 3.7 to 4.8 ms, 306 to 413 frames a second. Inside 16.7 ms, and level with S2.3b's 3.9 to 4.0 ms |
+| 9 | `docs/DATA-MODEL.md` moves zone, zone record, live group, pack, grid, A\* and the zone graph to Built, and gate to Partial (requirements and costs do nothing yet). `ARCHITECTURE.md` describes the live group, the grid and baking |
+| 10 | The changed files and the built site hold no local paths, personal details or secrets |
+
+**100-seed report (done means 4).** Both run on the same machine back to back, the old code from `32e0f0f`:
+
+| | Before | After |
+|---|---|---|
+| Careful bot | 100 of 100 finished, 0 stalled, 2.5 game minutes, 10.3 upgrades, 576.4 marks left | 100 of 100, 0 stalled, 2.5 minutes, 10.3 upgrades, 551.5 marks |
+| Sloppy bot | 100 of 100, 0 stalled, 2.6 minutes, 10.3 upgrades, 500.4 marks | 100 of 100, 0 stalled, 2.6 minutes, 10.3 upgrades, 478.6 marks, 7.8 potions |
+| Auto-combat | clear 100 | clear 100 |
+| Run time | 170 s | 164 s |
+
+Wipes, characters down, levels and refused orders do not change. Marks left fall by about 22, because the generator no longer places obstacles before the first roll, so every coin and potion roll moves (decision 15). A run takes about 2.5 game minutes, so packs rarely come back before the boss dies. An earlier report took 78 s on a quiet machine; timings here swing with load, which is why both were run back to back.
+
+**Replay hashes (done means 5):**
+
+| Replay | Before | After |
+|---|---|---|
+| Spell tour | `a54a5595` | `84876bf5` |
+| Squad tour | `2937f4ba` | `ccb3ea79` |
+
+Both change for the reasons in decision 15: the generator no longer lays out the island, so every roll moves, and state now holds the current zone, zone records, the live group and each unit's route. The squad tour also walks round stones by route instead of sliding.
+
+**Built:**
+
+- `state.zoneId`, `state.records` (boss dead, and the tick each cleared pack returns) and `state.live` (enemies, shots, enemy shots, scheduled effects, drops). `GameView`'s shape changes with them, as decision 1 planned.
+- Zones hold their ground, camp, anvil, obstacles, packs, boss, gates, respawn time and place in the world frame (`packages/core/data/zones.ts`). A scenario names its zone, start and heading, and tests may replace a zone's contents, obstacles included.
+- `pnpm bake` (`packages/tools/src/bake.ts`) writes `packages/core/data/lande-layout.ts`. It matches seed 1's old layout exactly, with trees as stones, and a test proves the committed file matches the tool.
+- `packages/core/src/grid.ts`: the grid, connected areas, line of sight, A\* with a binary heap, smoothing, and nearest walkable point. `packages/core/src/zones.ts`: entering a zone, returns, kills noted in the record, and crossing. `packages/core/src/checks.ts`: the decision 12 checks.
+- The cave, `lande-cave`, kind `dungeon`: 80 by 56 units, with an L-shaped wall and one level 4 pack of two Tide Crabs and three Sand Skitters. Its gate is at its south-west corner, and the Lande's gate to it is about 19 units south-west of camp.
+- Render: the lavender heath palette, standing stones, the cave's floor and walls, and a pillared gate with a glowing ring. App: a 0.3 second fade out with the game held, then a 0.45 second fade in, a banner and log line on arrival.
+- Viewer: a checkbox draws the grid (closed cells red, cells only enemies may use amber) and each unit's live route as a dashed line through its corners.
+
+**Found while building, for the maintainer to confirm:**
+
+- Enemies read only the grid's ground and walls, and still slide round stones by being pushed out of them. Closing stone cells to enemies too would stick a monster that chases in a straight line against the first stone it meets (decision 8).
+- A step onto a closed cell is refused, except from a closed cell, so a unit pressed into a stone's margin can always walk away.
+- A unit's place in the triangle, or in a line, is pulled in short of any wall or stone between it and the clicked point, so nobody is sent the long way round to a slot on the far side of a wall.
+- Progress towards an order is measured along the route, so walking away from the goal to round a wall does not count as stuck. The 0.7 second give-up still applies when something holds a unit in place.
+- Gate areas are circles. Each zone has its own camp, so a wipe in the cave returns the squad to the cave's mouth.
+- Grids are built the first time a zone runs and kept in memory, not rebuilt on every entry. They are the same every time, so this changes nothing a player sees.
+- In the cave, the HUD's objective drops the anvil and beacon, and the dust motes are left out, because against the dark they looked like stars.
+- The browser test of a right click at four rotations expected the triangle's centre exactly under the click. A click beside a stone or the waystone now moves to the nearest walkable cell (decision 7), so the test allows up to 3.5 units there.
+- Under heavy load on the build machine, the 100-seed auto-combat test and one core lint test ran past their timeouts once, then passed. The auto-combat test was already close to its 60-second limit: 51 s on the old code and 42 s on this build, on the same machine.
+- The Ctrl + left click browser test failed once in a full run under load, then passed three times alone. It reads attack-move flags two ticks after a click, and is noted as a possible flake.

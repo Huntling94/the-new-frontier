@@ -45,6 +45,7 @@ const replaySelect = element<HTMLSelectElement>('replay');
 const log = element<HTMLOListElement>('log');
 
 const seedInput = element<HTMLInputElement>('seed');
+const gridToggle = element<HTMLInputElement>('grid');
 
 /** What the viewer is playing: a game, how long it runs, and where its commands come from. */
 interface Run {
@@ -98,6 +99,8 @@ function describe(event: GameEvent): string {
       return `${String(event.tick)} ${event.order} refused: ${event.reason}`;
     case 'unit-arrived':
       return `${String(event.tick)} unit ${String(event.unitId)} arrived`;
+    case 'zone-changed':
+      return `${String(event.tick)} the squad went from ${event.from} to ${event.to}`;
     case 'unit-gave-up':
       return `${String(event.tick)} unit ${String(event.unitId)} gave up`;
     case 'hit':
@@ -135,7 +138,7 @@ function describe(event: GameEvent): string {
 
 /** Whoever has this ID, for placing a number on the map. */
 function placeOf(id: number): { x: number; z: number } | undefined {
-  return game.units.find((unit) => unit.id === id) ?? game.enemies.find((enemy) => enemy.id === id);
+  return game.units.find((unit) => unit.id === id) ?? game.live.enemies.find((enemy) => enemy.id === id);
 }
 
 function addMark(event: GameEvent): void {
@@ -147,7 +150,7 @@ function addMark(event: GameEvent): void {
     const hit = event.type === 'hit';
     const place = placeOf(hit ? event.targetId : event.unitId);
     if (place) {
-      const onEnemy = hit && game.enemies.some(({ id }) => id === event.targetId);
+      const onEnemy = hit && game.live.enemies.some(({ id }) => id === event.targetId);
       const colour = hit ? (onEnemy ? HIT_COLOUR : HURT_COLOUR) : HEAL_COLOUR;
       const text = String(Math.round(event.amount));
       marks.push({ x: place.x, z: place.z, text, colour, until, ring: false });
@@ -184,7 +187,7 @@ function showStatus(view: GameView): void {
     })
     .join('\n');
   element('stock').textContent = `${String(view.marks)} marks, ${String(view.potions)} potions`;
-  const boss = view.enemies.find((enemy) => enemy.boss);
+  const boss = view.live.enemies.find((enemy) => enemy.boss);
   const cast = boss?.boss && boss.boss.castTicks > 0 ? ', casting' : '';
   const state = view.victory ? 'down' : boss?.awake ? `awake${cast}` : 'asleep';
   element('boss').textContent = boss
@@ -209,7 +212,7 @@ function frame(now: number): void {
   if (over()) {
     owedSeconds = 0;
   }
-  drawGame(context as CanvasRenderingContext2D, game, marks);
+  drawGame(context as CanvasRenderingContext2D, game, marks, gridToggle.checked);
   showStatus(game);
 }
 

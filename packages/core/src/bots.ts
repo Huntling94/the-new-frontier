@@ -1,12 +1,12 @@
 import { BOTS } from '../data/bots';
 import { SPELLS } from '../data/spells';
-import { ZONES } from '../data/zones';
-import { centreIn, livingIn, lowestShare, moveAll, nearest, roam } from './auto';
+import { centreIn, livingIn, lowestShare, moveAll, roam } from './auto';
 import type { BotKind, ClassId, Command, GameView, Point, SpellId } from './state';
 import { TICKS } from './time';
 import { isNearAnvil, upgradeOffer } from './upgrades';
+import { zoneOf } from './world';
 
-type EnemyView = GameView['enemies'][number];
+type EnemyView = GameView['live']['enemies'][number];
 
 /** The living unit of a class, if its spell is ready. */
 function casterOf(view: GameView, classId: ClassId, spell: SpellId): number | null {
@@ -50,7 +50,7 @@ function nextUpgrade(view: GameView): Command | null {
   return null;
 }
 
-/** With the island clear: the anvil while there is money, and then the boss. */
+/** With the zone clear: the anvil while there is money, and then the boss. */
 function headForBoss(view: GameView): Command[] {
   const upgrade = nextUpgrade(view);
   if (upgrade && isNearAnvil(view)) {
@@ -61,10 +61,7 @@ function headForBoss(view: GameView): Command[] {
     return [];
   }
   const centre = centreIn(units);
-  const anvil = nearest(
-    centre,
-    ZONES.map((zone) => zone.anvil),
-  );
+  const { anvil } = zoneOf(view);
   if (upgrade && anvil) {
     return [moveAll(view, anvil, false)];
   }
@@ -84,7 +81,7 @@ function roamLayer(view: GameView): Command[] {
 function dodge(view: GameView): Command[] {
   const units = livingIn(view);
   const centre = centreIn(units);
-  const danger = view.scheduled.some((entry) => {
+  const danger = view.live.scheduled.some((entry) => {
     return (
       entry.kind === 'slam' &&
       entry.ticks < entry.totalTicks * (1 - BOTS.dodgeAfterShare) &&
@@ -101,7 +98,7 @@ function dodge(view: GameView): Command[] {
 
 /** The careful bot sends its fighters at any minion, which are after the Healer. */
 function focusMinion(view: GameView): Command[] {
-  const minion = view.enemies.find((enemy) => enemy.minion && enemy.alive);
+  const minion = view.live.enemies.find((enemy) => enemy.minion && enemy.alive);
   if (!minion) {
     return [];
   }
@@ -137,7 +134,7 @@ function bossLayer(view: GameView, kind: BotKind, boss: EnemyView): Command[] {
 
 /** A player that acts only through commands (S2.2c). Roams as auto-combat does, then fights. */
 export function botCommands(view: GameView, kind: BotKind): Command[] {
-  const boss = view.enemies.find((enemy) => enemy.boss);
+  const boss = view.live.enemies.find((enemy) => enemy.boss);
   if (view.tick % TICKS.botThink !== 0 || view.squadDown || view.victory || !boss) {
     return [];
   }

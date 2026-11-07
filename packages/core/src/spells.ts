@@ -35,7 +35,7 @@ function aimEnemy(state: GameState, unit: Unit, command: CastCommand): Enemy | n
 
 function taunt(state: GameState, unit: Unit): Point {
   const { radius, bossRadius } = SPELLS.taunt;
-  for (const enemy of state.enemies) {
+  for (const enemy of state.live.enemies) {
     const reach = enemy.boss ? bossRadius : radius;
     if (enemy.alive && Math.hypot(enemy.x - unit.x, enemy.z - unit.z) < reach) {
       enemy.tauntTicks = enemy.boss ? TICKS.tauntBoss : TICKS.taunt;
@@ -48,7 +48,7 @@ function taunt(state: GameState, unit: Unit): Point {
 
 function cleave(state: GameState, unit: Unit, events: GameEvent[]): Point {
   const { radius, sizeShare, multiplier, knockback } = SPELLS.cleave;
-  for (const enemy of state.enemies) {
+  for (const enemy of state.live.enemies) {
     const reach = radius + enemy.size * sizeShare;
     if (enemy.alive && Math.hypot(enemy.x - unit.x, enemy.z - unit.z) < reach) {
       const direction = Math.atan2(enemy.z - unit.z, enemy.x - unit.x);
@@ -81,7 +81,7 @@ function singleShot(
 function volley(state: GameState, unit: Unit, command: CastCommand): Point {
   const { x, z } = command.point ?? unit;
   for (const seconds of SPELLS.volley.strikeSeconds) {
-    state.scheduled.push({
+    state.live.scheduled.push({
       kind: 'volley-strike',
       ticks: secondsToTicks(seconds),
       unitId: unit.id,

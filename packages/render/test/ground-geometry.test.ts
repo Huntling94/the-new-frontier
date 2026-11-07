@@ -5,8 +5,10 @@ import { zoneLook } from '../src/looks';
 
 describe('ground geometry', () => {
   const zone = currentZone(createGame(1, ISLAND_SCENARIO));
-  const mesh = buildIslandMesh(zone.ground);
-  const geometry = buildGroundGeometry(zone.ground, mesh, zoneLook(zone.id));
+  if (zone.ground.shape !== 'island') throw new Error('The game starts on an island.');
+  const { island } = zone.ground;
+  const mesh = buildIslandMesh(island);
+  const geometry = buildGroundGeometry(island, mesh, zoneLook(zone.id));
 
   it('keeps every vertex and triangle from the core', () => {
     expect(Array.from(geometry.getAttribute('position').array)).toEqual(

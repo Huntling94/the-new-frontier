@@ -50,7 +50,7 @@ describe('Taunt', () => {
     const state = nearDummy(FIGHTER);
     const dummy = dummyOf(state);
     const far = createDummy(state, { x: dummy.x + 40, z: dummy.z });
-    state.enemies.push(far);
+    state.live.enemies.push(far);
     applyCommands(state, [cast(FIGHTER, 'taunt')]);
     expect(dummy.tauntTicks).toBe(150);
     expect(far.tauntTicks).toBe(0);
@@ -90,15 +90,15 @@ describe('Aimed Shot', () => {
     const state = nearDummy(SNIPER, 20);
     const dummy = dummyOf(state);
     applyCommands(state, [cast(SNIPER, 'aimed-shot', { enemyId: DUMMY_ID })]);
-    expect(state.shots).toHaveLength(1);
-    const [shot] = state.shots;
+    expect(state.live.shots).toHaveLength(1);
+    const [shot] = state.live.shots;
     expect(shot?.multiplier).toBe(4.2);
     expect(dummy.health).toBe(dummy.maxHealth);
     // Worked by hand: 76 × 1.14 × 1.6 × 4.2 × 1.5 × 0.905. Its auto-attack lands as well.
     const hits = ofType(run(state, 10), 'hit');
     expect(hits).toHaveLength(2);
     expect(Math.max(...hits.map(({ amount }) => amount))).toBeGreaterThanOrEqual(790);
-    expect(state.shots).toEqual([]);
+    expect(state.live.shots).toEqual([]);
   });
 });
 
@@ -120,19 +120,19 @@ describe('Volley', () => {
     const dummy = dummyOf(state);
     const point = { x: dummy.x, z: dummy.z };
     applyCommands(state, [cast(SNIPER, 'volley', { point })]);
-    expect(state.scheduled.map(({ ticks }) => ticks)).toEqual([5, 14, 23]);
-    expect(JSON.parse(JSON.stringify(state.scheduled))).toEqual(state.scheduled);
+    expect(state.live.scheduled.map(({ ticks }) => ticks)).toEqual([5, 14, 23]);
+    expect(JSON.parse(JSON.stringify(state.live.scheduled))).toEqual(state.live.scheduled);
     const hits = ofType(run(state, 23), 'hit').filter(({ sourceId }) => sourceId === SNIPER);
     const volleyHits = hits.filter(({ tick }) => [4, 13, 22].includes(tick));
     expect(volleyHits).toHaveLength(3);
-    expect(state.scheduled).toEqual([]);
+    expect(state.live.scheduled).toEqual([]);
   });
 
   it('lands on the caster with no point', () => {
     const state = dummyGame();
     const unit = unitOf(state, SNIPER);
     applyCommands(state, [cast(SNIPER, 'volley')]);
-    expect(state.scheduled[0]).toMatchObject({ x: unit.x, z: unit.z });
+    expect(state.live.scheduled[0]).toMatchObject({ x: unit.x, z: unit.z });
   });
 
   it('strikes where it was aimed, even if the caster walks off', () => {
@@ -148,12 +148,12 @@ describe('aiming single-target shots', () => {
     const state = nearDummy(SNIPER, 20);
     const add = (x: number, z: number): Enemy => {
       const enemy = createDummy(state, { x, z });
-      state.enemies.push(enemy);
+      state.live.enemies.push(enemy);
       return enemy;
     };
     return { state, nearest: dummyOf(state), add };
   };
-  const aimedAt = (state: GameState): number | undefined => state.shots[0]?.enemyId;
+  const aimedAt = (state: GameState): number | undefined => state.live.shots[0]?.enemyId;
 
   it('uses the enemy named first', () => {
     const { state, add } = setup();

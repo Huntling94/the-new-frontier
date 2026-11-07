@@ -29,7 +29,7 @@ describe('auto-attacks', () => {
     place(unitOf(state, FIGHTER), dummy.x + 3, dummy.z);
     const events = run(state, 60);
     expect(hitsBy(events, FIGHTER).map(({ tick }) => tick)).toEqual([0, 26, 52]);
-    expect(state.shots).toEqual([]);
+    expect(state.live.shots).toEqual([]);
     expect(dummy.knockX).toBeLessThan(0);
   });
 
@@ -40,8 +40,8 @@ describe('auto-attacks', () => {
     place(unitOf(state, SNIPER), dummy.x + 20, dummy.z);
     const first = run(state, 1);
     expect(hitsBy(first, SNIPER)).toEqual([]);
-    expect(state.shots).toHaveLength(1);
-    const [shot] = state.shots;
+    expect(state.live.shots).toHaveLength(1);
+    const [shot] = state.live.shots;
     expect(shot?.x).toBeCloseTo(dummy.x + 17, 6);
     expect(hitsBy(run(state, 6), SNIPER)).toHaveLength(1);
   });
@@ -56,7 +56,7 @@ describe('auto-attacks', () => {
     dummy.respawnTicks = 100;
     const events = run(state, 3);
     expect(hitsBy(events, SNIPER)).toEqual([]);
-    expect(state.shots).toEqual([]);
+    expect(state.live.shots).toEqual([]);
   });
 
   it('a shot runs out of time rather than flying for ever', () => {
@@ -64,7 +64,7 @@ describe('auto-attacks', () => {
     sendAway(state);
     const sniper = unitOf(state, SNIPER);
     const dummy = dummyOf(state);
-    state.shots.push({
+    state.live.shots.push({
       x: dummy.x + 500,
       z: dummy.z,
       unitId: sniper.id,
@@ -74,9 +74,9 @@ describe('auto-attacks', () => {
       ticks: 36,
     });
     run(state, 35);
-    expect(state.shots).toHaveLength(1);
+    expect(state.live.shots).toHaveLength(1);
     run(state, 1);
-    expect(state.shots).toEqual([]);
+    expect(state.live.shots).toEqual([]);
   });
 
   it('a unit attacks nothing beyond its aggro range', () => {
@@ -160,7 +160,7 @@ describe('the Healer (D-008)', () => {
     place(unitOf(state, HEALER), dummy.x + 3, dummy.z);
     step(state, [{ type: 'target', unitIds: [HEALER], enemyId: DUMMY_ID }]);
     expect(hitsBy(run(state, 120), HEALER)).toEqual([]);
-    expect(state.shots).toEqual([]);
+    expect(state.live.shots).toEqual([]);
   });
 
   it('walks back towards the others when an enemy is about', () => {

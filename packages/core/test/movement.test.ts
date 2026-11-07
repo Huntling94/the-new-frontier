@@ -3,13 +3,12 @@ import { TEST_ISLAND } from '../data/island';
 import { MOVEMENT, SCATTER } from '../data/movement';
 import { EMPTY_SCENARIO } from '../data/scenarios';
 import { CLASSES } from '../data/squad';
-import { ZONES } from '../data/zones';
 import { triangleSlot } from '../src/formation';
 import { advance, createGame, step } from '../src/game';
-import { coastDistanceAt, rimRadiusAt } from '../src/island';
+import { coastDistanceAt } from '../src/island';
 import { applyCommands } from '../src/orders';
-import type { Command, GameEvent, GameState, Point, Unit } from '../src/state';
-import { pullOntoLand } from '../src/world';
+import type { Command, GameEvent, GameState, Obstacle, Point, Unit } from '../src/state';
+import { isWalkable, obstaclesOf, pullOntoLand } from '../src/world';
 
 const ALL = [1, 2, 3];
 
@@ -18,12 +17,8 @@ function move(unitIds: readonly number[], x: number, z: number, attack = false):
 }
 
 /** A game on an open island, so a test sees only the obstacles it adds. */
-function openGame(): GameState {
-  const game = createGame(1, EMPTY_SCENARIO);
-  for (const zone of game.zones) {
-    zone.obstacles.length = 0;
-  }
-  return game;
+function openGame(obstacles: readonly Obstacle[] = []): GameState {
+  return createGame(1, { ...EMPTY_SCENARIO, contents: { dummy: null, packs: [], boss: null, obstacles } });
 }
 
 function unit(game: GameState, id: number): Unit {
@@ -54,50 +49,28 @@ describe('starting state', () => {
 });
 
 describe('obstacles', () => {
-  it('come from the seed, and carry a kind', () => {
-    const first = createGame(1, EMPTY_SCENARIO).zones;
-    expect(createGame(1, EMPTY_SCENARIO).zones).toEqual(first);
-    expect(createGame(2, EMPTY_SCENARIO).zones).not.toEqual(first);
-    const kinds = first.flatMap((zone) => zone.obstacles.map((obstacle) => obstacle.kind));
-    expect(kinds.filter((kind) => kind === 'tree')).toHaveLength(60);
+  it('are baked, so every seed gets the same Lande (D-022)', () => {
+    const first = obstaclesOf(createGame(1, EMPTY_SCENARIO));
+    expect(obstaclesOf(createGame(2, EMPTY_SCENARIO))).toBe(first);
+    const kinds = first.map((obstacle) => obstacle.kind);
+    expect(kinds.filter((kind) => kind === 'stone')).toHaveLength(60);
     expect(kinds.filter((kind) => kind === 'rock')).toHaveLength(34);
   });
 
   it('keep the beacon and waystone at fixed places', () => {
-    for (const seed of [1, 2, 3]) {
-      const [zone] = createGame(seed, EMPTY_SCENARIO).zones;
-      expect(zone?.obstacles.slice(0, 2)).toEqual([
-        { kind: 'beacon', x: 0, z: 0, radius: 4.2 },
-        { kind: 'waystone', x: 6, z: 66, radius: 1.1 },
-      ]);
-    }
+    expect(obstaclesOf(createGame(1, EMPTY_SCENARIO)).slice(0, 2)).toEqual([
+      { kind: 'beacon', x: 0, z: 0, radius: 4.2 },
+      { kind: 'waystone', x: 6, z: 66, radius: 1.1 },
+    ]);
   });
 
   it('leave room for a unit between any two, so that none can wedge', () => {
-    const { minGap } = ZONES[0]?.placement ?? { minGap: 0 };
-    expect(minGap).toBeGreaterThan(MOVEMENT.unitRadius * 2);
-    for (const seed of [1, 13, 17, 40]) {
-      const [zone] = createGame(seed, EMPTY_SCENARIO).zones;
-      const obstacles = zone?.obstacles ?? [];
-      expect(obstacles.length).toBeGreaterThan(90);
-      obstacles.forEach((one, index) => {
-        for (const other of obstacles.slice(index + 1)) {
-          expect(distance(one, other) - one.radius - other.radius).toBeGreaterThanOrEqual(minGap);
-        }
-      });
-    }
-  });
-
-  it('stay out of the clearings', () => {
-    const [zoneData] = ZONES;
-    const [zone] = createGame(3, EMPTY_SCENARIO).zones;
-    const placed = zone?.obstacles.slice(2) ?? [];
-    expect(placed.length).toBeGreaterThan(0);
-    for (const clearing of zoneData?.clearings ?? []) {
-      for (const obstacle of placed) {
-        expect(distance(obstacle, clearing)).toBeGreaterThanOrEqual(clearing.radius);
+    const obstacles = obstaclesOf(createGame(1, EMPTY_SCENARIO));
+    obstacles.forEach((one, index) => {
+      for (const other of obstacles.slice(index + 1)) {
+        expect(distance(one, other) - one.radius - other.radius).toBeGreaterThan(MOVEMENT.unitRadius * 2);
       }
-    }
+    });
   });
 });
 
@@ -303,36 +276,36 @@ describe('scatter', () => {
 });
 
 describe('off-land points', () => {
-  it('leaves a point on the land alone', () => {
-    expect(pullOntoLand(10, 20)).toEqual({ x: 10, z: 20 });
+  it('leaves a walkable point alone', () => {
+    expect(pullOntoLand(openGame(), 10, 20)).toEqual({ x: 10, z: 20 });
   });
 
-  it('pulls a point in to 86% of the rim, on the line from the centre', () => {
-    const point = pullOntoLand(300, 400);
-    const angle = Math.atan2(400, 300);
-    expect(Math.hypot(point.x, point.z)).toBeCloseTo(rimRadiusAt(TEST_ISLAND, angle) * 0.86, 9);
-    expect(Math.atan2(point.z, point.x)).toBeCloseTo(angle, 9);
-    expect(coastDistanceAt(TEST_ISLAND, point.x, point.z)).toBeCloseTo(0.86, 9);
+  it('moves a point off the land to the nearest walkable cell', () => {
+    const game = openGame();
+    const point = pullOntoLand(game, 300, 400);
+    expect(isWalkable(game, point.x, point.z)).toBe(true);
+    const coast = coastDistanceAt(TEST_ISLAND, point.x, point.z);
+    expect(coast).toBeLessThan(0.9);
+    expect(coast).toBeGreaterThan(0.85);
   });
 
   it('applies to orders, and the squad stays on the land', () => {
     const game = openGame();
     const events = step(game, [move(ALL, 0, 500)]);
     expect(events[0]).toMatchObject({ type: 'order-accepted' });
-    expect(game.anchor).toEqual(pullOntoLand(0, 500));
+    expect(game.anchor).toEqual(pullOntoLand(game, 0, 500));
     run(game, 200);
     for (const member of game.units) {
-      expect(coastDistanceAt(TEST_ISLAND, member.x, member.z)).toBeLessThan(0.9);
+      // Cells are a unit across, so a unit may stand a little past the 0.9 line.
+      expect(coastDistanceAt(TEST_ISLAND, member.x, member.z)).toBeLessThan(0.92);
     }
   });
 });
 
 describe('obstacles and other units', () => {
-  it('slide a unit around a tree in its path', () => {
-    const game = openGame();
-    const [zone] = game.zones;
-    // Just off the straight line, so the unit is pushed to one side.
-    zone?.obstacles.push({ kind: 'rock', x: 0.4, z: 40, radius: 2 });
+  it('route a unit around a rock in its path', () => {
+    // Just off the straight line, so the unit goes round one side.
+    const game = openGame([{ kind: 'rock', x: 0.4, z: 40, radius: 2 }]);
     const fighter = unit(game, 1);
     fighter.x = 0;
     fighter.z = 50;
@@ -347,28 +320,44 @@ describe('obstacles and other units', () => {
     expect(fighter.z).toBeLessThan(31);
   });
 
-  it('give up on a destination they cannot reach, and report it', () => {
-    const game = openGame();
-    game.zones[0]?.obstacles.push({ kind: 'beacon', x: 0, z: 30, radius: 4.2 });
+  it('move a destination inside an obstacle to the nearest walkable cell, and arrive there', () => {
+    const game = openGame([{ kind: 'beacon', x: 0, z: 30, radius: 4.2 }]);
     const events = step(game, [move([1], 0, 30)]);
+    const fighter = unit(game, 1);
+    const dest = fighter.dest ?? { x: 0, z: 0 };
+    expect(isWalkable(game, dest.x, dest.z)).toBe(true);
+    expect(distance(dest, { x: 0, z: 30 })).toBeLessThan(4.2 + MOVEMENT.unitRadius + 1);
     events.push(...run(game, 120));
-    expect(events.filter((event) => event.type === 'unit-gave-up')).toEqual([
+    expect(events.some((event) => event.type === 'unit-gave-up')).toBe(false);
+    expect(events.filter((event) => event.type === 'unit-arrived')).toEqual([
       expect.objectContaining({ unitId: 1 }),
     ]);
+  });
+
+  it('give up at once on a destination with no route, and report it', () => {
+    // A ring of rocks with open ground inside, which nothing outside can reach.
+    const ring: Obstacle[] = Array.from({ length: 24 }, (_, index) => {
+      const angle = (index / 24) * 2 * Math.PI;
+      return { kind: 'rock', x: Math.cos(angle) * 8, z: 30 + Math.sin(angle) * 8, radius: 2 };
+    });
+    const game = openGame(ring);
+    expect(isWalkable(game, 0, 30)).toBe(true);
+    const events = step(game, [move([1], 0, 30)]);
+    expect(events).toContainEqual({ type: 'unit-gave-up', tick: 0, unitId: 1 });
     const fighter = unit(game, 1);
     expect(fighter.dest).toBeNull();
     expect(fighter.attackMove).toBe(false);
-    expect(distance(fighter, { x: 0, z: 30 })).toBeCloseTo(4.9, 1);
   });
 
-  it('give up 22 ticks after the last progress', () => {
+  it('give up 22 ticks after the last progress along the route', () => {
     const game = openGame();
-    game.zones[0]?.obstacles.push({ kind: 'beacon', x: 0, z: 40, radius: 4.2 });
     const fighter = unit(game, 1);
-    fighter.x = 0;
-    fighter.z = 45;
-    const events = step(game, [move([1], 0, 40)]);
-    events.push(...run(game, 40));
+    const events = step(game, [move([1], 0, 20)]);
+    // Something holds the unit where it is, so it never gets closer.
+    for (let tick = 0; tick < 40; tick += 1) {
+      Object.assign(fighter, { x: 0, z: 62 });
+      events.push(...advance(game));
+    }
     expect(events.find((event) => event.type === 'unit-gave-up')).toMatchObject({ tick: 22 });
   });
 

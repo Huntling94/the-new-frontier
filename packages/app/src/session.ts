@@ -90,7 +90,7 @@ export class Session {
 
   private noteStop(stop: AutoStop): void {
     if (stop === 'danger') this.notes.push({ text: 'Auto-combat stopped: squad in danger', tone: 'bad' });
-    if (stop === 'clear') this.notes.push({ text: 'Auto-combat stopped: island clear', tone: 'blue' });
+    if (stop === 'clear') this.notes.push({ text: 'Auto-combat stopped: zone clear', tone: 'blue' });
   }
 
   /** The core answers each command in order, first in the tick's events, so refusals pair with the player's own. */

@@ -58,7 +58,10 @@ test.describe('commanding the squad', () => {
       await rightClick(page, x, y);
       await ticksPass(page, 2);
       const anchor = await page.evaluate(() => window.__tnf.view.anchor);
-      expect(Math.hypot(anchor.x - (under?.x ?? NaN), anchor.z - (under?.z ?? NaN))).toBeLessThan(1e-6);
+      // A click on open ground lands exactly. One beside a stone or the waystone moves to the
+      // nearest walkable cell (S3a decision 7), which is never more than a stone's margin away.
+      const moved = Math.hypot(anchor.x - (under?.x ?? NaN), anchor.z - (under?.z ?? NaN));
+      expect(moved).toBeLessThan(3.5);
 
       // The anchor check above is the precise one. The bodies only settle round the
       // point: the slots sit 0.93 behind it, each body stops within 0.9 of its slot,

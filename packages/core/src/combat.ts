@@ -5,6 +5,7 @@ import { nextRandom } from './random';
 import { recalculate, xpToNextLevel } from './stats';
 import type { Enemy, GameEvent, GameState, Point, Unit } from './state';
 import { TICKS } from './time';
+import { noteKill } from './zones';
 
 /** What AR against DR does to damage. More AR never lowers it, and it stops at a floor. */
 export function accuracyMultiplier(ar: number, dr: number): number {
@@ -76,6 +77,7 @@ function killEnemy(state: GameState, enemy: Enemy, events: GameEvent[]): void {
   events.push({ type: 'enemy-down', tick: state.tick, enemyId: enemy.id });
   shareXp(state, enemy.xp, events);
   dropLoot(state, enemy);
+  noteKill(state, enemy);
   if (enemy.boss) {
     state.victory = true;
     events.push({ type: 'victory', tick: state.tick });
@@ -89,7 +91,7 @@ export function wakePack(state: GameState, enemy: Enemy): void {
   }
   enemy.awake = true;
   if (enemy.packId !== null) {
-    for (const other of state.enemies) {
+    for (const other of state.live.enemies) {
       if (other.packId === enemy.packId) {
         other.awake = true;
       }
@@ -185,7 +187,7 @@ export function healUnit(state: GameState, unit: Unit, amount: number, events: G
 }
 
 export function aliveEnemy(state: GameState, id: number | null | undefined): Enemy | null {
-  return state.enemies.find((enemy) => enemy.alive && enemy.id === id) ?? null;
+  return state.live.enemies.find((enemy) => enemy.alive && enemy.id === id) ?? null;
 }
 
 /** The enemy whose edge is nearest the point and closer than `maxDistance`. */
@@ -197,7 +199,7 @@ export function nearestEnemy(
 ): Enemy | null {
   let best: Enemy | null = null;
   let bestDistance = maxDistance;
-  for (const enemy of state.enemies) {
+  for (const enemy of state.live.enemies) {
     const distance = Math.hypot(enemy.x - point.x, enemy.z - point.z) - enemy.size;
     if (enemy.alive && counts(enemy) && distance < bestDistance) {
       best = enemy;

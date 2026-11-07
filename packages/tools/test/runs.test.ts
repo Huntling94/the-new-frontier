@@ -78,9 +78,9 @@ describe('full runs', () => {
   );
 
   it.each([
-    ['a telegraph on the ground', (state: GameState) => state.scheduled.length > 0],
-    ['a minion about', (state: GameState) => state.enemies.some(({ minion }) => minion)],
-    ['a monster shot and a drop', (state: GameState) => state.enemyShots.length * state.drops.length > 0],
+    ['a telegraph on the ground', (state: GameState) => state.live.scheduled.length > 0],
+    ['a minion about', (state: GameState) => state.live.enemies.some(({ minion }) => minion)],
+    ['a monster shot and a drop', (state: GameState) => state.live.enemyShots.length * state.live.drops.length > 0],
   ])(
     'plays on identically from a save with %s',
     (_, busy) => {

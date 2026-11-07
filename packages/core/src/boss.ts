@@ -41,7 +41,7 @@ function startSlam(state: GameState, enemy: Enemy, boss: BossState): void {
   const ticks = secondsToTicks(slam.telegraphSeconds);
   for (let index = 0; index < count; index += 1) {
     const spread = index === 0 ? 0 : slam.spread;
-    state.scheduled.push({
+    state.live.scheduled.push({
       kind: 'slam',
       ticks,
       totalTicks: ticks,
@@ -70,7 +70,7 @@ function startChargeLine(state: GameState, enemy: Enemy, boss: BossState, target
   boss.chargeAngle = Math.atan2(aimAt.z - enemy.z, aimAt.x - enemy.x);
   boss.phase = 'aiming';
   boss.phaseTicks = 0;
-  state.scheduled.push({
+  state.live.scheduled.push({
     kind: 'charge',
     ticks,
     totalTicks: ticks,
@@ -100,7 +100,7 @@ function summon(state: GameState, enemy: Enemy, boss: BossState): void {
       x: enemy.x + Math.cos(angle) * distance,
       z: enemy.z + Math.sin(angle) * distance,
     };
-    state.enemies.push({
+    state.live.enemies.push({
       ...createMonster(state, kind, level, point),
       health,
       maxHealth: health,
@@ -238,7 +238,7 @@ export function updateBoss(state: GameState, enemy: Enemy, events: GameEvent[]):
 
 /** The telegraph has run out, so the boss sets off along the line. */
 export function startCharge(state: GameState, telegraph: ChargeTelegraph): void {
-  const enemy = state.enemies.find(({ id }) => id === telegraph.enemyId);
+  const enemy = state.live.enemies.find(({ id }) => id === telegraph.enemyId);
   if (enemy?.boss) {
     enemy.boss.phase = 'charging';
     enemy.boss.phaseTicks = 0;
@@ -257,7 +257,7 @@ export function interruptBoss(state: GameState, enemy: Enemy, events: GameEvent[
 }
 
 export function removeMinions(state: GameState): void {
-  state.enemies = state.enemies.filter((enemy) => !enemy.minion);
+  state.live.enemies = state.live.enemies.filter((enemy) => !enemy.minion);
 }
 
 /** Puts the boss back as it was. Any other enemy is left as it is. */

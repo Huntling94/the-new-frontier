@@ -37,8 +37,8 @@ const STALL_TICKS = RUNS.stallSeconds * TICK_RATE;
 
 function healthPrint(state: GameState): string {
   const units = state.units.map(({ health }) => health);
-  const enemies = state.enemies.map(({ health }) => health);
-  return `${units.join()}|${enemies.join()}|${String(state.drops.length)}`;
+  const enemies = state.live.enemies.map(({ health }) => health);
+  return `${units.join()}|${enemies.join()}|${String(state.live.drops.length)}`;
 }
 
 interface Tally {
@@ -92,7 +92,7 @@ export function play(seed: number, next: (state: GameState) => readonly Command[
     levels: state.units.map(({ level }) => level),
     marks: state.marks,
     potions: state.potions,
-    monstersLeft: state.enemies.filter((enemy) => enemy.alive && !enemy.boss).length,
+    monstersLeft: state.live.enemies.filter((enemy) => enemy.alive && !enemy.boss).length,
     hash: hashState(state),
   };
 }

@@ -246,7 +246,7 @@ describe('XP and levels (D-004)', () => {
 
 describe('the training dummy', () => {
   it('has no place in the empty scenario', () => {
-    expect(createGame(1, EMPTY_SCENARIO).enemies).toEqual([]);
+    expect(createGame(1, EMPTY_SCENARIO).live.enemies).toEqual([]);
   });
 
   it('stands still, hostile from the start, away from camp', () => {

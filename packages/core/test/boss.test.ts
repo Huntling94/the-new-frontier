@@ -7,15 +7,15 @@ import { createGame, step } from '../src/game';
 import { nextRandom } from '../src/random';
 import type { BossMove, Enemy, GameState, PackData } from '../src/state';
 import { TICKS } from '../src/time';
+import { zoneOf } from '../src/world';
 import { FIGHTER, HEALER, SNIPER, ofType, place, run, sendAway, unitOf } from './helpers';
 
 const HOME = { x: 0, z: 16 };
 
 function bossGame(seed = 1, packs: readonly PackData[] = []): { state: GameState; boss: Enemy } {
-  const state = createGame(seed, { ...EMPTY_SCENARIO, boss: HOME, packs });
-  state.zones.forEach((zone) => (zone.obstacles.length = 0));
+  const state = createGame(seed, { ...EMPTY_SCENARIO, contents: { dummy: null, boss: HOME, packs, obstacles: [] } });
   sendAway(state);
-  const boss = state.enemies.find((enemy) => enemy.boss);
+  const boss = state.live.enemies.find((enemy) => enemy.boss);
   if (!boss) throw new Error('No boss.');
   return { state, boss };
 }
@@ -88,7 +88,7 @@ describe('waking', () => {
     const sniper = unitOf(state, SNIPER);
     place(sniper, boss.x + BOSS.wakeRange + 2, boss.z);
     run(state, 40);
-    expect(state.shots).toEqual([]);
+    expect(state.live.shots).toEqual([]);
     place(unitOf(state, FIGHTER), boss.x + BOSS.wakeRange + 3, boss.z + 5);
     step(state, [{ type: 'cast', unitId: FIGHTER, spell: 'taunt' }]);
     expect(boss.awake).toBe(false);
@@ -99,7 +99,7 @@ describe('waking', () => {
     place(unitOf(state, SNIPER), boss.x + 22, boss.z);
     step(state, [{ type: 'move', unitIds: [SNIPER], x: boss.x + 14, z: boss.z, attack: true }]);
     run(state, 90);
-    expect(state.shots).toEqual([]);
+    expect(state.live.shots).toEqual([]);
     expect(boss.health).toBe(boss.maxHealth);
   });
 });
@@ -134,7 +134,7 @@ describe('its four moves', () => {
       place(unit, 30, 30 + unit.id * 2);
     }
     forceMove(state, boss, 'slam');
-    const [slam] = state.scheduled;
+    const [slam] = state.live.scheduled;
     if (slam?.kind !== 'slam') throw new Error('No slam.');
     expect(Math.hypot(slam.x - 30, slam.z - 34)).toBeLessThan(0.01);
     expect(ofType(run(state, slam.ticks - 1), 'hit')).toEqual([]);
@@ -151,7 +151,7 @@ describe('its four moves', () => {
     for (const unit of state.units) {
       unit.x -= 50;
     }
-    const slam = state.scheduled[0];
+    const slam = state.live.scheduled[0];
     const events = run(state, slam?.ticks ?? 0);
     expect(ofType(events, 'hit')).toEqual([]);
   });
@@ -163,7 +163,7 @@ describe('its four moves', () => {
     place(unitOf(state, FIGHTER), boss.x + 9, boss.z);
     place(healer, boss.x, boss.z + 20);
     forceMove(state, boss, 'charge');
-    const [line] = state.scheduled;
+    const [line] = state.live.scheduled;
     if (line?.kind !== 'charge') throw new Error('No line.');
     expect(line.angle).toBeCloseTo(Math.PI / 2, 2);
     const events = run(state, line.ticks + TICKS.chargeLength);
@@ -181,7 +181,7 @@ describe('its four moves', () => {
     boss.tauntTicks = 100;
     boss.tauntUnitId = FIGHTER;
     forceMove(state, boss, 'charge');
-    const [line] = state.scheduled;
+    const [line] = state.live.scheduled;
     if (line?.kind !== 'charge') throw new Error('No line.');
     expect(Math.abs(line.angle)).toBeLessThan(0.05);
   });
@@ -190,7 +190,7 @@ describe('its four moves', () => {
     const { state, boss } = awakeBoss();
     pacify(state);
     forceMove(state, boss, 'summon');
-    const minions = state.enemies.filter(({ minion }) => minion);
+    const minions = state.live.enemies.filter(({ minion }) => minion);
     expect(minions).toHaveLength(BOSS.summon.calmCount);
     for (const minion of minions) {
       expect(minion.maxHealth).toBe(BOSS.summon.health);
@@ -264,9 +264,9 @@ describe('interrupts', () => {
   it('ignores a Crippling Shot that hits something else', () => {
     const { state, boss } = casting();
     const minionPack = { x: 20, z: 16, level: 3, mobs: [{ kind: 'swarm', count: 1 }] } as const;
-    const other = bossGame(1, [minionPack]).state.enemies[0];
+    const other = bossGame(1, [minionPack]).state.live.enemies[0];
     if (!other) throw new Error('No monster.');
-    state.enemies.unshift({ ...other, id: 500, x: boss.x + 12, z: boss.z, awake: true });
+    state.live.enemies.unshift({ ...other, id: 500, x: boss.x + 12, z: boss.z, awake: true });
     step(state, [{ type: 'cast', unitId: SNIPER, spell: 'crippling-shot', enemyId: 500 }]);
     const events = run(state, 20);
     expect(ofType(events, 'interrupted')).toEqual([]);
@@ -296,12 +296,12 @@ describe('enrage', () => {
 
   it('slams twice', () => {
     const { state } = enraged('slam');
-    expect(state.scheduled.filter(({ kind }) => kind === 'slam')).toHaveLength(BOSS.slam.enragedCount);
+    expect(state.live.scheduled.filter(({ kind }) => kind === 'slam')).toHaveLength(BOSS.slam.enragedCount);
   });
 
   it('summons more', () => {
     const { state } = enraged('summon');
-    expect(state.enemies.filter(({ minion }) => minion)).toHaveLength(BOSS.summon.enragedCount);
+    expect(state.live.enemies.filter(({ minion }) => minion)).toHaveLength(BOSS.summon.enragedCount);
   });
 
   it('casts faster', () => {
@@ -322,7 +322,7 @@ describe('enrage', () => {
     pacify(state);
     boss.health = boss.maxHealth * BOSS.enrageBelowShare + 1;
     forceMove(state, boss, 'slam');
-    expect(state.scheduled.filter(({ kind }) => kind === 'slam')).toHaveLength(BOSS.slam.calmCount);
+    expect(state.live.scheduled.filter(({ kind }) => kind === 'slam')).toHaveLength(BOSS.slam.calmCount);
   });
 });
 
@@ -391,7 +391,7 @@ describe('wipes', () => {
 
   function wiped(): { state: GameState; boss: Enemy; monster: Enemy } {
     const { state, boss } = bossGame(1, PACK);
-    const monster = state.enemies[0];
+    const monster = state.live.enemies[0];
     if (!monster) throw new Error('No monster.');
     boss.awake = true;
     pacify(state);
@@ -405,7 +405,7 @@ describe('wipes', () => {
     state.potions = 2;
     unitOf(state, FIGHTER).xp = 77;
     unitOf(state, SNIPER).spellTicks.volley = 300;
-    state.scheduled.push({ kind: 'slam', ticks: 500, totalTicks: 500, enemyId: boss.id, x: 0, z: 0, radius: 1, hitRadius: 1, damage: 1 });
+    state.live.scheduled.push({ kind: 'slam', ticks: 500, totalTicks: 500, enemyId: boss.id, x: 0, z: 0, radius: 1, hitRadius: 1, damage: 1 });
     for (const unit of state.units) {
       unit.health = 0;
       unit.alive = false;
@@ -432,10 +432,10 @@ describe('wipes', () => {
       expect(unit.health).toBe(unit.maxHealth);
       expect(unit.mana).toBe(CLASSES[unit.classId].mana);
       expect(unit.spellTicks).toEqual({});
-      expect(Math.hypot(unit.x - state.camp.x, unit.z - state.camp.z)).toBeLessThan(6);
+      expect(Math.hypot(unit.x - zoneOf(state).camp.x, unit.z - zoneOf(state).camp.z)).toBeLessThan(6);
     }
-    expect(state.anchor).toEqual(state.camp);
-    expect(state.scheduled).toEqual([]);
+    expect(state.anchor).toEqual({ x: zoneOf(state).camp.x, z: zoneOf(state).camp.z });
+    expect(state.live.scheduled).toEqual([]);
   });
 
   it('resets the boss and removes its minions', () => {
@@ -445,7 +445,7 @@ describe('wipes', () => {
     expect(boss.awake).toBe(false);
     expect([boss.x, boss.z]).toEqual([HOME.x, HOME.z]);
     expect(stateOf(boss).castTicks).toBe(0);
-    expect(state.enemies.filter(({ minion }) => minion)).toEqual([]);
+    expect(state.live.enemies.filter(({ minion }) => minion)).toEqual([]);
   });
 
   it('keeps marks, potions, XP and hurt monsters', () => {
@@ -460,9 +460,9 @@ describe('wipes', () => {
 
   it('awake monsters still come for the squad', () => {
     const { state, monster } = wiped();
-    const start = Math.hypot(monster.x - state.camp.x, monster.z - state.camp.z);
+    const start = Math.hypot(monster.x - zoneOf(state).camp.x, monster.z - zoneOf(state).camp.z);
     run(state, TICKS.wipe + 60);
-    expect(Math.hypot(monster.x - state.camp.x, monster.z - state.camp.z)).toBeLessThan(start);
+    expect(Math.hypot(monster.x - zoneOf(state).camp.x, monster.z - zoneOf(state).camp.z)).toBeLessThan(start);
     expect(MONSTER_RULES.wakeRange).toBeLessThan(start);
   });
 });

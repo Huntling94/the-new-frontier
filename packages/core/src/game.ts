@@ -2,15 +2,22 @@ import { LEVELS, POTIONS } from '../data/combat';
 import { MARKS } from '../data/gear';
 import { CLASSES, SQUAD } from '../data/squad';
 import { removeMinions, resetBoss } from './boss';
-import { createBoss, createDummy, createPack, updateEnemy } from './enemies';
-import { triangleSlot } from './formation';
+import { updateEnemy } from './enemies';
 import { updateDrops } from './loot';
 import { updateUnit } from './movement';
 import { applyCommands } from './orders';
 import { updateScheduled, updateShots } from './shots';
 import { createGear, recalculate } from './stats';
 import type { ClassId, Command, GameEvent, GameState, Scenario, Unit } from './state';
-import { buildZones } from './world';
+import { gateAt, zoneOf } from './world';
+import {
+  createRecords,
+  crossGate,
+  emptyLive,
+  enterZone,
+  standInTriangle,
+  updateReturns,
+} from './zones';
 
 function createUnit(state: GameState, classId: ClassId, scenario: Scenario): Unit {
   const { startOffset, mana } = CLASSES[classId];
@@ -27,6 +34,8 @@ function createUnit(state: GameState, classId: ClassId, scenario: Scenario): Uni
     attackMove: false,
     bestDistance: null,
     stuckTicks: 0,
+    route: [],
+    routeGoal: null,
     dashTicks: 0,
     dashX: 0,
     dashZ: 0,
@@ -60,15 +69,12 @@ export function createGame(seed: number, scenario: Scenario): GameState {
     rng: seed >>> 0,
     nextId: 1,
     units: [],
-    zones: [],
+    zoneId: scenario.zone,
+    records: createRecords(scenario),
+    live: emptyLive(),
     anchor: scenario.squadStart,
     heading: scenario.squadHeading,
     scatterCooldownTicks: 0,
-    enemies: [],
-    shots: [],
-    enemyShots: [],
-    scheduled: [],
-    drops: [],
     sharedTargetId: null,
     marks: MARKS.start,
     potions: POTIONS.start,
@@ -76,49 +82,61 @@ export function createGame(seed: number, scenario: Scenario): GameState {
     squadDown: false,
     wipeTicks: 0,
     victory: false,
-    camp: scenario.squadStart,
-    campHeading: scenario.squadHeading,
   };
-  state.zones = buildZones(state);
   state.units = SQUAD.map((classId) => createUnit(state, classId, scenario));
-  if (scenario.dummy) {
-    state.enemies.push(createDummy(state, scenario.dummy));
-  }
-  scenario.packs.forEach((pack, packId) => {
-    state.enemies.push(...createPack(state, pack, packId));
-  });
-  if (scenario.boss) {
-    state.enemies.push(createBoss(state, scenario.boss));
-  }
+  enterZone(state, scenario.zone);
   return state;
+}
+
+/** The first character this tick to arrive on an order inside a gate's area, and that gate. */
+function arrivedAtGate(state: GameState, events: readonly GameEvent[]): ReturnType<typeof gateAt> {
+  for (const event of events) {
+    const unit = event.type === 'unit-arrived' ? state.units.find(({ id }) => id === event.unitId) : null;
+    const gate = unit?.alive ? gateAt(state, unit) : null;
+    if (gate) {
+      return gate;
+    }
+  }
+  return null;
 }
 
 function runRules(state: GameState, events: GameEvent[]): void {
   state.scatterCooldownTicks = Math.max(0, state.scatterCooldownTicks - 1);
   state.potionCooldownTicks = Math.max(0, state.potionCooldownTicks - 1);
+  updateReturns(state);
+  const moved: GameEvent[] = [];
   for (const unit of state.units) {
-    updateUnit(state, unit, events);
+    updateUnit(state, unit, moved);
   }
-  for (const enemy of state.enemies) {
+  events.push(...moved);
+  const gate = arrivedAtGate(state, moved);
+  if (gate) {
+    // The zone left behind is dropped, so nothing in it acts this tick.
+    crossGate(state, gate, events);
+    return;
+  }
+  const { live } = state;
+  for (const enemy of live.enemies) {
     updateEnemy(state, enemy, events);
   }
   updateShots(state, events);
   updateDrops(state, events);
   updateScheduled(state, events);
-  state.enemies = state.enemies.filter((enemy) => enemy.alive || enemy.kind === 'dummy');
+  live.enemies = live.enemies.filter((enemy) => enemy.alive || enemy.kind === 'dummy');
 }
 
-/** Everyone gets up at camp, whole. Marks, XP and hurt monsters all stay (S2.2c). */
+/** Everyone gets up at the zone's camp, whole. Marks, XP and hurt monsters all stay (S2.2c). */
 function returnToCamp(state: GameState, events: GameEvent[]): void {
-  state.anchor = state.camp;
-  state.heading = state.campHeading;
+  const { camp } = zoneOf(state);
+  state.anchor = { x: camp.x, z: camp.z };
+  state.heading = camp.heading;
   state.squadDown = false;
   state.sharedTargetId = null;
-  state.shots = [];
-  state.enemyShots = [];
-  state.scheduled = [];
+  state.live.shots = [];
+  state.live.enemyShots = [];
+  state.live.scheduled = [];
   for (const unit of state.units) {
-    const { x, z } = triangleSlot(unit.classId, state.camp, state.campHeading);
+    const { x, z } = standInTriangle(state, unit, camp, camp.heading);
     Object.assign(unit, {
       alive: true,
       x,
@@ -128,6 +146,8 @@ function returnToCamp(state: GameState, events: GameEvent[]): void {
       attackMove: false,
       bestDistance: null,
       stuckTicks: 0,
+      route: [],
+      routeGoal: null,
       dashTicks: 0,
       invulnerableTicks: 0,
       health: unit.maxHealth,
@@ -141,7 +161,7 @@ function returnToCamp(state: GameState, events: GameEvent[]): void {
     });
   }
   removeMinions(state);
-  state.enemies.forEach(resetBoss);
+  state.live.enemies.forEach(resetBoss);
   events.push({ type: 'squad-returned', tick: state.tick });
 }
 

@@ -44,6 +44,8 @@ const MAX_RECENT = 2000;
 const ORBIT = { radius: 130, height: 64, lookHeight: 4, turn: 0.1 };
 /** Banners last this long, and the victory screen follows the beacon's banner after it. */
 const BANNER_SECONDS = 2.6;
+/** Crossing a gate fades out with the game held, then fades in on the new zone (D-021). */
+const FADE = { outSeconds: 0.3, inSeconds: 0.45 };
 const seed = params.has('seed') ? Number(params.get('seed')) >>> 0 : Math.floor(Math.random() * 2 ** 31);
 const speed = Math.min(Math.max(Number(params.get('speed') ?? 1) || 1, 0), MAX_SPEED);
 const botParam = params.get('bot');
@@ -52,6 +54,7 @@ const stillMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matche
 
 const canvas = element<HTMLCanvasElement>('game');
 const overlay = element<HTMLCanvasElement>('overlay');
+const fadeLayer = element<HTMLDivElement>('fade');
 const session = new Session(seed, bot);
 const clock = new Clock();
 clock.speed = speed;
@@ -74,6 +77,7 @@ interface PageState {
   readonly paused: boolean;
   readonly sound: Sound;
   readonly help: boolean;
+  readonly fading: boolean;
 }
 
 function start(world: WorldView): void {
@@ -85,7 +89,9 @@ function start(world: WorldView): void {
   const sound = new Sound();
   const reactions = new Reactions();
   const recent: GameEvent[] = [];
-  const groundLevel = currentZone(session.view).ground.relief.groundLevel;
+  const groundLevel = (): number => currentZone(session.view).groundLevel;
+  /** A gate crossing in progress: fading out on the old zone, or in on the new one. */
+  let fade: { phase: 'out' | 'in'; seconds: number } | null = null;
 
   const anvil = new Anvil(
     (unitId, slot: GearSlot) => {
@@ -141,7 +147,7 @@ function start(world: WorldView): void {
   });
 
   const hook = params.has('test')
-    ? exposeHook(world, camera, recent, () => ({ mode, paused: anvil.open, sound, help: hud.helpShown }))
+    ? exposeHook(world, camera, recent, () => ({ mode, paused: anvil.open, sound, help: hud.helpShown, fading: fade !== null }))
     : null;
 
   const fit = (): void => {
@@ -181,7 +187,7 @@ function start(world: WorldView): void {
     const zone = currentZone(session.view);
     clampToZone(camera, zone);
     easeZoom(camera, dt);
-    world.setCamera(poseOf(camera, groundLevel));
+    world.setCamera(poseOf(camera, groundLevel()));
     // Gripping keeps the same ground point under the cursor.
     if (input.grip) {
       const under = world.groundAt(input.mouse.x, input.mouse.y);
@@ -192,7 +198,7 @@ function start(world: WorldView): void {
       }
     }
     // No jolt while paused, and none when the player asks for reduced motion.
-    return shakePose(camera, poseOf(camera, groundLevel), dt, Math.random, stillMotion || dt === 0);
+    return shakePose(camera, poseOf(camera, groundLevel()), dt, Math.random, stillMotion || dt === 0);
   };
 
   /** The start screen's slow circle around the zone. */
@@ -212,8 +218,17 @@ function start(world: WorldView): void {
     last = now;
     const dt = Math.min(real, FEEL.longestFrame);
     shown += dt;
-    // The anvil pauses the game: no ticks run while it is open (decision 4).
-    const running = mode !== 'start' && !anvil.open;
+    if (fade) fade.seconds += dt;
+    if (fade?.phase === 'out' && fade.seconds >= FADE.outSeconds) {
+      // Black: the new zone's scene is built on the next draw, and the camera starts on the squad.
+      fade = { phase: 'in', seconds: 0 };
+      const centre = squadCentre(session.view);
+      camera.x = centre.x;
+      camera.z = centre.z;
+    }
+    if (fade?.phase === 'in' && fade.seconds >= FADE.inSeconds) fade = null;
+    // The anvil pauses the game: no ticks run while it is open (decision 4), nor while fading out.
+    const running = mode !== 'start' && !anvil.open && fade?.phase !== 'out';
     const ticks = running ? clock.advance(real, input.wantsSlow) : 0;
     for (let index = 0; index < ticks; index += 1) {
       reactions.remember(session.view);
@@ -225,6 +240,17 @@ function start(world: WorldView): void {
         recent.push(...events);
         if (recent.length > MAX_RECENT) recent.splice(0, recent.length - MAX_RECENT);
       }
+      if (events.some(({ type }) => type === 'zone-changed')) {
+        input.letGo();
+        fade = { phase: 'out', seconds: 0 };
+        break;
+      }
+    }
+    fadeLayer.style.opacity = !fade ? '0' : String(fade.phase === 'out' ? Math.min(fade.seconds / FADE.outSeconds, 1) : Math.max(1 - fade.seconds / FADE.inSeconds, 0));
+    // While fading out the canvas keeps its last picture of the zone being left.
+    if (fade?.phase === 'out') {
+      if (hook) hook.frames += 1;
+      return;
     }
     for (const note of session.notes.splice(0)) hud.log(note);
     world.setCamera(mode === 'start' ? orbitPose() : moveCamera(running ? dt : 0));
@@ -285,6 +311,9 @@ function exposeHook(world: WorldView, camera: Camera, recent: readonly GameEvent
     },
     get help() {
       return page().help;
+    },
+    get fading() {
+      return page().fading;
     },
     camera: camera as Readonly<Camera>,
     clock: clock as Readonly<Clock>,

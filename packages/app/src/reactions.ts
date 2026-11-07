@@ -1,5 +1,5 @@
 import type { GameEvent, GameView } from '@new-frontier/core';
-import { characterLook, monsterLook } from '@new-frontier/render';
+import { characterLook, monsterLook, zoneLook } from '@new-frontier/render';
 import { FEEL } from './feel';
 import type { SoundName } from './sound';
 
@@ -76,15 +76,15 @@ export class Reactions {
   remember(view: GameView): void {
     const slams = new Set<object>();
     const charges = new Set<object>();
-    for (const effect of view.scheduled) {
+    for (const effect of view.live.scheduled) {
       if (effect.kind === 'slam') slams.add(effect);
       if (effect.kind === 'charge') charges.add(effect);
     }
     const casting = new Map<number, number>();
-    for (const enemy of view.enemies) {
+    for (const enemy of view.live.enemies) {
       if (enemy.boss) casting.set(enemy.id, enemy.boss.castTicks);
     }
-    this.before = { slams, charges, casting, enemyIds: new Set(view.enemies.map(({ id }) => id)) };
+    this.before = { slams, charges, casting, enemyIds: new Set(view.live.enemies.map(({ id }) => id)) };
   }
 
   /** Call just after each tick, with its events. */
@@ -100,7 +100,7 @@ export class Reactions {
       reaction.log.push({ text, tone });
     };
     const isUnit = (id: number): boolean => view.units.some((unit) => unit.id === id);
-    const enemyOf = (id: number) => view.enemies.find((enemy) => enemy.id === id);
+    const enemyOf = (id: number) => view.live.enemies.find((enemy) => enemy.id === id);
     let lastHitter: number | null = null;
     const interrupted = new Set<number>();
 
@@ -184,6 +184,11 @@ export class Reactions {
           reaction.banner = { title: 'Interrupted', line: `${name} staggers and takes more damage`, seconds: SHORT_BANNER };
           break;
         }
+        case 'zone-changed':
+          sound('click');
+          say(`Entered ${zoneLook(event.to).name}`, 'blue');
+          reaction.banner = { title: zoneLook(event.to).name, line: '', seconds: SHORT_BANNER };
+          break;
         case 'victory':
           sound('beacon');
           reaction.victory = true;
@@ -212,7 +217,7 @@ export class Reactions {
     const slamsNow = new Set<object>();
     let newSlams = false;
     let newCharge = false;
-    for (const effect of view.scheduled) {
+    for (const effect of view.live.scheduled) {
       if (effect.kind === 'slam') {
         slamsNow.add(effect);
         if (!before.slams.has(effect)) newSlams = true;
@@ -227,7 +232,7 @@ export class Reactions {
       }
     }
     if (newSlams) say('The ground glows under the squad', 'bad');
-    for (const enemy of view.enemies) {
+    for (const enemy of view.live.enemies) {
       if (!enemy.boss) continue;
       const name = monsterLook(enemy.kind).name;
       if (newCharge) say(`${name} turns to charge`, 'bad');
@@ -242,7 +247,7 @@ export class Reactions {
         shake(FEEL.shake.blast);
       }
     }
-    const summoned = view.enemies.filter((enemy) => enemy.minion && !before.enemyIds.has(enemy.id));
+    const summoned = view.live.enemies.filter((enemy) => enemy.minion && !before.enemyIds.has(enemy.id));
     const first = summoned[0];
     if (first) {
       sound('boss');

@@ -172,7 +172,7 @@ function updateDummy(state: GameState, enemy: Enemy, events: GameEvent[]): void 
 /** Monsters spread out and go round obstacles. Only the boss walks through what it meets. */
 function keepApart(state: GameState, enemy: Enemy): void {
   const { spacingSizeShare, pushRate, minPushDistance, obstacleSizeShare } = MONSTER_RULES;
-  for (const other of state.enemies) {
+  for (const other of state.live.enemies) {
     if (other === enemy || !other.alive) {
       continue;
     }
@@ -194,7 +194,7 @@ function moveEnemy(state: GameState, enemy: Enemy, drive: Drive): void {
   enemy.moveZ += (drive.z * drive.speed - enemy.moveZ) * TURN_PER_TICK;
   const x = enemy.x + perTick(enemy.moveX + enemy.knockX);
   const z = enemy.z + perTick(enemy.moveZ + enemy.knockZ);
-  if (isWalkableForEnemy(x, z)) {
+  if (isWalkableForEnemy(state, x, z)) {
     enemy.x = x;
     enemy.z = z;
   }

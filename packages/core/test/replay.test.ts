@@ -104,13 +104,13 @@ describe('the spell tour', () => {
 
   it('kills the dummy, and it respawns', () => {
     expect(events.some((event) => event.type === 'enemy-down')).toBe(true);
-    expect(state.enemies[0]?.alive).toBe(true);
+    expect(state.live.enemies[0]?.alive).toBe(true);
   });
 
   it.each([332, 392])('saves with shots or strikes in the air, at tick %s', (saveTick) => {
     const game = createGame(replay.seed, replay.scenario);
     playTo(game, replay, saveTick);
-    expect(game.shots.length + game.scheduled.length).toBeGreaterThan(0);
+    expect(game.live.shots.length + game.live.scheduled.length).toBeGreaterThan(0);
     const saved = JSON.stringify(game);
 
     const other = createGame(replay.seed + 99, DUMMY_SCENARIO);

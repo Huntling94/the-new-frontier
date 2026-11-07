@@ -9,7 +9,7 @@ function dropAt(state: GameState, enemy: Enemy, kind: Drop['kind'], value: numbe
   state.nextId += 1;
   const angle = randomBetween(state, 0, TAU);
   const speed = randomBetween(state, LOOT.leastFlightSpeed, LOOT.mostFlightSpeed);
-  state.drops.push({
+  state.live.drops.push({
     id,
     kind,
     value,
@@ -79,5 +79,5 @@ function updateDrop(state: GameState, drop: Drop, events: GameEvent[]): boolean 
 }
 
 export function updateDrops(state: GameState, events: GameEvent[]): void {
-  state.drops = state.drops.filter((drop) => updateDrop(state, drop, events));
+  state.live.drops = state.live.drops.filter((drop) => updateDrop(state, drop, events));
 }

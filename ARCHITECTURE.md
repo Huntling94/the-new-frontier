@@ -48,18 +48,21 @@ The renderer never sees the noise, and the core never sees a colour.
 
 The rules run in fixed ticks, 30 a second, whatever the frame rate (D-015). A seed and a list of commands replay a run exactly.
 
-- **All of the game is in `GameState`,** as plain data, generator included. Nothing in `core` keeps changing values anywhere else, so a save is `JSON.stringify(state)`.
+- **All of the game is in `GameState`,** as plain data, generator included. Nothing in `core` keeps changing values anywhere else.
+- **State has a lasting part and a live group (D-021).** The lasting part is the squad, the current zone, one record per zone, money, potions and the generator. The live group, `state.live`, holds the enemies, shots, enemy shots, scheduled effects and drops of the one zone that runs. Crossing a gate drops it, and entering a zone builds it fresh from the zone's data and record. A save (S3c) keeps the lasting part only.
+- **The grid is derived, not state (D-023).** Each zone's walkable grid is built from its data the first time it runs and kept in memory. It is the same on every run, so nothing about it needs saving.
 - **The core changes state in place.** Outside code reads it as `GameView`, which is read-only. It passes state back only to `step`, `applyCommands` and `advance`.
 - **Commands go in, and events come out.** Commands carry everything a rule needs, so the core has no cursor, camera or selection. Events report what happened, and are not part of state.
 - **A replay proves it.** `packages/core/data/replays/` holds hand-written replays, each ending on an `expectedHash`. Changing rules or data changes the hash. The failing test prints the new one, updating it is a deliberate edit, and CI's result is the reference.
 - **Time is seconds in the data and whole ticks in state,** converted once in `packages/core/src/time.ts`.
-- **A tick runs in a fixed order:** commands, units, enemies, shots, drops, then delayed effects.
+- **A tick runs in a fixed order:** commands, packs due back, units, then any gate crossing, which ends the tick, then enemies, shots, drops and delayed effects.
 - **Anything that lands later is a record in state.** Shots, Volley's strikes, telegraphs and drops are plain entries, so a save keeps them.
 - **The core resolves aiming.** A `cast` carries a point or enemy ID, and the rule picks the target. The shared target is in state, and selection stays in `packages/app`.
-- **Enemies carry their own stats,** because level scales them. Monster types, packs and the boss are data.
+- **Enemies carry their own stats,** because level scales them. Monster types are data, and packs and the boss belong to the zone that holds them (D-022).
+- **Layouts are baked (D-022).** `pnpm bake` runs the old placement generator once, with seed 1, and writes `packages/core/data/lande-layout.ts`. A test proves the committed file matches, so every change to the world shows in a diff.
 - **Auto-combat and bots are players.** `autoCommands` and `botCommands` read `GameView` and return commands. They keep no memory and use no randomness, so a run needs only a seed.
 
-The viewer at `/viewer.html` plays any replay, or a live bot from a seed, on a plain 2D canvas under `pnpm dev`. It is dev-only: Vite builds only `index.html`, and `e2e/public-build.spec.ts` proves no viewer page or replay reaches the public build.
+The viewer at `/viewer.html` plays any replay, or a live bot from a seed, on a plain 2D canvas under `pnpm dev`. It can draw the zone's grid, with closed cells shaded, and each unit's live route as a dashed line through its corners. It is dev-only: Vite builds only `index.html`, and `e2e/public-build.spec.ts` proves no viewer page or replay reaches the public build.
 
 ## Protecting `legacy/`
 
@@ -79,6 +82,7 @@ The viewer at `/viewer.html` plays any replay, or a live bot from a seed, on a p
 | `pnpm test:e2e` | Builds, then runs the browser test |
 | `pnpm sim --seed <n> --bot careful\|sloppy` | Plays one bot run in the terminal |
 | `pnpm sim:report --seeds <n>` | Summarises both bots and auto-combat across many seeds |
+| `pnpm bake` | Bakes Lande de Montclaire's standing stones and rocks into a data file |
 
 The browser test needs Chromium once per machine: `pnpm exec playwright install chromium`.
 

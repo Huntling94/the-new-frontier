@@ -24,7 +24,7 @@ export function pickTarget(state: GameState, enemy: Enemy): Unit | null {
 
 function spit(state: GameState, enemy: Enemy, target: Unit): void {
   const angle = Math.atan2(target.z - enemy.z, target.x - enemy.x);
-  state.enemyShots.push({
+  state.live.enemyShots.push({
     x: enemy.x,
     z: enemy.z,
     speedX: Math.cos(angle) * SPITTER.shotSpeed,
@@ -57,7 +57,7 @@ function strike(
 
 function drawSlam(state: GameState, enemy: Enemy): void {
   const ticks = enemy.windTicks;
-  state.scheduled.push({
+  state.live.scheduled.push({
     kind: 'slam',
     ticks,
     totalTicks: ticks,

@@ -126,7 +126,7 @@ export function createWorldView(canvas: HTMLCanvasElement, overlay: HTMLCanvasEl
   /** Where the camera looks, which the sun and dressing follow. */
   let focus = { x: view.anchor.x, z: view.anchor.z };
 
-  const groundPlane = (): Plane => new Plane(new Vector3(0, 1, 0), -loaded.scene.zone.ground.relief.groundLevel);
+  const groundPlane = (): Plane => new Plane(new Vector3(0, 1, 0), -loaded.scene.zone.groundLevel);
 
   const screenOf = ({ x, y, z }: Vec3): ScreenPoint => {
     projected.set(x, y, z).project(camera);

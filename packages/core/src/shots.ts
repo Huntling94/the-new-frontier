@@ -23,7 +23,7 @@ export function fireShot(
   multiplier: number,
   crippling: boolean,
 ): void {
-  state.shots.push({
+  state.live.shots.push({
     x: unit.x,
     z: unit.z,
     unitId: unit.id,
@@ -82,13 +82,13 @@ function updateEnemyShot(state: GameState, shot: EnemyShot, events: GameEvent[])
 }
 
 export function updateShots(state: GameState, events: GameEvent[]): void {
-  state.shots = state.shots.filter((shot) => updateShot(state, shot, events));
-  state.enemyShots = state.enemyShots.filter((shot) => updateEnemyShot(state, shot, events));
+  state.live.shots = state.live.shots.filter((shot) => updateShot(state, shot, events));
+  state.live.enemyShots = state.live.enemyShots.filter((shot) => updateEnemyShot(state, shot, events));
 }
 
 function volleyStrike(state: GameState, strike: ScheduledStrike, events: GameEvent[]): void {
   const { radius, sizeShare, multiplier } = SPELLS.volley;
-  for (const enemy of state.enemies) {
+  for (const enemy of state.live.enemies) {
     const reach = radius + enemy.size * sizeShare;
     if (enemy.alive && Math.hypot(enemy.x - strike.x, enemy.z - strike.z) < reach) {
       hitEnemy(state, unitById(state, strike.unitId), enemy, multiplier, events);
@@ -111,11 +111,11 @@ function landSlam(state: GameState, slam: SlamTelegraph, events: GameEvent[]): v
 
 /** Counts down delayed effects, and runs those that are due. */
 export function updateScheduled(state: GameState, events: GameEvent[]): void {
-  for (const entry of state.scheduled) {
+  for (const entry of state.live.scheduled) {
     entry.ticks -= 1;
   }
-  const due = state.scheduled.filter((entry) => entry.ticks <= 0);
-  state.scheduled = state.scheduled.filter((entry) => entry.ticks > 0);
+  const due = state.live.scheduled.filter((entry) => entry.ticks <= 0);
+  state.live.scheduled = state.live.scheduled.filter((entry) => entry.ticks > 0);
   for (const entry of due) {
     switch (entry.kind) {
       case 'volley-strike':

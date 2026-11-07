@@ -152,8 +152,9 @@ export const PACKS: readonly PackData[] = [
     ],
   },
   {
+    // Moved 2 units off z 52, where a standing stone's margin covered its centre (S3a).
     x: 38,
-    z: 52,
+    z: 50,
     level: 3,
     mobs: [
       { kind: 'runner', count: 2 },

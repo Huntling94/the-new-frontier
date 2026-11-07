@@ -1,7 +1,7 @@
 import { ANVIL, UPGRADES } from '../data/gear';
-import { ZONES } from '../data/zones';
 import { nextRandom } from './random';
 import { createItem, recalculate } from './stats';
+import { zoneOf } from './world';
 import type {
   GameEvent,
   GameState,
@@ -39,12 +39,14 @@ export function upgradeOffer(state: GameView, unitId: number, slot: GearSlot): U
   return { chance: upgradeChance(level), cost: upgradeCost(level, slot) };
 }
 
-/** Whether any living character can reach an anvil. */
+/** Whether any living character can reach the zone's anvil, if it has one. */
 export function isNearAnvil(state: GameView): boolean {
-  return ZONES.some(({ anvil }) =>
+  const { anvil } = zoneOf(state);
+  return (
+    anvil !== null &&
     state.units.some((unit) => {
       return unit.alive && Math.hypot(unit.x - anvil.x, unit.z - anvil.z) < ANVIL.reach;
-    }),
+    })
   );
 }
 

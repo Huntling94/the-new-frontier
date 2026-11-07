@@ -19,7 +19,8 @@ export interface Hook {
       spellTicks: Record<string, number>;
       gear: Record<string, { upgrade: number }>;
     }[];
-    enemies: { id: number; kind: string; alive: boolean; awake: boolean }[];
+    zoneId: string;
+    live: { enemies: { id: number; kind: string; alive: boolean; awake: boolean }[] };
   };
   selected: number[];
   mode: 'start' | 'play' | 'won';
@@ -27,6 +28,8 @@ export interface Hook {
   muted: boolean;
   volume: number;
   audio: boolean;
+  /** A gate crossing is fading out or in. */
+  fading: boolean;
   camera: { x: number; z: number; zoom: number; zoomTarget: number; yaw: number; tiltAdjust: number; follow: boolean };
   events: { type: string; tick: number; order?: string; unitId?: number; spell?: string }[];
   world: {

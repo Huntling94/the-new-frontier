@@ -8,7 +8,7 @@ const EVERYONE = [FIGHTER, SNIPER, HEALER];
 
 /**
  * Written by hand, as no input exists until S2.3. The squad walks in formation
- * through the trees, the Sniper is sent off to hold a spot, the others follow
+ * through the standing stones, the Sniper is sent off to hold a spot, the others follow
  * in a line, and then the squad regroups, scatters and regroups again.
  */
 export const SQUAD_TOUR: Replay = {
@@ -27,5 +27,5 @@ export const SQUAD_TOUR: Replay = {
     { tick: 1050, commands: [{ type: 'scatter' }] },
     { tick: 1140, commands: [{ type: 'regroup' }] },
   ],
-  expectedHash: '2937f4ba',
+  expectedHash: 'ccb3ea79',
 };

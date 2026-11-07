@@ -75,9 +75,12 @@ export interface ZoneLook {
   readonly lowland: number;
   readonly highland: number;
   readonly rock: number;
-  readonly leaves: readonly number[];
-  readonly bark: number;
-  readonly grass: number;
+  /** Standing stones, and the walls of a walled zone. */
+  readonly stone: number;
+  /** Small plants dotted over open ground. */
+  readonly tuft: number;
+  /** The glow over a gate. */
+  readonly gate: number;
   readonly dusk: Light;
   readonly sunrise: Light;
 }
@@ -94,19 +97,20 @@ export interface Light {
   readonly glint: number;
 }
 
-const MEADOW: ZoneLook = {
-  name: 'Test Island',
-  lowland: 0x5f7f47,
-  highland: 0xa5ae5e,
-  rock: 0x7c786c,
-  leaves: [0x4f7a44, 0x6f9a4a, 0x98a24c],
-  bark: 0x5a4632,
-  grass: 0x7f9d4e,
+/** Lande de Montclaire: a lavender heath under the squad test's storm (D-038). */
+const HEATH: ZoneLook = {
+  name: 'Lande de Montclaire',
+  lowland: 0x6f6488,
+  highland: 0xa391b4,
+  rock: 0x7a7480,
+  stone: 0x9a96a0,
+  tuft: 0xa77fcf,
+  gate: 0x8fd6c4,
   dusk: {
-    skyTop: 0x0d1a29,
-    horizon: 0x41505f,
-    fog: 0x2a3a4a,
-    sun: 0xa9c0dc,
+    skyTop: 0x141729,
+    horizon: 0x4a4860,
+    fog: 0x31324a,
+    sun: 0xb4b8dc,
     sunIntensity: 0.62,
     hemisphere: 0.62,
     deep: 0x0b2a35,
@@ -114,10 +118,10 @@ const MEADOW: ZoneLook = {
     glint: 0x9fc0d8,
   },
   sunrise: {
-    skyTop: 0x4f8fc0,
-    horizon: 0xffd3a0,
-    fog: 0xe9c09a,
-    sun: 0xffe2b8,
+    skyTop: 0x5f8fc0,
+    horizon: 0xffcfb0,
+    fog: 0xe0bfb8,
+    sun: 0xffe2c8,
     sunIntensity: 0.78,
     hemisphere: 0.62,
     deep: 0x1a6a7c,
@@ -126,10 +130,43 @@ const MEADOW: ZoneLook = {
   },
 };
 
-const ZONES: Readonly<Record<string, ZoneLook>> = { isle: MEADOW };
+/** The cave off the Lande. Its name waits for the starting region's naming (D-038). */
+const CAVE: ZoneLook = {
+  name: 'A cave under the Lande',
+  lowland: 0x3b3640,
+  highland: 0x544b58,
+  rock: 0x4a4550,
+  stone: 0x5c5664,
+  tuft: 0x6c5a7c,
+  gate: 0xffd089,
+  dusk: {
+    skyTop: 0x050508,
+    horizon: 0x0c0b10,
+    fog: 0x0c0b10,
+    sun: 0x8c84a8,
+    sunIntensity: 0.35,
+    hemisphere: 0.4,
+    deep: 0x000000,
+    shallow: 0x000000,
+    glint: 0x000000,
+  },
+  sunrise: {
+    skyTop: 0x050508,
+    horizon: 0x0c0b10,
+    fog: 0x0c0b10,
+    sun: 0x8c84a8,
+    sunIntensity: 0.35,
+    hemisphere: 0.4,
+    deep: 0x000000,
+    shallow: 0x000000,
+    glint: 0x000000,
+  },
+};
+
+const ZONES: Readonly<Record<string, ZoneLook>> = { lande: HEATH, 'lande-cave': CAVE };
 
 export function zoneLook(zoneId: string): ZoneLook {
-  return ZONES[zoneId] ?? MEADOW;
+  return ZONES[zoneId] ?? HEATH;
 }
 
 /** A spell's flash on the ground when it is cast. Spells not listed show nothing extra. */

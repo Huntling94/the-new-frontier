@@ -13,7 +13,7 @@ function game(): GameState {
 }
 
 function enemyId(state: GameState): number {
-  const enemy = state.enemies.find(({ boss }) => !boss);
+  const enemy = state.live.enemies.find(({ boss }) => !boss);
   if (!enemy) throw new Error('No enemy.');
   return enemy.id;
 }
@@ -84,16 +84,16 @@ describe('reactions turn events into feel', () => {
     const state = game();
     const reactions = new Reactions();
     const slam = { kind: 'slam' as const, ticks: 1, totalTicks: 40, enemyId: 0, x: 0, z: 0, radius: 9, hitRadius: 9.4, damage: 1 };
-    state.scheduled.push(slam);
+    state.live.scheduled.push(slam);
     reactions.remember(state);
     slam.ticks = 0;
-    state.scheduled = [];
+    state.live.scheduled = [];
     expect(reactions.react(state, []).shake).toBe(FEEL.shake.slam);
 
     const early = { ...slam, ticks: 20 };
-    state.scheduled = [early];
+    state.live.scheduled = [early];
     reactions.remember(state);
-    state.scheduled = [];
+    state.live.scheduled = [];
     expect(reactions.react(state, []).shake).toBe(0);
   });
 

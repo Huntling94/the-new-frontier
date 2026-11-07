@@ -42,18 +42,20 @@ This is the same split as code and data (D-018), and it decides what a save hold
 | Family | Everything the player owns: characters, the store, marks and progress |
 | Field | A zone of kind `field`: open and unsafe |
 | Dungeon | A zone of kind `dungeon`: enclosed and unsafe. Each floor is its own zone |
-| Gate | A one-way or two-way link between two zones |
+| Gate | A one-way link out of a zone into another. A two-way link is two gates |
+| Grid | A zone's walkable ground, as square cells one world unit across. Built from the zone's data, never saved |
 | Instance | Something that changes in play, and points at a definition |
 | Item | One specific piece of gear, with its own upgrade level |
 | Item type | The definition of a piece of gear, such as a level 20 pistol |
 | Land | A named group of zones |
 | Live group | Everything that exists only while a zone runs: enemies, shots, drops and scheduled effects |
 | Marks | The family's money |
+| Route | The corners a character walks through to reach a point, found on the grid by A\* |
 | Stat | One named number on a character or enemy |
 | Store | The family's shared items |
 | Town | A zone of kind `town`: safe, with NPCs. The vision's cities are towns |
-| Zone | One playable space with its own ground, coordinates and monsters |
-| Zone record | What lasts about a zone: bosses dead, chests opened, respawn timers |
+| Zone | One playable space with its own ground, coordinates and monsters. Its ground is an island with a coast or a rectangle with walls |
+| Zone record | What lasts about a zone: bosses dead, chests opened, when cleared packs come back |
 
 ## Entity relationships
 
@@ -102,7 +104,7 @@ erDiagram
   MonsterType ||--o{ Enemy : "is the type of"
 ```
 
-Only one zone runs at a time, so there is at most one live group (D-021).
+Only one zone runs at a time, so there is at most one live group (D-021). The live group is dropped when the squad leaves its zone, and built fresh from the zone's data and record when the squad arrives.
 
 ## Entity catalogue
 
@@ -127,11 +129,12 @@ Only one zone runs at a time, so there is at most one live group (D-021).
 | Entity | Kind | Saved | Status | Notes |
 |---|---|---|---|---|
 | Land | Definition | No | Planned | A name, a level range and a place on the world map. No rules of its own |
-| Zone | Definition | No | Partial | `ZONES`. Today every zone is an island, and all of them are always active |
-| Gate | Definition | No | Planned | Holds requirements, any cost, and direction |
-| Zone record | Instance | Yes | Planned | |
-| Live group | Instance | No | Partial | Today these are separate fields on `GameState` |
-| Pack | Definition | No | Built | `PACKS`. Today held on the scenario; moves to the zone in S3 |
+| Zone | Definition | No | Built | `ZONES`: Lande de Montclaire and a cave off it. Holds its ground, camp, anvil, baked obstacles, packs, boss, gates and place in the world frame. Only the zone named on state runs |
+| Gate | Definition | No | Partial | On the zone it leaves: an area, the zone it arrives in, an arrival point and heading. Requirements and cost are held in the shared requirement shape, but nothing checks them yet |
+| Zone record | Instance | Yes | Built | `state.records`: whether the boss is dead, and the game tick each cleared pack comes back. Saved from S3c |
+| Live group | Instance | No | Built | `state.live`: enemies, shots, enemy shots, scheduled effects and drops |
+| Pack | Definition | No | Built | `PACKS` and the cave's pack, held on the zone. Comes back on the game clock after it is cleared |
+| Grid | Derived | No | Built | Built from the zone's ground, walls and obstacles the first time the zone runs, and kept. Never in state |
 | Monster type | Definition | No | Built | `MONSTERS`, `BOSS` and `DUMMY` |
 | Enemy | Instance | No | Built | Keeps its own stats, because level scales them |
 | Loot table | Definition | No | Partial | Today `LOOT`, and `coins` on each monster |
@@ -144,14 +147,14 @@ Only one zone runs at a time, so there is at most one live group (D-021).
 
 ## Rules that must always hold
 
-Each rule should have a test or a validator check once it is built.
+Each rule should have a test or a validator check once it is built. The world's checks are in `packages/core/src/checks.ts`, and each is also tested against a deliberately broken zone.
 
 1. A gear item is in exactly one place: the store, or one character's slot.
 2. A two-handed weapon in the main hand means an empty off hand.
 3. Final stats are calculated, never saved.
 4. Definitions never change during play.
-5. Nothing outside the live group refers to an enemy once its zone has closed.
-6. Every zone can be reached from the start.
+5. Nothing outside the live group refers to an enemy once its zone has closed. Checked after every crossing in tests.
+6. Every zone can be reached from the start, every gate arrives on a walkable cell, and every pack and camp stands on one. Reachability is checked by breadth-first search over gates.
 7. A crossing never strands the player: every land can earn enough to leave it, or the way back is free.
 8. Quest prerequisites contain no loops.
 9. Content IDs are never deleted or reused without a save migration.
@@ -220,14 +223,14 @@ A structure enters only when a real need demands it, and the brief that adds it 
 | Seeded generator (mulberry32) | Crits, loot, upgrades | Small state that saves as one number, and repeats exactly | Built |
 | FNV-1a hash | Proving a replay matches | Fast, with no dependencies, and good enough to spot change | Built |
 | Tree | Lands contain zones | Each zone has exactly one parent | Planned |
-| Directed graph, as an adjacency list | Zones and gates | Handles one-way drops, and breadth-first search proves reachability | Planned |
-| Grid | Walkable ground inside a zone | Any position is one lookup away | Planned |
-| A\* with a binary heap | Routes inside a zone | The heap always gives the most promising cell next | Planned |
+| Directed graph, as an adjacency list | Zones and gates | Handles one-way drops, and breadth-first search proves reachability. Each zone lists the gates that leave it | Built |
+| Grid | Walkable ground inside a zone | Any position is one lookup away. One byte a cell says whether a character, and whether an enemy, may stand there, and connected areas are labelled once so an unreachable goal is known at once | Built |
+| A\* with a binary heap | Routes inside a zone | The heap always gives the most promising cell next. Routes are then smoothed by line of sight, so units walk long straight legs. The longest route on the Lande takes under a millisecond | Built |
 | Directed acyclic graph | Quest prerequisites | A topological sort proves that no quest is impossible | Planned |
 | State machine | Boss phases, quest status | One named stage at a time, with clear changes between stages. Today the boss only | Partial |
 | Sorted array with binary search | XP levels, loot odds | Fast lookup, and it stays plain data | Planned |
 
-The world uses the same idea at two scales. Zones and gates form a coarse graph, and the walkable cells inside a zone form a fine one. A bot plans which zones to cross, then finds its route inside each.
+The world uses the same idea at two scales. Zones and gates form a coarse graph, and the walkable cells inside a zone form a fine one. A unit walks straight when the line is clear on the grid, and asks A\* only when it is not. Bots stay inside the zone that runs for now; planning which zones to cross waits for a brief that needs it.
 
 ## Keeping this document true
 

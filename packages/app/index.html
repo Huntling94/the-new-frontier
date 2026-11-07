@@ -443,6 +443,14 @@
         margin-top: 8px;
         min-height: 44px;
       }
+      /* Crossing a gate fades to black and back (D-021). */
+      #fade {
+        position: fixed;
+        inset: 0;
+        background: #000;
+        opacity: 0;
+        pointer-events: none;
+      }
       #fatal {
         margin: 0;
         padding: 2rem;
@@ -467,8 +475,9 @@
     </style>
   </head>
   <body>
-    <canvas id="game" tabindex="-1" aria-label="The squad on an island in the sea"></canvas>
+    <canvas id="game" tabindex="-1" aria-label="The squad on Lande de Montclaire"></canvas>
     <canvas id="overlay" aria-hidden="true"></canvas>
+    <div id="fade" aria-hidden="true"></div>
     <div id="slowTag" hidden></div>
     <div id="hud" hidden>
       <div class="top">

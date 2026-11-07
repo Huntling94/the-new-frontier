@@ -4,7 +4,7 @@ export const MOVEMENT = {
   arriveDistance: 0.9,
   /** A unit must get this much closer than its best so far to count as progress. */
   minProgress: 0.25,
-  /** Time without progress before a unit gives up. */
+  /** Time without progress along its route before a unit gives up. */
   giveUpSeconds: 0.7,
   /** An idle unit further than this from its slot walks back. */
   slotReturnDistance: 2.2,
@@ -34,4 +34,15 @@ export const SCATTER = {
   /** A unit this close to the centre has no direction of its own, so it uses a sector. */
   minCentreDistance: 1,
   sectors: 3,
+};
+
+/** Each zone's walkable grid (D-023). Cells are square, this many world units across. */
+export const GRID = { cell: 1 };
+
+/** How units follow routes. */
+export const ROUTE = {
+  /** A goal that has moved less than this keeps its route, and the route's end follows it. */
+  goalDrift: 2,
+  /** A corner closer than this counts as passed. */
+  cornerReach: 0.6,
 };

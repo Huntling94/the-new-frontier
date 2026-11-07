@@ -19,7 +19,8 @@
     "check": "pnpm typecheck && pnpm lint && pnpm test && pnpm guard:legacy",
     "test:e2e": "pnpm build && playwright test",
     "sim": "pnpm --filter @new-frontier/tools sim",
-    "sim:report": "pnpm --filter @new-frontier/tools sim:report"
+    "sim:report": "pnpm --filter @new-frontier/tools sim:report",
+    "bake": "pnpm --filter @new-frontier/tools bake"
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",

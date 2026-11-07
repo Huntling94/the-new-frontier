@@ -20,10 +20,10 @@ import { characterLook, MARKS, monsterLook, spellLook } from './looks';
 import type { ZoneScene } from './zone-scene';
 
 type UnitView = GameView['units'][number];
-type EnemyView = GameView['enemies'][number];
-type ShotView = GameView['shots'][number];
-type EnemyShotView = GameView['enemyShots'][number];
-type ScheduledView = GameView['scheduled'][number];
+type EnemyView = GameView['live']['enemies'][number];
+type ShotView = GameView['live']['shots'][number];
+type EnemyShotView = GameView['live']['enemyShots'][number];
+type ScheduledView = GameView['live']['scheduled'][number];
 
 /** What the player has marked, which the screen shows at once (decision 3). */
 export interface Marks {
@@ -145,10 +145,10 @@ export class EntityLayer {
   snapshot(view: GameView): void {
     this.before.clear();
     for (const unit of view.units) this.before.set(unit.id, { x: unit.x, z: unit.z });
-    for (const enemy of view.enemies) this.before.set(enemy.id, { x: enemy.x, z: enemy.z });
-    for (const drop of view.drops) this.before.set(drop.id, { x: drop.x, z: drop.z });
-    for (const shot of [...view.shots, ...view.enemyShots]) this.shotsBefore.set(shot, { x: shot.x, z: shot.z });
-    this.castBefore = new Map(view.enemies.map((enemy) => [enemy.id, enemy.boss?.castTicks ?? 0]));
+    for (const enemy of view.live.enemies) this.before.set(enemy.id, { x: enemy.x, z: enemy.z });
+    for (const drop of view.live.drops) this.before.set(drop.id, { x: drop.x, z: drop.z });
+    for (const shot of [...view.live.shots, ...view.live.enemyShots]) this.shotsBefore.set(shot, { x: shot.x, z: shot.z });
+    this.castBefore = new Map(view.live.enemies.map((enemy) => [enemy.id, enemy.boss?.castTicks ?? 0]));
   }
 
   /** Turns a tick's events into flashes and bursts. */
@@ -160,7 +160,7 @@ export class EntityLayer {
     for (const event of events) {
       this.event(view, event);
     }
-    for (const enemy of view.enemies) {
+    for (const enemy of view.live.enemies) {
       const was = this.castBefore.get(enemy.id) ?? 0;
       if (was > 0 && (enemy.boss?.castTicks ?? 0) === 0 && !interrupted.has(enemy.id) && enemy.alive) {
         const y = this.zone.heightAt(enemy.x, enemy.z);
@@ -178,7 +178,7 @@ export class EntityLayer {
     this.drawDrops(view, alpha, dt);
     this.drawTelegraphs(view);
 
-    const target = view.enemies.find(({ id, alive }) => alive && id === view.sharedTargetId);
+    const target = view.live.enemies.find(({ id, alive }) => alive && id === view.sharedTargetId);
     const targetBody = target ? this.enemies.get(target.id) : undefined;
     this.targetRing.visible = Boolean(target && targetBody);
     if (target && targetBody) {
@@ -200,7 +200,7 @@ export class EntityLayer {
   }
 
   drawnEnemies(view: GameView): (Drawn & { readonly kind: string; readonly size: number })[] {
-    return view.enemies.flatMap((enemy) => {
+    return view.live.enemies.flatMap((enemy) => {
       const body = this.enemies.get(enemy.id);
       return body && enemy.alive ? [{ ...body.drawn, kind: enemy.kind, size: enemy.size }] : [];
     });
@@ -342,7 +342,7 @@ export class EntityLayer {
       const at = this.place(unit.id, unit, alpha);
       const was = this.before.get(unit.id) ?? unit;
       const moving = Math.hypot(unit.x - was.x, unit.z - was.z) > MOVING;
-      const target = view.enemies.find(({ id }) => id === unit.targetId);
+      const target = view.live.enemies.find(({ id }) => id === unit.targetId);
       const facing = moving ? Math.atan2(unit.z - was.z, unit.x - was.x) : target ? Math.atan2(target.z - unit.z, target.x - unit.x) : body.angle;
       body.angle += angleBetween(body.angle, facing) * Math.min(1, dt * TURN_RATE);
       if (moving) body.walk += dt * WALK_RATE;
@@ -382,7 +382,7 @@ export class EntityLayer {
   private drawEnemies(view: GameView, alpha: number, dt: number): void {
     const seen = new Set<number>();
     const living = view.units.filter(({ alive }) => alive);
-    for (const enemy of view.enemies) {
+    for (const enemy of view.live.enemies) {
       seen.add(enemy.id);
       let body = this.enemies.get(enemy.id);
       const look = monsterLook(enemy.kind);
@@ -457,7 +457,7 @@ export class EntityLayer {
 
   private drawShots(view: GameView, alpha: number): void {
     const seen = new Set<object>();
-    const enemyKind = new Map(view.enemies.map((enemy) => [enemy.id, enemy.kind]));
+    const enemyKind = new Map(view.live.enemies.map((enemy) => [enemy.id, enemy.kind]));
     const draw = (shot: ShotView | EnemyShotView, make: () => Mesh, height: number, angle: number): void => {
       seen.add(shot);
       let mesh = this.shots.get(shot);
@@ -472,12 +472,12 @@ export class EntityLayer {
       mesh.position.set(x, this.zone.heightAt(x, z) + height, z);
       mesh.rotation.y = Math.PI / 2 - angle;
     };
-    for (const shot of view.shots) {
-      const enemy = view.enemies.find(({ id }) => id === shot.enemyId);
+    for (const shot of view.live.shots) {
+      const enemy = view.live.enemies.find(({ id }) => id === shot.enemyId);
       const angle = enemy ? Math.atan2(enemy.z - shot.z, enemy.x - shot.x) : 0;
       draw(shot, () => new Mesh(this.shotGeometry, this.shotMaterial), SHOT_HEIGHT, angle);
     }
-    for (const shot of view.enemyShots) {
+    for (const shot of view.live.enemyShots) {
       const trim = monsterLook(enemyKind.get(shot.sourceId) ?? '').trim;
       draw(
         shot,
@@ -520,7 +520,7 @@ export class EntityLayer {
 
   private drawDrops(view: GameView, alpha: number, dt: number): void {
     const seen = new Set<number>();
-    for (const drop of view.drops) {
+    for (const drop of view.live.drops) {
       seen.add(drop.id);
       let mesh = this.drops.get(drop.id);
       if (!mesh) {
@@ -547,7 +547,7 @@ export class EntityLayer {
   /** Every dangerous move is drawn on the ground before it lands. */
   private drawTelegraphs(view: GameView): void {
     const seen = new Set<object>();
-    for (const effect of view.scheduled) {
+    for (const effect of view.live.scheduled) {
       seen.add(effect);
       const known = this.telegraphs.get(effect);
       if (known) known.last = effect;

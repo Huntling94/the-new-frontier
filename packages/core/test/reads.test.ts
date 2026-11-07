@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { ISLAND_SCENARIO } from '../data/scenarios';
 import { CLASSES } from '../data/squad';
+import { ZONES } from '../data/zones';
 import { createGame } from '../src/game';
 import { SPELLS } from '../data/spells';
 import { cardOf, currentZone, spellInfo, spellsOf } from '../src/reads';
@@ -8,14 +9,17 @@ import { xpToNextLevel } from '../src/stats';
 import { secondsToTicks } from '../src/time';
 
 describe('reads for the screen', () => {
-  it('gives the zone holding the squad, with its size and the obstacles the seed placed', () => {
+  it('gives the zone that runs, with its size, gates and baked obstacles', () => {
     const state = createGame(7, ISLAND_SCENARIO);
     const zone = currentZone(state);
-    expect(zone.id).toBe('isle');
+    expect(zone.id).toBe('lande');
+    expect(zone.kind).toBe('field');
     expect(zone.size).toBe(92);
+    expect(zone.groundLevel).toBe(3);
     expect({ x: zone.x, z: zone.z }).toEqual({ x: 0, z: 0 });
-    expect(zone.obstacles).toBe(state.zones[0]?.obstacles);
-    expect(zone.obstacles.length).toBeGreaterThan(50);
+    expect(zone.obstacles).toBe(ZONES[0]?.obstacles);
+    expect(zone.obstacles.length).toBe(96);
+    expect(zone.gates).toEqual([{ id: 'lande-to-cave', x: -16, z: 72, radius: 3, to: 'lande-cave' }]);
   });
 
   it('gives each character its spells in data order, by ID', () => {

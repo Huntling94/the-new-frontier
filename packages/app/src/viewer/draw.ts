@@ -1,4 +1,4 @@
-import { currentZone, rimRadiusAt, type GameView } from '@new-frontier/core';
+import { currentZone, rimRadiusAt, zoneGrid, type GameView } from '@new-frontier/core';
 
 /** Something brief to show on the map: a word or number, and perhaps a ring. */
 export interface Mark {
@@ -40,8 +40,17 @@ const DROP_COLOURS = { marks: '#ffcf6e', potion: '#ff9aa8' };
 /** The Healer's mana, for its bar. */
 const MAX_MANA = 400;
 
+const GROUND_COLOUR = '#6f6488';
+const WALL_COLOUR = '#3a3540';
+/** Cells a character cannot stand in, and the corners of each live route (decision 14). */
+const CLOSED_COLOUR = '#ff5a3c55';
+const ENEMY_ONLY_COLOUR = '#ffb64833';
+const ROUTE_DASH = [6, 4];
+const CORNER_RADIUS = 3;
+const GATE_COLOUR = '#8fd6c4';
+
 const OBSTACLE_COLOURS = {
-  tree: '#2f5a33',
+  stone: '#9a96a0',
   rock: '#7c786c',
   beacon: '#d8b878',
   waystone: '#8fd6c4',
@@ -91,7 +100,7 @@ function drawRing(
 
 function drawTelegraph(
   context: CanvasRenderingContext2D,
-  entry: GameView['scheduled'][number],
+  entry: GameView['live']['scheduled'][number],
   toX: (x: number) => number,
   toY: (z: number) => number,
   scale: number,
@@ -129,10 +138,84 @@ function healthColour(share: number): string {
   return share < LOW_HEALTH_SHARE ? LOW_HEALTH_COLOUR : HEALTH_COLOUR;
 }
 
+/** The grid's closed cells, drawn once per zone, since the grid never changes while it runs. */
+let gridLayer: { readonly zone: string; readonly canvas: HTMLCanvasElement } | null = null;
+
+function gridImage(game: GameView, size: number, toX: (x: number) => number, toY: (z: number) => number): HTMLCanvasElement {
+  const zone = currentZone(game);
+  if (gridLayer?.zone === zone.id && gridLayer.canvas.width === size) {
+    return gridLayer.canvas;
+  }
+  const canvas = document.createElement('canvas');
+  canvas.width = size;
+  canvas.height = size;
+  const context = canvas.getContext('2d');
+  const grid = zoneGrid(game);
+  for (let row = 0; context && row < grid.rows; row += 1) {
+    for (let col = 0; col < grid.cols; col += 1) {
+      const flags = grid.flags[row * grid.cols + col] ?? 0;
+      if (flags % 2 === 1) continue;
+      // Open to enemies only: inside an obstacle's margin, where enemies still slide round.
+      context.fillStyle = flags >= 2 ? ENEMY_ONLY_COLOUR : CLOSED_COLOUR;
+      const x = toX(grid.minX + col * grid.cell);
+      const y = toY(grid.minZ + row * grid.cell);
+      context.fillRect(x, y, toX(grid.minX + (col + 1) * grid.cell) - x, toY(grid.minZ + (row + 1) * grid.cell) - y);
+    }
+  }
+  gridLayer = { zone: zone.id, canvas };
+  return canvas;
+}
+
+function drawGround(context: CanvasRenderingContext2D, game: GameView, toX: (x: number) => number, toY: (z: number) => number): void {
+  const { ground } = currentZone(game);
+  context.fillStyle = GROUND_COLOUR;
+  if (ground.shape === 'island') {
+    context.beginPath();
+    for (let index = 0; index < RIM_POINTS; index += 1) {
+      const angle = (index / RIM_POINTS) * 2 * Math.PI;
+      const radius = rimRadiusAt(ground.island, angle);
+      context.lineTo(toX(ground.island.x + Math.cos(angle) * radius), toY(ground.island.z + Math.sin(angle) * radius));
+    }
+    context.closePath();
+    context.fill();
+    return;
+  }
+  const box = (b: { minX: number; maxX: number; minZ: number; maxZ: number }): void => {
+    context.fillRect(toX(b.minX), toY(b.minZ), toX(b.maxX) - toX(b.minX), toY(b.maxZ) - toY(b.minZ));
+  };
+  box(ground.bounds);
+  context.fillStyle = WALL_COLOUR;
+  ground.walls.forEach(box);
+}
+
+/** Each unit's live route: a dashed line from the unit through its corners (decision 14). */
+function drawRoutes(context: CanvasRenderingContext2D, game: GameView, toX: (x: number) => number, toY: (z: number) => number): void {
+  context.save();
+  context.setLineDash(ROUTE_DASH);
+  context.lineWidth = 2;
+  for (const unit of game.units) {
+    if (unit.route.length === 0) continue;
+    const colour = UNIT_LOOKS[unit.classId].colour;
+    context.strokeStyle = colour;
+    context.beginPath();
+    context.moveTo(toX(unit.x), toY(unit.z));
+    for (const corner of unit.route) context.lineTo(toX(corner.x), toY(corner.z));
+    context.stroke();
+    context.fillStyle = colour;
+    for (const corner of unit.route) {
+      context.beginPath();
+      context.arc(toX(corner.x), toY(corner.z), CORNER_RADIUS, 0, 2 * Math.PI);
+      context.fill();
+    }
+  }
+  context.restore();
+}
+
 export function drawGame(
   context: CanvasRenderingContext2D,
   game: GameView,
   marks: readonly Mark[],
+  showGrid: boolean,
 ): void {
   const { width } = context.canvas;
   const scale = width / (VIEW_RADIUS * 2);
@@ -141,23 +224,23 @@ export function drawGame(
   const toY = (z: number): number => width / 2 + z * scale;
 
   context.clearRect(0, 0, width, width);
-  context.fillStyle = '#5f7f47';
-  context.beginPath();
-  for (let index = 0; index < RIM_POINTS; index += 1) {
-    const angle = (index / RIM_POINTS) * 2 * Math.PI;
-    const radius = rimRadiusAt(currentZone(game).ground, angle);
-    context.lineTo(toX(Math.cos(angle) * radius), toY(Math.sin(angle) * radius));
-  }
-  context.closePath();
-  context.fill();
+  drawGround(context, game, toX, toY);
 
-  for (const zone of game.zones) {
-    for (const obstacle of zone.obstacles) {
-      context.fillStyle = OBSTACLE_COLOURS[obstacle.kind];
-      context.beginPath();
-      context.arc(toX(obstacle.x), toY(obstacle.z), obstacle.radius * scale, 0, 2 * Math.PI);
-      context.fill();
-    }
+  const zone = currentZone(game);
+  for (const obstacle of zone.obstacles) {
+    context.fillStyle = OBSTACLE_COLOURS[obstacle.kind];
+    context.beginPath();
+    context.arc(toX(obstacle.x), toY(obstacle.z), obstacle.radius * scale, 0, 2 * Math.PI);
+    context.fill();
+  }
+  for (const gate of zone.gates) {
+    drawRing(context, toX(gate.x), toY(gate.z), gate.radius * scale, GATE_COLOUR);
+    context.fillStyle = GATE_COLOUR;
+    context.fillText(`to ${gate.to}`, toX(gate.x), toY(gate.z) - gate.radius * scale - UNIT_RADIUS);
+  }
+  if (showGrid) {
+    context.drawImage(gridImage(game, width, toX, toY), 0, 0);
+    drawRoutes(context, game, toX, toY);
   }
 
   context.strokeStyle = '#ffffff';
@@ -173,18 +256,18 @@ export function drawGame(
   context.font = `bold ${String(UNIT_RADIUS * 1.5)}px system-ui, sans-serif`;
   context.textAlign = 'center';
   context.textBaseline = 'middle';
-  for (const entry of game.scheduled) {
+  for (const entry of game.live.scheduled) {
     drawTelegraph(context, entry, toX, toY, scale);
   }
 
-  for (const drop of game.drops) {
+  for (const drop of game.live.drops) {
     context.fillStyle = DROP_COLOURS[drop.kind];
     context.beginPath();
     context.arc(toX(drop.x), toY(drop.z), DROP_RADIUS, 0, 2 * Math.PI);
     context.fill();
   }
 
-  for (const enemy of game.enemies) {
+  for (const enemy of game.live.enemies) {
     const x = toX(enemy.x);
     const y = toY(enemy.z);
     const look = ENEMY_LOOKS[enemy.kind];
@@ -239,13 +322,13 @@ export function drawGame(
   }
 
   context.fillStyle = SHOT_COLOUR;
-  for (const shot of game.shots) {
+  for (const shot of game.live.shots) {
     context.beginPath();
     context.arc(toX(shot.x), toY(shot.z), SHOT_RADIUS, 0, 2 * Math.PI);
     context.fill();
   }
   context.fillStyle = ENEMY_SHOT_COLOUR;
-  for (const shot of game.enemyShots) {
+  for (const shot of game.live.enemyShots) {
     context.beginPath();
     context.arc(toX(shot.x), toY(shot.z), ENEMY_SHOT_RADIUS, 0, 2 * Math.PI);
     context.fill();

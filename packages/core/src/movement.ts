@@ -1,14 +1,21 @@
 import { AUTO_HEAL, COMBAT, MANA } from '../data/combat';
-import { MOVEMENT, SCATTER } from '../data/movement';
+import { MOVEMENT, ROUTE, SCATTER } from '../data/movement';
 import { CLASSES } from '../data/squad';
 import { aliveEnemy, healUnit, hitEnemy, nearestEnemy } from './combat';
 import { centreOf, livingUnits, triangleSlot } from './formation';
 import { fireShot } from './shots';
 import type { Enemy, GameEvent, GameState, Point, Unit } from './state';
 import { TICKS, perTick, secondsToTicks } from './time';
-import { isWalkable, pushOutOfObstacles } from './world';
+import { canReach, clearAlong, findRoute, isOpen, lineClear } from './grid';
+import { gridOf, pushOutOfObstacles } from './world';
 
-function dash(unit: Unit): void {
+/** A step is allowed onto open ground, and always off closed ground, so nobody is trapped. */
+function canStep(state: GameState, unit: Unit, x: number, z: number): boolean {
+  const grid = gridOf(state);
+  return isOpen(grid, x, z) || !isOpen(grid, unit.x, unit.z);
+}
+
+function dash(state: GameState, unit: Unit): void {
   if (unit.dashTicks === 0) {
     return;
   }
@@ -16,7 +23,7 @@ function dash(unit: Unit): void {
   const stride = perTick(SCATTER.dashSpeed);
   const x = unit.x + unit.dashX * stride;
   const z = unit.z + unit.dashZ * stride;
-  if (isWalkable(x, z)) {
+  if (canStep(state, unit, x, z)) {
     unit.x = x;
     unit.z = z;
   }
@@ -29,24 +36,44 @@ export function clearOrder(unit: Unit): void {
   unit.stuckTicks = 0;
 }
 
+function near(a: Point, b: Point, within: number): boolean {
+  return Math.hypot(a.x - b.x, a.z - b.z) < within;
+}
+
+/** How far the unit has left to walk to a point: along its route if it is routing there. */
+function walkLeft(unit: Unit, goal: Point): number {
+  const { route, routeGoal } = unit;
+  if (!routeGoal || route.length === 0 || !near(routeGoal, goal, ROUTE.goalDrift)) {
+    return Math.hypot(goal.x - unit.x, goal.z - unit.z);
+  }
+  let total = 0;
+  let from: Point = unit;
+  for (const corner of route) {
+    total += Math.hypot(corner.x - from.x, corner.z - from.z);
+    from = corner;
+  }
+  return total;
+}
+
 /** Where the unit's order sends it, if it still has one. */
 function orderTarget(state: GameState, unit: Unit, events: GameEvent[]): Point | null {
   const { dest } = unit;
   if (!dest) {
     return null;
   }
-  const distance = Math.hypot(dest.x - unit.x, dest.z - unit.z);
+  const distance = walkLeft(unit, dest);
   const madeProgress =
     unit.bestDistance === null || distance < unit.bestDistance - MOVEMENT.minProgress;
   unit.stuckTicks = madeProgress ? 0 : unit.stuckTicks + 1;
   unit.bestDistance = Math.min(unit.bestDistance ?? distance, distance);
 
-  if (distance < MOVEMENT.arriveDistance) {
+  if (Math.hypot(dest.x - unit.x, dest.z - unit.z) < MOVEMENT.arriveDistance) {
     clearOrder(unit);
     events.push({ type: 'unit-arrived', tick: state.tick, unitId: unit.id });
     return null;
   }
-  if (unit.stuckTicks > TICKS.giveUp) {
+  // With no route at all, the unit gives up at once (D-023).
+  if (unit.stuckTicks > TICKS.giveUp || !canReach(gridOf(state), unit, dest)) {
     clearOrder(unit);
     events.push({ type: 'unit-gave-up', tick: state.tick, unitId: unit.id });
     return null;
@@ -54,27 +81,70 @@ function orderTarget(state: GameState, unit: Unit, events: GameEvent[]): Point |
   return dest;
 }
 
-/** With nothing to do, a unit drifts back to its place in the triangle. */
+/** With nothing to do, a unit drifts back to its place in the triangle, short of any wall. */
 function slotTarget(state: GameState, unit: Unit): Point | null {
-  const slot = triangleSlot(unit.classId, state.anchor, state.heading);
+  const slot = clearAlong(
+    gridOf(state),
+    state.anchor,
+    triangleSlot(unit.classId, state.anchor, state.heading),
+  );
   const far = Math.hypot(slot.x - unit.x, slot.z - unit.z) > MOVEMENT.slotReturnDistance;
   return far ? slot : null;
 }
 
-/** Steps towards the target, or along whichever axis is still walkable. */
-function walk(unit: Unit, target: Point): void {
+/**
+ * The next point to walk to on the way to a goal, or null if there is no way.
+ * A unit walks straight when the line is clear, and asks A* only when it is not.
+ * A route is kept while its goal stays put, and corners are dropped as they pass.
+ */
+function steer(state: GameState, unit: Unit, goal: Point): Point | null {
+  const grid = gridOf(state);
+  if (lineClear(grid, unit, goal)) {
+    unit.route = [];
+    unit.routeGoal = null;
+    return goal;
+  }
+  const { routeGoal } = unit;
+  if (routeGoal && unit.route.length > 0 && near(routeGoal, goal, ROUTE.goalDrift)) {
+    unit.route[unit.route.length - 1] = { x: goal.x, z: goal.z };
+  } else {
+    const route = findRoute(grid, unit, goal);
+    unit.route = route ?? [];
+    unit.routeGoal = route ? { x: goal.x, z: goal.z } : null;
+    if (unit.dest && near(unit.dest, goal, ROUTE.goalDrift)) {
+      // Progress is now measured along the new route, which is longer than the straight line.
+      unit.bestDistance = null;
+    }
+  }
+  const { route } = unit;
+  while (route.length > 1) {
+    const [corner, after] = route as [Point, Point];
+    if (!near(unit, corner, ROUTE.cornerReach) && !lineClear(grid, unit, after)) {
+      break;
+    }
+    route.shift();
+  }
+  return route[0] ?? null;
+}
+
+/** Steps towards the target along its route, or along whichever axis is still walkable. */
+function walk(state: GameState, unit: Unit, goal: Point): void {
+  const target = steer(state, unit, goal);
+  if (!target) {
+    return;
+  }
   const dx = target.x - unit.x;
   const dz = target.z - unit.z;
   const distance = Math.hypot(dx, dz) || MOVEMENT.zeroDistance;
   const stride = Math.min(perTick(CLASSES[unit.classId].speed), distance);
   const x = unit.x + (dx / distance) * stride;
   const z = unit.z + (dz / distance) * stride;
-  if (isWalkable(x, z)) {
+  if (canStep(state, unit, x, z)) {
     unit.x = x;
     unit.z = z;
-  } else if (isWalkable(x, unit.z)) {
+  } else if (canStep(state, unit, x, unit.z)) {
     unit.x = x;
-  } else if (isWalkable(unit.x, z)) {
+  } else if (canStep(state, unit, unit.x, z)) {
     unit.z = z;
   }
 }
@@ -215,10 +285,13 @@ export function updateUnit(state: GameState, unit: Unit, events: GameEvent[]): v
   if (!unit.alive) {
     return;
   }
-  dash(unit);
+  dash(state, unit);
   const goal = decide(state, unit, events);
   if (goal) {
-    walk(unit, goal);
+    walk(state, unit, goal);
+  } else {
+    unit.route = [];
+    unit.routeGoal = null;
   }
   pushApart(state, unit);
   pushOutOfObstacles(state, unit, MOVEMENT.unitRadius);

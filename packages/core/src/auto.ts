@@ -20,10 +20,15 @@ export function lowestShare(units: LivingUnits): number {
   return Math.min(...units.map((unit) => unit.health / unit.maxHealth));
 }
 
+/** Whether the zone that runs holds a living boss, whose arena is at the zone's centre. */
+function hasArena(view: GameView): boolean {
+  return view.live.enemies.some((enemy) => enemy.boss && enemy.alive);
+}
+
 /** A straight line through the boss's arena would wake it, so the path swings round. */
-function aroundArena(from: Point, to: Point): Point {
+function aroundArena(view: GameView, from: Point, to: Point): Point {
   const { arenaRadius, detourRadius } = AUTO;
-  if (Math.hypot(to.x, to.z) <= arenaRadius) {
+  if (!hasArena(view) || Math.hypot(to.x, to.z) <= arenaRadius) {
     return to;
   }
   const dx = to.x - from.x;
@@ -43,7 +48,7 @@ function aroundArena(from: Point, to: Point): Point {
 /** Sends everyone alive to a point, swinging round the arena. */
 export function moveAll(view: GameView, to: Point, attack: boolean): Command {
   const units = livingIn(view);
-  const { x, z } = aroundArena(centreIn(units), to);
+  const { x, z } = aroundArena(view, centreIn(units), to);
   return { type: 'move', unitIds: units.map((unit) => unit.id), x, z, attack };
 }
 
@@ -61,13 +66,13 @@ export function nearest(from: Point, points: readonly Point[]): Point | null {
 }
 
 /**
- * What the squad does next on the island: `busy` while it is fighting or walking,
+ * What the squad does next in the zone that runs: `busy` while it is fighting or walking,
  * the next point to attack-move to, or null with nothing left to fight or fetch.
  */
 export function roam(view: GameView): Point | 'busy' | null {
   const units = livingIn(view);
   const centre = centreIn(units);
-  const monsters = view.enemies.filter((enemy) => enemy.alive && !enemy.boss);
+  const monsters = view.live.enemies.filter((enemy) => enemy.alive && !enemy.boss);
   const fighting = units.some(({ classId, x, z }) => {
     const { autoHeals, aggroRange } = CLASSES[classId];
     return (
@@ -80,8 +85,10 @@ export function roam(view: GameView): Point | 'busy' | null {
   if (fighting || units.some((unit) => unit.dest)) {
     return 'busy';
   }
-  const drops = view.drops.filter((drop) => {
-    return drop.ageTicks < TICKS.dropLife && Math.hypot(drop.x, drop.z) > AUTO.dropClearOfCentre;
+  const arena = hasArena(view);
+  const drops = view.live.drops.filter((drop) => {
+    const clear = !arena || Math.hypot(drop.x, drop.z) > AUTO.dropClearOfCentre;
+    return drop.ageTicks < TICKS.dropLife && clear;
   });
   return nearest(centre, drops) ?? nearest(centre, monsters);
 }
@@ -119,7 +126,7 @@ function drink(view: GameView, named: boolean): Command[] {
 }
 
 /**
- * Space: roam the island, killing and looting, and stop for danger (D-007). With the
+ * Space: roam the zone, killing and looting, and stop for danger (D-007). With the
  * boss awake it fights the boss (D-036). Given unit IDs, it runs only those characters,
  * and the rest stay the player's (D-035).
  */
@@ -132,7 +139,7 @@ export function autoCommands(whole: GameView, unitIds?: readonly number[]): Auto
   if (stop || view.tick % TICKS.autoThink !== 0) {
     return { commands: [], stop };
   }
-  const boss = view.enemies.find((enemy) => enemy.boss && enemy.awake && enemy.alive);
+  const boss = view.live.enemies.find((enemy) => enemy.boss && enemy.awake && enemy.alive);
   if (boss) {
     const attack = fightBoss(view, boss.id);
     const commands = drink(view, unitIds !== undefined);

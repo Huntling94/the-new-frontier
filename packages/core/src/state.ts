@@ -63,8 +63,14 @@ export interface Unit {
   hold: boolean;
   /** Fights what it meets on the way. */
   attackMove: boolean;
-  /** Closest the unit has come to `dest`. */
+  /** Shortest the walk left to `dest` has been, along the route. */
   bestDistance: number | null;
+  /**
+   * Corners still to pass on the way to `routeGoal`, the last being the goal itself.
+   * Empty when the unit walks straight or stands (D-023).
+   */
+  route: Point[];
+  routeGoal: Point | null;
   stuckTicks: number;
   dashTicks: number;
   dashX: number;
@@ -321,16 +327,45 @@ export interface ChargeTelegraph {
 
 export type ScheduledEffect = ScheduledStrike | SlamTelegraph | ChargeTelegraph;
 
-export type ObstacleKind = 'tree' | 'rock' | 'beacon' | 'waystone';
+export type ObstacleKind = 'stone' | 'rock' | 'beacon' | 'waystone';
 
 export interface Obstacle extends Point {
   readonly kind: ObstacleKind;
   readonly radius: number;
 }
 
-export interface ZoneState {
+/** What a zone holds when it runs: packs, a boss and a training dummy (D-022). */
+export interface ZoneContents {
+  readonly dummy: Point | null;
+  readonly packs: readonly PackData[];
+  /** Where the boss stands, if there is one. */
+  readonly boss: Point | null;
+  /** Replaces the zone's obstacles. Only tests use this. */
+  readonly obstacles?: readonly Obstacle[];
+}
+
+/** When a cleared pack comes back, on the game clock (D-021). */
+export interface PackReturn {
+  readonly packId: number;
+  readonly tick: number;
+}
+
+/** What lasts about a zone after the squad leaves it (D-021). */
+export interface ZoneRecord {
   readonly id: string;
-  readonly obstacles: Obstacle[];
+  bossDead: boolean;
+  returns: PackReturn[];
+  /** A test scenario's replacement contents, or null in play. */
+  readonly contents: ZoneContents | null;
+}
+
+/** Everything that exists only while its zone runs. It is dropped on leaving (D-021). */
+export interface LiveGroup {
+  enemies: Enemy[];
+  shots: Shot[];
+  enemyShots: EnemyShot[];
+  scheduled: ScheduledEffect[];
+  drops: Drop[];
 }
 
 export interface GameState {
@@ -339,31 +374,27 @@ export interface GameState {
   rng: number;
   nextId: number;
   units: Unit[];
-  zones: ZoneState[];
+  /** The zone that runs. Only one runs at a time (D-021). */
+  zoneId: string;
+  /** One for each zone in the world, in data order. */
+  records: ZoneRecord[];
+  live: LiveGroup;
   /** Centre of the squad's triangle. */
   anchor: Point;
   /** Direction the triangle faces, in radians. */
   heading: number;
   scatterCooldownTicks: number;
-  enemies: Enemy[];
-  shots: Shot[];
-  enemyShots: EnemyShot[];
-  scheduled: ScheduledEffect[];
-  drops: Drop[];
   /** The enemy the squad was last told to attack. */
   sharedTargetId: number | null;
   marks: number;
   potions: number;
   potionCooldownTicks: number;
-  /** All three are down. Only the tick moves until they return to camp. */
+  /** All three are down. Only the tick moves until they return to the zone's camp. */
   squadDown: boolean;
   /** Left until the squad returns to camp. */
   wipeTicks: number;
   /** The boss is dead. Only the tick still moves. */
   victory: boolean;
-  /** Where the squad returns to after a wipe. */
-  readonly camp: Point;
-  readonly campHeading: number;
 }
 
 type DeepReadonly<T> = T extends readonly (infer Item)[]
@@ -375,16 +406,14 @@ type DeepReadonly<T> = T extends readonly (infer Item)[]
 /** How everything outside the core reads the game. */
 export type GameView = DeepReadonly<GameState>;
 
-/** What a game starts with. */
+/** What a game starts with: a zone, a point and a heading (D-022). */
 export interface Scenario {
   readonly name: string;
+  readonly zone: string;
   readonly squadStart: Point;
   readonly squadHeading: number;
-  /** Where the training dummy stands, if there is one. */
-  readonly dummy: Point | null;
-  readonly packs: readonly PackData[];
-  /** Where the boss stands, if there is one. */
-  readonly boss: Point | null;
+  /** Replaces the starting zone's contents, for tests. */
+  readonly contents?: ZoneContents;
 }
 
 export interface MoveCommand {
@@ -513,7 +542,13 @@ export type GameEvent =
       readonly kind: Drop['kind'];
       readonly value: number;
     }
-  | { readonly type: 'victory'; readonly tick: number };
+  | { readonly type: 'victory'; readonly tick: number }
+  | {
+      readonly type: 'zone-changed';
+      readonly tick: number;
+      readonly from: string;
+      readonly to: string;
+    };
 
 /** Why auto-combat has stopped (D-007). */
 export type AutoStop = 'danger' | 'clear' | 'squad-down' | 'victory';

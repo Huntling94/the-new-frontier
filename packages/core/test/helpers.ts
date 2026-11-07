@@ -18,7 +18,7 @@ export function unitOf(state: GameState, id: number): Unit {
 }
 
 export function dummyOf(state: GameState): Enemy {
-  const [dummy] = state.enemies;
+  const [dummy] = state.live.enemies;
   if (!dummy) throw new Error('No dummy.');
   return dummy;
 }

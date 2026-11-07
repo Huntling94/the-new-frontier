@@ -1,13 +1,14 @@
 import { describe, expect, it } from 'vitest';
 import { BOTS } from '../data/bots';
 import { ISLAND_SCENARIO } from '../data/scenarios';
-import { ZONES } from '../data/zones';
 import { autoCommands } from '../src/auto';
 import { botCommands } from '../src/bots';
 import { createGame, step } from '../src/game';
 import type { Command, GameState, MoveCommand } from '../src/state';
 import { TICKS } from '../src/time';
 import { FIGHTER, HEALER, SNIPER, unitOf } from './helpers';
+
+const ZONES_ANVIL = { x: 6, z: 66 };
 
 function island(seed = 1): GameState {
   return createGame(seed, ISLAND_SCENARIO);
@@ -27,8 +28,8 @@ function deepFreeze<T>(value: T): T {
   return value;
 }
 
-function bossOf(state: GameState): GameState['enemies'][number] {
-  const boss = state.enemies.find((enemy) => enemy.boss);
+function bossOf(state: GameState): GameState['live']['enemies'][number] {
+  const boss = state.live.enemies.find((enemy) => enemy.boss);
   if (!boss) throw new Error('No boss.');
   return boss;
 }
@@ -38,7 +39,7 @@ function moves(commands: readonly Command[]): MoveCommand[] {
 }
 
 function clearMonsters(state: GameState): void {
-  state.enemies = state.enemies.filter((enemy) => enemy.boss);
+  state.live.enemies = state.live.enemies.filter((enemy) => enemy.boss);
 }
 
 describe('auto-combat', () => {
@@ -57,19 +58,19 @@ describe('auto-combat', () => {
 
   it('fetches a fresh drop before the next monster', () => {
     const state = thinking(island());
-    state.drops.push({ id: 900, kind: 'marks', value: 1, x: 40, z: 40, speedX: 0, speedZ: 0, flightTicks: 0, ageTicks: 0 });
+    state.live.drops.push({ id: 900, kind: 'marks', value: 1, x: 40, z: 40, speedX: 0, speedZ: 0, flightTicks: 0, ageTicks: 0 });
     expect(moves(autoCommands(state).commands)[0]).toMatchObject({ x: 40, z: 40 });
   });
 
   it('leaves an old drop', () => {
     const state = thinking(island());
-    state.drops.push({ id: 900, kind: 'marks', value: 1, x: 40, z: 40, speedX: 0, speedZ: 0, flightTicks: 0, ageTicks: TICKS.dropLife });
+    state.live.drops.push({ id: 900, kind: 'marks', value: 1, x: 40, z: 40, speedX: 0, speedZ: 0, flightTicks: 0, ageTicks: TICKS.dropLife });
     expect(moves(autoCommands(state).commands)[0]).not.toMatchObject({ x: 40, z: 40 });
   });
 
   it('waits while it fights', () => {
     const state = thinking(island());
-    const [monster] = state.enemies;
+    const [monster] = state.live.enemies;
     if (!monster) throw new Error('No monster.');
     monster.awake = true;
     monster.x = 0;
@@ -100,7 +101,7 @@ describe('auto-combat', () => {
 
   it('does not wait on a monster nobody can reach, which is what stalled it', () => {
     const state = thinking(island());
-    const [monster] = state.enemies;
+    const [monster] = state.live.enemies;
     if (!monster) throw new Error('No monster.');
     monster.awake = true;
     for (const unit of state.units) {
@@ -116,7 +117,7 @@ describe('auto-combat', () => {
   it('swings round the arena rather than through it', () => {
     const state = thinking(island());
     clearMonsters(state);
-    state.enemies.push({ ...bossOf(state), id: 900, boss: null, kind: 'runner', x: 0, z: -60 });
+    state.live.enemies.push({ ...bossOf(state), id: 900, boss: null, kind: 'runner', x: 0, z: -60 });
     for (const unit of state.units) {
       unit.x = 0;
       unit.z = 60 + unit.id;
@@ -204,7 +205,7 @@ describe('bots', () => {
     }
     state.marks = 1000;
     const [move] = moves(botCommands(state, 'careful'));
-    expect(move).toMatchObject(ZONES[0]?.anvil ?? {});
+    expect(move).toMatchObject(ZONES_ANVIL);
   });
 
   it('buy from the list only at the anvil', () => {
@@ -278,11 +279,11 @@ describe('bots', () => {
         unit.z = 30;
       });
       const slam = { kind: 'slam', ticks: 10, totalTicks: 40, enemyId: 1, x: 30, z: 30, radius: 9, hitRadius: 9.4, damage: 1 } as const;
-      state.scheduled.push(slam);
+      state.live.scheduled.push(slam);
       expect(botCommands(state, 'careful').map(({ type }) => type)).toContain('scatter');
       expect(botCommands(state, 'sloppy').map(({ type }) => type)).not.toContain('scatter');
 
-      state.scheduled.length = 0;
+      state.live.scheduled.length = 0;
       state.units.forEach((unit) => (unit.hold = true));
       state.scatterCooldownTicks = TICKS.scatterCooldown - TICKS.scatterRegroup;
       expect(botCommands(state, 'careful').map(({ type }) => type)).toContain('regroup');

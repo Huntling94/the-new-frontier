@@ -24,7 +24,7 @@ describe('looks', () => {
   it('has a plain default for any type the data adds', () => {
     expect(characterLook('wizard').name).toBe('Adventurer');
     expect(monsterLook('kraken').body).toBe('blob');
-    expect(zoneLook('far-isle')).toBe(zoneLook('isle'));
+    expect(zoneLook('far-isle')).toBe(zoneLook('lande'));
     expect(spellLook('fireball')).toBeNull();
   });
 
@@ -50,8 +50,8 @@ describe('entities', () => {
     const state = createGame(4, ISLAND_SCENARIO);
     const { entities } = build(state);
     entities.draw(state, 1, 1 / 60, NONE);
-    expect(entities.counts().enemies).toBe(state.enemies.length);
-    state.enemies = [];
+    expect(entities.counts().enemies).toBe(state.live.enemies.length);
+    state.live.enemies = [];
     entities.draw(state, 1, 1 / 60, NONE);
     expect(entities.counts().enemies).toBe(0);
   });
@@ -109,7 +109,20 @@ describe('zone scene', () => {
   it('builds from the zone the core reads, not a fixed island (decision 9)', () => {
     const state = createGame(7, ISLAND_SCENARIO);
     const { scene } = build(state);
-    expect(scene.zone.id).toBe('isle');
+    expect(scene.zone.id).toBe('lande');
     expect(scene.heightAt(0, 60)).toBeGreaterThan(0);
+  });
+
+  it('builds a walled zone, with no sea, and frees all of it again', () => {
+    const state = createGame(7, { ...ISLAND_SCENARIO, zone: 'lande-cave', squadStart: { x: -30, z: 16 } });
+    const { scene, effects, entities } = build(state);
+    expect(scene.zone.ground.shape).toBe('walled');
+    expect(scene.heightAt(0, 0)).toBe(scene.zone.groundLevel);
+    entities.draw(state, 1, 1 / 60, NONE);
+    expect(entities.counts().enemies).toBe(state.live.enemies.length);
+    entities.dispose();
+    effects.dispose();
+    scene.dispose();
+    expect(scene.scene.children).toHaveLength(0);
   });
 });

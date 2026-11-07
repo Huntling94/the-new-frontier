@@ -51,5 +51,5 @@ export const SPELL_TOUR: Replay = {
     { tick: 2580, commands: [{ type: 'regroup' }] },
     { tick: 2640, commands: [{ type: 'target', unitIds: EVERYONE, enemyId: DUMMY_ID }] },
   ],
-  expectedHash: 'a54a5595',
+  expectedHash: '84876bf5',
 };
