@@ -21,8 +21,9 @@ Numbered, each citing its register ID. While any question is open, list it here 
 
 1. Commands with thresholds.
 2. Checks this brief changes, and why, with before and after results.
-3. CI green on the default branch.
-4. The maintainer has seen it running: where to go and what to look at.
+3. `docs/DATA-MODEL.md` is updated if an entity, relationship or rule changed.
+4. CI green on the default branch.
+5. The maintainer has seen it running: where to go and what to look at.
 
 ## Stop and ask if
 

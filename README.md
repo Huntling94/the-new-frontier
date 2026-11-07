@@ -2,9 +2,9 @@
 
 **A free, open-source 3D squad RPG for your browser. Command three characters at once, level them up, and help the frontier reach new cities.**
 
-![The Fighter, Shooter and Healer interrupting a boss in the squad test](docs/media/squad-test.jpg)
+![The Fighter, Sniper and Healer interrupting a boss in the squad test](docs/media/squad-test.jpg)
 
-*Early squad test. The Shooter has just interrupted the boss's charged blast.*
+*Early squad test. The Sniper has just interrupted the boss's charged blast.*
 
 > **Status: early development.** The squad prototype works, and the first public build is on its way.
 

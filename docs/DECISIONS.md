@@ -8,21 +8,32 @@ Every design and architecture decision, in one place. Entries are never rewritte
 | [D-002](#d-002) | Name: The New Frontier | Accepted | 7 Nov 2026 |
 | [D-003](#d-003) | Right-click control and a free rotating camera | Accepted, extended by D-013 | 7 Nov 2026 |
 | [D-004](#d-004) | Individual levels, XP split among the living | Accepted | 7 Nov 2026 |
-| [D-005](#d-005) | Upgrades are safe to +4, then risk destruction | Accepted | 7 Nov 2026 |
-| [D-006](#d-006) | Five classes, with a Family House to rotate them | Accepted | 7 Nov 2026 |
+| [D-005](#d-005) | Upgrades are safe to +4, then risk destruction | Accepted, extended by D-028 | 7 Nov 2026 |
+| [D-006](#d-006) | Five classes, with a Family House to rotate them | Accepted, extended by D-020 | 7 Nov 2026 |
 | [D-007](#d-007) | Space is auto-combat, and also the test bot | Accepted | 7 Nov 2026 |
 | [D-008](#d-008) | The Healer auto-heals one person at a time | Accepted | 7 Nov 2026 |
 | [D-009](#d-009) | TypeScript, three.js and a headless game core | Accepted | 7 Nov 2026 |
 | [D-010](#d-010) | MIT for new code; the 2019 files stay outside it | Accepted | 7 Nov 2026 |
-| [D-011](#d-011) | A world of safe cities and unsafe zones, and the goal is to help the frontier | Accepted | 7 Nov 2026 |
+| [D-011](#d-011) | A world of safe cities and unsafe zones, and the goal is to help the frontier | Accepted, extended by D-021 | 7 Nov 2026 |
 | [D-012](#d-012) | The marketplace is NPC shops | Accepted | 7 Nov 2026 |
 | [D-013](#d-013) | The full control set, as approved in the squad test | Accepted | 7 Nov 2026 |
 | [D-014](#d-014) | Commits: contributor and route | Accepted | 7 Nov 2026 |
-| [D-015](#d-015) | The game core is deterministic and driven by commands | Accepted | 7 Nov 2026 |
+| [D-015](#d-015) | The game core is deterministic and driven by commands | Accepted, extended by D-021 and D-022 | 7 Nov 2026 |
 | [D-016](#d-016) | Four packages, and a guard on `legacy/` | Accepted | 7 Nov 2026 |
 | [D-017](#d-017) | The public page goes live in S2.1, unlinked | Accepted | 7 Nov 2026 |
 | [D-018](#d-018) | Code and data stay separate in the core | Accepted | 7 Nov 2026 |
 | [D-019](#d-019) | Packages meet at small, explicit interfaces | Accepted | 7 Nov 2026 |
+| [D-020](#d-020) | Sniper replaces Shooter | Accepted | 7 Nov 2026 |
+| [D-021](#d-021) | Zones joined by gates, with one live at a time | Accepted | 7 Nov 2026 |
+| [D-022](#d-022) | Zone layouts are frozen, with rules and look kept apart | Accepted | 7 Nov 2026 |
+| [D-023](#d-023) | One walkable grid for movement and routes | Accepted | 7 Nov 2026 |
+| [D-024](#d-024) | Saves are automatic, versioned and arrive in S3 | Accepted | 7 Nov 2026 |
+| [D-025](#d-025) | The family holds the store, and gear moves onto characters | Accepted | 7 Nov 2026 |
+| [D-026](#d-026) | Attributes and stats are calculated in a fixed order | Accepted | 7 Nov 2026 |
+| [D-027](#d-027) | Arts decide what a character can use | Accepted | 7 Nov 2026 |
+| [D-028](#d-028) | Seven gear slots to start, on shared item types | Accepted | 7 Nov 2026 |
+| [D-029](#d-029) | Definitions and instances, and a data model document | Accepted | 7 Nov 2026 |
+| [D-030](#d-030) | Graphics come in two steps | Accepted | 7 Nov 2026 |
 
 ## D-001
 
@@ -131,3 +142,78 @@ The camera starts with follow on. Panning or gripping turns it off, and it stays
 **Packages meet at small, explicit interfaces.** Each package's `src/index.ts` is its whole public interface, and other packages import only from it. What crosses between packages is named, typed and read-only. `core` exposes plain data, never three.js or browser objects. A change to an interface is deliberate, and the brief that makes it says so. Inside a package, code stays simple: an abstraction waits until a second real use needs it.
 
 **Why:** the game will grow to many cities, zones and quests, and the graphics will be redone after the base game works. Either should be possible without rewriting the rest.
+
+## D-020
+
+**Sniper replaces Shooter.** This is a relabel, with no change to how the class plays. It extends D-006. Wizard and Elementalist are working names for the last two classes, and their design is deferred. Work focuses on the Fighter, Sniper and Healer.
+
+## D-021
+
+**Zones joined by gates, with one live at a time.** The world is a set of zones, each with its own ground, coordinates and monsters. Towns, fields and dungeon floors are all zones, with a `kind`. Gates join them as a directed graph, and lands group them. Only the zone holding the squad runs. Enemies, shots, drops and scheduled effects sit in one live group, which is dropped on leaving.
+
+- A gate holds its requirements and any cost, so a rare sea crossing is an ordinary gate. Lands have no rules of their own.
+- All three characters cross together. Gates work during a fight, and the monsters reset.
+- Packs respawn on a timer kept in the zone record, not on re-entry.
+- A zone records its place in a shared world frame, a gate may be a stretch of edge, and art loads per zone. These keep near-seamless travel open: a later stage can show neighbouring zones as scenery and drop the fade, with no change to the rules.
+
+This extends D-011 and D-015.
+
+**Why:** a seamless world needs streaming and off-screen rules, at a high cost for a squad game in a browser.
+
+## D-022
+
+**Zone layouts are frozen, with rules and look kept apart.** Every player gets the same layouts on every run, and the seed decides only rolls such as crits, loot and upgrades. A tool may generate a layout, but the result is baked into a data file and committed. Each zone has a rules layer in `core` (walkable ground, obstacles, gates, packs) and a look layer in `render` (theme, colours, dressing). Select zones may vary their look on each visit. This extends D-015.
+
+**Why:** random placement was one of the two causes of the squad test's stall, and hand-placed quests, tests and art all need fixed ground. Baking makes every change to the world visible in a diff.
+
+## D-023
+
+**One walkable grid for movement and routes.** Each zone has a grid of walkable cells, built from its data and not saved. Movement and pathfinding both read it, and A\* finds routes. Units follow those routes in place of walking straight.
+
+**Why:** units give up after 0.7 seconds without progress, so a dungeon wall would stop them. A grid is the simplest structure that handles walls, and it also proves zones can be reached.
+
+## D-024
+
+**Saves are automatic, versioned and arrive in S3.** The game saves in the browser whenever no fight is on, and immediately after every anvil use. A save holds lasting data only: the family, quest progress, zone records, the current zone and the generator's state. It never holds the live group. Each save carries a format version, and a chain of tested steps moves old saves forward. A save newer than the build is refused. Content IDs are not deleted or reused without a migration. There is one save, with export and import to a file.
+
+**Why:** playtesters cannot finish a region if a refresh wipes it. Saving after the anvil stops a reload undoing a destroyed item (D-005).
+
+## D-025
+
+**The family holds the store, and gear moves onto characters.** Items not in use are shared by the family. Equipping moves a gear item out of the store and onto one character, so it is always in exactly one place. A family may field three of one class, so a character's place in the triangle comes from its place in the active three, not from its class. How consumables are used remains open, and today's shared count stands until a second type is needed.
+
+## D-026
+
+**Attributes and stats are calculated in a fixed order.** Characters have five attributes: strength (STR), ranged ability (RAN), magical ability (MAG), vigour (VIG) and nimbleness (NIM). Each class has its own starting values and growth. Attributes feed stats through a data table. Each item's stats, multiplied by its upgrade, go on top, then effects, then any cap. Final stats are calculated, not saved.
+
+- Stats are a named list, and monsters use the same sheet as characters.
+- Most attribute growth is automatic. Players also get a few points to spend each level, with a cheap way to reset them. Spent points arrive after automatic growth works.
+- Monsters skip attributes, and set their stats directly.
+- Nimbleness never changes walking speed, because the squad moves as a triangle.
+- One function resolves a hit, in order: accuracy against evade, block, crit, defence and resistance, then minimum damage.
+- Evade is today's DR, renamed: a smooth multiplier with no random misses. Block is a chance, from shields.
+- Every attack and spell has a damage type, for resistances.
+
+**Why:** new stats and content should mean new data, and spent points give two characters of one class a reason to differ. Level no longer scales weapons, so squad-test values will not carry over exactly. Balance is deferred.
+
+## D-027
+
+**Arts decide what a character can use.** A class lists its arts, each with requirements. An art unlocks spells and weapon categories, and one category may belong to several arts. For now arts come automatically at a set level, and trainers or quests can be added as data. A spell needs its art and a matching weapon in hand, unless it names none. Each class starts with one art covering its three spells.
+
+## D-028
+
+**Seven gear slots to start, on shared item types.** The slots are main hand, off hand, head, chest, gloves, boots and necklace, and more can be added as data. Each item type lists the slots it fits and fills, which covers two-handed weapons and later rings. An item is its type plus its upgrade for now. Item boosts, such as more attack speed or damage, come later and use the named attribute and stat lists. Whether they vary between items is decided then. The weapon sets range, base attack speed and knockback, and names which attack stat it uses. Armour is shared across classes, and each class keeps an armour skill. Any slot may be empty. Each item type has requirements and a price, so a stronger pistol is another type with a higher level requirement. The spare in D-005 becomes a basic item type for that slot. The upgrade odds do not change.
+
+**Why:** with five classes, twelve slots and five tiers, class-specific gear means 300 items, and class-specific weapons alone mean 80.
+
+## D-029
+
+**Definitions and instances, and a data model document.** Every entity is either a definition, which is fixed data, or an instance, which changes in play. `docs/DATA-MODEL.md` holds the glossary, entity relationships, the entity catalogue and the data structures, and stays conceptual. Exact fields stay in the TypeScript types. A brief that changes an entity, a relationship or a rule there updates it. A data structure enters only when a real need demands it, and the brief says why it won.
+
+**Why:** the repository should teach as well as work, and teaching should follow real needs.
+
+## D-030
+
+**Graphics come in two steps.** The game keeps the squad test's level of 3D through S3 and S4, with a palette for each zone theme. A new stage, S5, then does the lift: art direction, an asset source, a performance budget, and reworking what exists. It comes before the bulk of content, so that nothing is made twice. If playtesters drop off because of how the game looks, S5 comes forward.
+
+**Why:** art cost scales with content. The simple look is good enough to build on, so the lift need not come before going public.

@@ -22,5 +22,6 @@ Working rules for Claude Code in this repository. Read `STATE.md` first; it is t
 ## Briefs
 
 - New briefs follow `docs/briefs/TEMPLATE.md`, and are agreed with the maintainer before building.
+- **A brief that changes the data model updates `docs/DATA-MODEL.md`.**
 - **Stop and ask** when a decision is not in the brief, or a check changes in a way the brief did not plan.
 - Note bugs in `STATE.md` and fix them through a brief, not in passing.

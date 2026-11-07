@@ -1,6 +1,6 @@
 # Architecture
 
-The game is split so that its rules run and test without a browser (D-009, D-016). Rules live in one package, and everything that draws, listens or builds sits around it.
+The game is split so that its rules run and test without a browser (D-009, D-016). Rules live in one package, and everything that draws, listens or builds sits around it. What the game is made of, and how its parts relate, is in `docs/DATA-MODEL.md`.
 
 ## Packages
 
