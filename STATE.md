@@ -25,4 +25,4 @@ Stage S2, Foundation, is done: the game plays from a public URL, with tests and 
 
 ## Bugs
 
-None open.
+- Some browser tests time key holds by the wall clock, so on slow frames the camera turns less and the test lands somewhere else. "A right click moves the squad … at four rotations" failed once locally in 31 runs: the squad settled 3.8 from the click, against a limit of 3, likely blocked by something at a point it does not usually reach. Its hold of `Period` should wait for the turn, as the camera test now does (S2.3b).

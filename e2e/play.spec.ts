@@ -180,10 +180,11 @@ test.describe('commanding the squad', () => {
     expect(orbited.yaw).toBeGreaterThan(start.yaw - 100 * 0.006 - 1e-9);
     expect(orbited.tiltAdjust).toBeGreaterThan(0.1);
 
+    // Holding the key keeps turning the camera. Frames are slow and clamped on CI, so wait
+    // for the turn rather than for a fixed time.
     await page.keyboard.down('Comma');
-    await page.waitForTimeout(300);
+    await expect.poll(() => page.evaluate(() => window.__tnf.camera.yaw)).toBeLessThan(orbited.yaw - 0.2);
     await page.keyboard.up('Comma');
-    expect(await page.evaluate(() => window.__tnf.camera.yaw)).toBeLessThan(orbited.yaw - 0.2);
     await page.keyboard.press('Backspace');
     expect(await page.evaluate(() => [window.__tnf.camera.yaw, window.__tnf.camera.tiltAdjust])).toEqual([0, 0]);
 
@@ -220,12 +221,13 @@ test.describe('commanding the squad', () => {
 });
 
 test('a bot plays from the start to victory in the real page with a clean console', async ({ page }) => {
-  test.setTimeout(180_000);
+  test.setTimeout(240_000);
   const errors = watchErrors(page);
   await openGame(page, 'seed=1&bot=careful&speed=32');
   await page.waitForFunction(() => window.__tnf.view.victory, undefined, { timeout: 170_000, polling: 500 });
-  // The beacon's banner, then the victory screen with the squad test's four questions.
-  await expect(page.locator('#end')).toBeVisible({ timeout: 10_000 });
+  // The beacon's banner, then the victory screen with the squad test's four questions. The
+  // banner's 2.6 seconds count clamped frame time, which runs slow on CI at 32 times speed.
+  await expect(page.locator('#end')).toBeVisible({ timeout: 60_000 });
   await expect(page.locator('#endBox')).toContainText('Could you follow all three during the boss?');
   expect(errors).toEqual([]);
 });
