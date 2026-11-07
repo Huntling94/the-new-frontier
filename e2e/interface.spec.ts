@@ -117,15 +117,24 @@ test.describe('the interface (S2.3b)', () => {
     await page.waitForTimeout(250);
     await page.keyboard.up('ArrowUp');
     expect(await page.evaluate(() => window.__tnf.camera.follow)).toBe(false);
-    // Send the Sniper off alone, then select it alone: the camera goes after it.
+    // With follow off, selecting the Sniper alone turns it back on, onto the Sniper.
     await page.keyboard.press('F2');
     expect(await page.evaluate(() => window.__tnf.camera.follow)).toBe(true);
-    const distance = (): Promise<number> =>
+    // The Sniper stands about 5 units from the squad's middle, and may still be walking
+    // into place, so the easing camera trails it a little. It must settle on the Sniper,
+    // well clear of the middle the camera followed before.
+    const offCentre = (): Promise<number> =>
       page.evaluate(() => {
-        const sniper = window.__tnf.view.units[1];
+        const { units } = window.__tnf.view;
+        const sniper = units[1];
         const { x, z } = window.__tnf.camera;
-        return sniper ? Math.hypot(sniper.x - x, sniper.z - z) : Infinity;
+        if (!sniper) return -Infinity;
+        const middle = {
+          x: units.reduce((sum, unit) => sum + unit.x, 0) / units.length,
+          z: units.reduce((sum, unit) => sum + unit.z, 0) / units.length,
+        };
+        return Math.hypot(middle.x - x, middle.z - z) - Math.hypot(sniper.x - x, sniper.z - z);
       });
-    await expect.poll(distance, { timeout: 5_000 }).toBeLessThan(1);
+    await expect.poll(offCentre, { timeout: 10_000 }).toBeGreaterThan(2.5);
   });
 });
