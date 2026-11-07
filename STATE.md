@@ -4,11 +4,11 @@
 
 ## Now
 
-Stage S2, Foundation. S1, S2.1 and S2.2a are closed: the core runs in fixed ticks from a seed, the squad moves in formation around obstacles, and a replay proves a run repeats exactly. The dev-only viewer at `/viewer.html` plays it on a 2D map. An empty island is still what the public page shows, unlinked. S2.2b, S2.2c and S2.3 are drafted.
+Stage S2, Foundation. S1, S2.1, S2.2a and S2.2b are closed: the core runs in fixed ticks from a seed, and the squad moves, fights a training dummy, casts all nine spells, levels up and upgrades gear, with replays proving a run repeats exactly. The dev-only viewer at `/viewer.html` plays them on a 2D map. An empty island is still what the public page shows, unlinked. S2.2c and S2.3 are drafted.
 
 ## Next
 
-1. Agree brief S2.2b, then build it.
+1. Agree brief S2.2c, then build it.
 
 ## Open
 
@@ -19,3 +19,4 @@ Stage S2, Foundation. S1, S2.1 and S2.2a are closed: the core runs in fixed tick
 ## Bugs
 
 - Squad test: auto-combat never finished clearing the island in 3 of 100 bot runs. Cause unknown. S2.2c must not carry it over.
+- A unit sent alone on attack-move is also set to hold, so a Fighter stops about 8 from an enemy and never closes. It comes from the squad test. Fix through a brief, likely S2.2c.
