@@ -5,7 +5,7 @@ import { damageToEnemy, hitEnemy, hurtUnit } from '../src/combat';
 import { createGame, step } from '../src/game';
 import { dropLoot } from '../src/loot';
 import type { Enemy, GameState, MonsterKind, PackData } from '../src/state';
-import { FIGHTER, HEALER, SHOOTER, ofType, place, run, sendAway, unitOf } from './helpers';
+import { FIGHTER, HEALER, SNIPER, ofType, place, run, sendAway, unitOf } from './helpers';
 
 const POINT = { x: 0, z: 30 };
 
@@ -58,7 +58,7 @@ describe('damage to monsters', () => {
   it('uses the stats of the monster that is hit', () => {
     const low = packGame([{ kind: 'runner', count: 1 }], 1);
     const high = packGame([{ kind: 'runner', count: 1 }], 20);
-    const unit = unitOf(low, SHOOTER);
+    const unit = unitOf(low, SNIPER);
     const easy = damageToEnemy(unit, monster(low), 1, false);
     expect(damageToEnemy(unit, monster(high), 1, false)).toBeLessThan(easy);
   });
@@ -85,14 +85,14 @@ describe('aggro', () => {
     };
     const state = createGame(1, scenario);
     sendAway(state);
-    hitEnemy(state, unitOf(state, SHOOTER), monster(state), 1, []);
+    hitEnemy(state, unitOf(state, SNIPER), monster(state), 1, []);
     expect(state.enemies.map(({ awake }) => awake)).toEqual([true, true, false]);
   });
 
   it('leaves idle units alone with a sleeping monster, until it wakes', () => {
     const { state, enemy } = oneOf('runner');
-    const shooter = unitOf(state, SHOOTER);
-    place(shooter, enemy.x + MONSTER_RULES.wakeRange + 2, enemy.z);
+    const sniper = unitOf(state, SNIPER);
+    place(sniper, enemy.x + MONSTER_RULES.wakeRange + 2, enemy.z);
     run(state, 40);
     expect(state.shots).toEqual([]);
     enemy.awake = true;
@@ -102,11 +102,11 @@ describe('aggro', () => {
 
   it('lets attack-move start a fight with a sleeping pack', () => {
     const { state, enemy } = oneOf('runner');
-    const shooter = unitOf(state, SHOOTER);
-    place(shooter, enemy.x + MONSTER_RULES.wakeRange + 2, enemy.z);
-    step(state, [{ type: 'move', unitIds: [SHOOTER], x: enemy.x, z: enemy.z, attack: true }]);
+    const sniper = unitOf(state, SNIPER);
+    place(sniper, enemy.x + MONSTER_RULES.wakeRange + 2, enemy.z);
+    step(state, [{ type: 'move', unitIds: [SNIPER], x: enemy.x, z: enemy.z, attack: true }]);
     expect(enemy.awake).toBe(false);
-    expect(shooter.targetId).toBe(enemy.id);
+    expect(sniper.targetId).toBe(enemy.id);
     const events = run(state, 90);
     expect(enemy.awake).toBe(true);
     expect(ofType(events, 'hit').some(({ targetId }) => targetId === enemy.id)).toBe(true);
@@ -148,7 +148,7 @@ describe('monster behaviour', () => {
     }
     const events = run(state, 32);
     const hit = new Set(ofType(events, 'hit').map(({ targetId }) => targetId));
-    expect(hit).toEqual(new Set([FIGHTER, SHOOTER, HEALER]));
+    expect(hit).toEqual(new Set([FIGHTER, SNIPER, HEALER]));
   });
 
   it('drops a slam if the monster dies first', () => {
@@ -185,7 +185,7 @@ describe('monster behaviour', () => {
     const { state, enemy } = oneOf('spitter');
     enemy.awake = true;
     enemy.strikeTicks = 0;
-    const unit = unitOf(state, SHOOTER);
+    const unit = unitOf(state, SNIPER);
     place(unit, enemy.x + 12, enemy.z);
     unit.attackTicks = 100000;
     run(state, 16);
@@ -195,7 +195,7 @@ describe('monster behaviour', () => {
     const health = unit.health;
     const events = run(state, 60);
     expect(unit.health).toBeLessThan(health);
-    expect(ofType(events, 'hit').some(({ targetId }) => targetId === SHOOTER)).toBe(true);
+    expect(ofType(events, 'hit').some(({ targetId }) => targetId === SNIPER)).toBe(true);
     expect(state.enemyShots).toEqual([]);
   });
 
@@ -203,14 +203,14 @@ describe('monster behaviour', () => {
     const { state, enemy } = oneOf('spitter');
     enemy.awake = true;
     enemy.strikeTicks = 0;
-    const unit = unitOf(state, SHOOTER);
+    const unit = unitOf(state, SNIPER);
     place(unit, enemy.x + 12, enemy.z);
     unit.attackTicks = 100000;
     run(state, 16);
     enemy.strikeTicks = 100000;
     unit.z += 10;
     const events = run(state, 90);
-    expect(ofType(events, 'hit').filter(({ targetId }) => targetId === SHOOTER)).toEqual([]);
+    expect(ofType(events, 'hit').filter(({ targetId }) => targetId === SNIPER)).toEqual([]);
     expect(state.enemyShots).toEqual([]);
   });
 
@@ -243,9 +243,9 @@ describe('what spells do to monsters', () => {
     const { state, enemy } = oneOf('runner');
     enemy.awake = true;
     const fighter = unitOf(state, FIGHTER);
-    const shooter = unitOf(state, SHOOTER);
+    const sniper = unitOf(state, SNIPER);
     place(fighter, enemy.x + 12, enemy.z);
-    place(shooter, enemy.x - 6, enemy.z);
+    place(sniper, enemy.x - 6, enemy.z);
     step(state, [{ type: 'cast', unitId: FIGHTER, spell: 'taunt' }]);
     expect(enemy.tauntTicks).toBeGreaterThan(0);
     const start = enemy.x;
@@ -257,9 +257,9 @@ describe('what spells do to monsters', () => {
     const { state, enemy } = oneOf('runner');
     enemy.awake = true;
     const fighter = unitOf(state, FIGHTER);
-    const shooter = unitOf(state, SHOOTER);
+    const sniper = unitOf(state, SNIPER);
     place(fighter, enemy.x + 12, enemy.z);
-    place(shooter, enemy.x - 6, enemy.z);
+    place(sniper, enemy.x - 6, enemy.z);
     step(state, [{ type: 'cast', unitId: FIGHTER, spell: 'taunt' }]);
     fighter.health = 1;
     hurtUnit(state, fighter, 1000, enemy, []);
@@ -308,7 +308,7 @@ describe('what spells do to monsters', () => {
 describe('kills and loot', () => {
   function kill(state: GameState, enemy: Enemy): void {
     enemy.health = 1;
-    hitEnemy(state, unitOf(state, SHOOTER), enemy, 1, []);
+    hitEnemy(state, unitOf(state, SNIPER), enemy, 1, []);
   }
 
   it('splits XP among the living, and a monster does not respawn', () => {
@@ -338,7 +338,7 @@ describe('kills and loot', () => {
     const drops = state.drops.length;
     expect(drops).toBeGreaterThan(0);
 
-    place(unitOf(state, SHOOTER), POINT.x + 8, POINT.z);
+    place(unitOf(state, SNIPER), POINT.x + 8, POINT.z);
     const events = run(state, 60);
     expect(state.drops).toEqual([]);
     expect(ofType(events, 'loot')).toHaveLength(drops);
@@ -347,7 +347,7 @@ describe('kills and loot', () => {
 
   it('cannot be collected in the air', () => {
     const { state, enemy } = oneOf('runner');
-    place(unitOf(state, SHOOTER), enemy.x, enemy.z);
+    place(unitOf(state, SNIPER), enemy.x, enemy.z);
     kill(state, enemy);
     const before = state.marks;
     run(state, 5);
@@ -366,7 +366,7 @@ describe('kills and loot', () => {
 
   it('adds a found potion to the stock', () => {
     const { state, enemy } = oneOf('runner');
-    const unit = unitOf(state, SHOOTER);
+    const unit = unitOf(state, SNIPER);
     place(unit, enemy.x, enemy.z);
     state.drops.push({
       id: 999,

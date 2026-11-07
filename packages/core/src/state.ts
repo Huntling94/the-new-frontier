@@ -7,7 +7,7 @@ export interface Point {
   readonly z: number;
 }
 
-export type ClassId = 'fighter' | 'shooter' | 'healer';
+export type ClassId = 'fighter' | 'sniper' | 'healer';
 
 export type SpellId = keyof typeof SPELLS;
 

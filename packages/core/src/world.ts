@@ -96,7 +96,8 @@ export function isWalkableForEnemy(x: number, z: number): boolean {
   return ZONES.some((zone) => coastDistanceAt(zone.island, x, z) < zone.enemyEdge);
 }
 
-function nearestZone(x: number, z: number): ZoneData {
+/** The zone whose coast is nearest a point. */
+export function nearestZone(x: number, z: number): ZoneData {
   return ZONES.reduce((best, zone) =>
     coastDistanceAt(zone.island, x, z) < coastDistanceAt(best.island, x, z) ? zone : best,
   );

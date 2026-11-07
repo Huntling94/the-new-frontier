@@ -18,7 +18,7 @@ import {
   DUMMY_ID,
   FIGHTER,
   HEALER,
-  SHOOTER,
+  SNIPER,
   dummyGame,
   dummyOf,
   ofType,
@@ -160,7 +160,7 @@ describe('the maths behind them', () => {
     expect(fighter.attack).toBeCloseTo(70.68, 8);
     expect(fighter.defence).toBe(86);
     expect(fighter.dr).toBe(5);
-    expect(unitOf(state, SHOOTER).maxHealth).toBe(1140);
+    expect(unitOf(state, SNIPER).maxHealth).toBe(1140);
     expect(unitOf(state, HEALER).mana).toBe(400);
     expect(state.marks).toBe(450);
     expect(state.potions).toBe(6);
@@ -177,12 +177,12 @@ describe('the maths behind them', () => {
       const state = dummyGame(seed);
       const events: ReturnType<typeof run> = [];
       for (let hit = 0; hit < 200; hit += 1) {
-        hitEnemy(state, unitOf(state, SHOOTER), dummyOf(state), 1, events);
+        hitEnemy(state, unitOf(state, SNIPER), dummyOf(state), 1, events);
       }
       return ofType(events, 'hit').filter(({ crit }) => crit).length;
     };
     expect(crits(1)).toBe(crits(1));
-    // The Shooter crits 12% of the time.
+    // The Sniper crits 12% of the time.
     expect(crits(1)).toBeGreaterThan(10);
     expect(crits(1)).toBeLessThan(45);
   });
@@ -197,7 +197,7 @@ describe('XP and levels (D-004)', () => {
 
   it('gives nothing to the dead, and more to the rest', () => {
     const state = dummyGame();
-    unitOf(state, SHOOTER).alive = false;
+    unitOf(state, SNIPER).alive = false;
     shareXp(state, 300, []);
     expect(state.units.map((unit) => unit.xp)).toEqual([150, 0, 150]);
   });
@@ -264,11 +264,11 @@ describe('the training dummy', () => {
     sendAway(state);
     const dummy = dummyOf(state);
     const fighter = unitOf(state, FIGHTER);
-    const shooter = unitOf(state, SHOOTER);
+    const sniper = unitOf(state, SNIPER);
     place(fighter, dummy.x + 4, dummy.z);
-    place(shooter, dummy.x + 2, dummy.z);
+    place(sniper, dummy.x + 2, dummy.z);
     const hits = ofType(run(state, 90), 'hit').filter(({ sourceId }) => sourceId === DUMMY_ID);
-    expect(hits.map(({ targetId }) => targetId)).toEqual([SHOOTER, SHOOTER, SHOOTER]);
+    expect(hits.map(({ targetId }) => targetId)).toEqual([SNIPER, SNIPER, SNIPER]);
     expect(hits.map(({ tick }) => tick)).toEqual([29, 59, 89]);
   });
 
@@ -277,7 +277,7 @@ describe('the training dummy', () => {
     sendAway(state);
     const dummy = dummyOf(state);
     place(unitOf(state, FIGHTER), dummy.x + 2, dummy.z);
-    place(unitOf(state, SHOOTER), dummy.x + 4, dummy.z);
+    place(unitOf(state, SNIPER), dummy.x + 4, dummy.z);
     const hits = ofType(run(state, 30), 'hit').filter(({ sourceId }) => sourceId === DUMMY_ID);
     expect(hits.map(({ targetId }) => targetId)).toEqual([FIGHTER]);
   });
@@ -286,9 +286,9 @@ describe('the training dummy', () => {
     const state = dummyGame();
     sendAway(state);
     const dummy = dummyOf(state);
-    place(unitOf(state, SHOOTER), dummy.x + DUMMY.reach + 1, dummy.z);
+    place(unitOf(state, SNIPER), dummy.x + DUMMY.reach + 1, dummy.z);
     run(state, 90);
-    expect(unitOf(state, SHOOTER).health).toBe(unitOf(state, SHOOTER).maxHealth);
+    expect(unitOf(state, SNIPER).health).toBe(unitOf(state, SNIPER).maxHealth);
   });
 
   it('reaches a Fighter standing at the edge of melee range', () => {
@@ -420,9 +420,9 @@ describe('potions', () => {
 
   it('is refused for a named unit that is down or unknown', () => {
     const state = dummyGame();
-    unitOf(state, SHOOTER).alive = false;
+    unitOf(state, SNIPER).alive = false;
     const events = applyCommands(state, [
-      { type: 'potion', unitId: SHOOTER },
+      { type: 'potion', unitId: SNIPER },
       { type: 'potion', unitId: 99 },
     ]);
     expect(ofType(events, 'order-refused').map(({ reason }) => reason)).toEqual([

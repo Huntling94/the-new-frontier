@@ -116,7 +116,7 @@ function carefulLayer(view: GameView, boss: EnemyView): Command[] {
   const aiming = boss.boss?.phase === 'aiming' && boss.boss.lastMove === 'charge';
   return [
     ...dodge(view),
-    ...(casting ? cast(view, 'shooter', 'crippling-shot', { enemyId: boss.id }) : []),
+    ...(casting ? cast(view, 'sniper', 'crippling-shot', { enemyId: boss.id }) : []),
     ...focusMinion(view),
     ...(aiming ? cast(view, 'fighter', 'taunt') : []),
     ...cast(view, 'fighter', 'cleave'),
@@ -129,8 +129,8 @@ function bossLayer(view: GameView, kind: BotKind, boss: EnemyView): Command[] {
   return [
     ...(kind === 'careful' ? carefulLayer(view, boss) : []),
     ...sustain(view),
-    ...cast(view, 'shooter', 'aimed-shot', { enemyId: boss.id }),
-    ...cast(view, 'shooter', 'volley', { point: { x: boss.x, z: boss.z } }),
+    ...cast(view, 'sniper', 'aimed-shot', { enemyId: boss.id }),
+    ...cast(view, 'sniper', 'volley', { point: { x: boss.x, z: boss.z } }),
     ...cast(view, 'healer', 'rally'),
   ];
 }

@@ -5,7 +5,7 @@ import { applyCommands } from '../src/orders';
 import { nextRandom } from '../src/random';
 import type { GameState, GearSlot } from '../src/state';
 import { isNearAnvil, upgradeChance, upgradeCost, upgradeOffer } from '../src/upgrades';
-import { FIGHTER, SHOOTER, HEALER, dummyGame, ofType, place, sendAway, unitOf } from './helpers';
+import { FIGHTER, SNIPER, HEALER, dummyGame, ofType, place, sendAway, unitOf } from './helpers';
 
 function upgrade(state: GameState, unitId: number, slot: GearSlot) {
   return applyCommands(state, [{ type: 'upgrade', unitId, slot }]);
@@ -40,12 +40,12 @@ describe('ge.c bugs that must not come back', () => {
       for (let seed = 1; seed <= 300; seed += 1) {
         const state = dummyGame(seed);
         state.marks = 1000000;
-        const unit = unitOf(state, SHOOTER);
+        const unit = unitOf(state, SNIPER);
         unit.gear.weapon.upgrade = level;
-        const offer = upgradeOffer(state, SHOOTER, 'weapon');
+        const offer = upgradeOffer(state, SNIPER, 'weapon');
         if (!offer) throw new Error('No offer.');
         const roll = nextRandom({ rng: state.rng });
-        const events = upgrade(state, SHOOTER, 'weapon');
+        const events = upgrade(state, SNIPER, 'weapon');
         const won = ofType(events, 'upgraded').length === 1;
         expect(won).toBe(roll < offer.chance);
         expect(ofType(events, 'item-destroyed').length).toBe(won ? 0 : 1);

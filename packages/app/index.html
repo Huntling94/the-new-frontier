@@ -13,12 +13,20 @@
       body {
         height: 100%;
         margin: 0;
-        background: #9fc4dc;
+        overflow: hidden;
+        background: #0b171d;
+        color: #eadfc8;
       }
       canvas {
+        position: fixed;
+        inset: 0;
         display: block;
         width: 100%;
         height: 100%;
+        user-select: none;
+      }
+      #overlay {
+        pointer-events: none;
       }
       p {
         margin: 0;
@@ -28,7 +36,8 @@
     </style>
   </head>
   <body>
-    <canvas id="game" aria-label="An empty island in the sea"></canvas>
+    <canvas id="game" aria-label="The squad on an island in the sea"></canvas>
+    <canvas id="overlay" aria-hidden="true"></canvas>
     <p id="fatal" hidden>
       The New Frontier needs WebGL, and this browser refused it. Try a current desktop browser with
       hardware acceleration on.

@@ -1,4 +1,4 @@
-import { TEST_ISLAND, rimRadiusAt, type GameView } from '@new-frontier/core';
+import { currentZone, rimRadiusAt, type GameView } from '@new-frontier/core';
 
 /** Something brief to show on the map: a word or number, and perhaps a ring. */
 export interface Mark {
@@ -58,7 +58,7 @@ const ENEMY_LOOKS = {
 
 const UNIT_LOOKS = {
   fighter: { colour: '#c8553d', letter: 'F' },
-  shooter: { colour: '#3f7fb0', letter: 'S' },
+  sniper: { colour: '#3f7fb0', letter: 'S' },
   healer: { colour: '#e8dfc4', letter: 'H' },
 };
 
@@ -145,7 +145,7 @@ export function drawGame(
   context.beginPath();
   for (let index = 0; index < RIM_POINTS; index += 1) {
     const angle = (index / RIM_POINTS) * 2 * Math.PI;
-    const radius = rimRadiusAt(TEST_ISLAND, angle);
+    const radius = rimRadiusAt(currentZone(game).ground, angle);
     context.lineTo(toX(Math.cos(angle) * radius), toY(Math.sin(angle) * radius));
   }
   context.closePath();

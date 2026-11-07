@@ -1,0 +1,429 @@
+import {
+  buildIslandMesh,
+  groundHeightAt,
+  rimRadiusAt,
+  type GameView,
+  type ZoneView,
+} from '@new-frontier/core';
+import {
+  AdditiveBlending,
+  BackSide,
+  BufferAttribute,
+  BufferGeometry,
+  Color,
+  ConeGeometry,
+  CylinderGeometry,
+  DirectionalLight,
+  DodecahedronGeometry,
+  DoubleSide,
+  Float32BufferAttribute,
+  Fog,
+  Group,
+  HemisphereLight,
+  IcosahedronGeometry,
+  InstancedMesh,
+  Mesh,
+  MeshBasicMaterial,
+  MeshPhongMaterial,
+  Object3D,
+  OctahedronGeometry,
+  PlaneGeometry,
+  PointLight,
+  Points,
+  PointsMaterial,
+  Scene,
+  ShaderMaterial,
+  SphereGeometry,
+  Vector3,
+  type Sprite,
+  type Texture,
+} from 'three';
+import { buildGroundGeometry } from './ground-geometry';
+import { basicMaterial, glowSprite, makeGlowTexture, makeShapes, Resources, type Shapes } from './kit';
+import { zoneLook, type Light, type ZoneLook } from './looks';
+
+const TAU = 2 * Math.PI;
+
+/**
+ * three.js r155 moved to physical light units. The squad test ran on r128, so
+ * every light is scaled by π to give the same brightness (decision 8).
+ */
+const LEGACY_LIGHT = Math.PI;
+
+/**
+ * The lantern over the squad. Physical light falls off faster than r128's, so a
+ * gentler decay and a lift keep the squad test's pool of light within 15 units.
+ */
+const LANTERN = { reach: 34, decay: 1, lift: 3.2 };
+
+const SEA_SIZE = 2600;
+const SEA_DETAIL = 200;
+const SKY_RADIUS = 1900;
+const MOTES = 170;
+const MOTE_SPREAD = 50;
+const MOTE_HEIGHT = 26;
+const TUFTS = 320;
+/** Light eases from dusk towards sunrise at this rate once the beacon is lit. */
+const DAWN_RATE = 0.6;
+const DUSK = 0.12;
+
+/** Model sizes: the core's obstacle radius divided by these gives each prop's scale. */
+const TREE_RADIUS = 1.25;
+const ROCK_RADIUS = 1.3;
+
+const SEA_VERTEX = `uniform float t;varying vec3 vP;varying float vH;void main(){vec4 w=modelMatrix*vec4(position,1.);float h=sin(w.x*.07+t*.9)*.42+sin(w.z*.09-t*.7)*.36+sin((w.x+w.z)*.16+t*1.4)*.16;w.y+=h;vH=h;vP=w.xyz;gl_Position=projectionMatrix*viewMatrix*w;}`;
+const SEA_FRAGMENT = `uniform vec3 deep,shallow,fogC,glint;uniform float t;varying vec3 vP;varying float vH;void main(){float f=clamp(.45+vH*.75,0.,1.);vec3 c=mix(deep,shallow,f);float s=pow(max(0.,sin(vP.x*.31+t*.8+2.*sin(vP.z*.13+t*.3))*sin(vP.z*.37-t*.6+2.*sin(vP.x*.17))),24.);c+=glint*s*.2;float k=smoothstep(170.,780.,distance(vP,cameraPosition));gl_FragColor=vec4(mix(c,fogC,k),1.);}`;
+const SKY_VERTEX = `varying vec3 vD;void main(){vD=normalize(position);gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}`;
+const SKY_FRAGMENT = `uniform vec3 top,hor,sunC,sunD;varying vec3 vD;void main(){vec3 d=normalize(vD);float g=pow(1.-max(d.y,0.),3.);vec3 c=mix(top,hor,g);float a=max(dot(d,sunD),0.);c+=sunC*(pow(a,900.)*2.+pow(a,14.)*.32);gl_FragColor=vec4(c,1.);}`;
+
+/** A repeatable pseudo-random value from 0 to 1, so dressing is the same on every visit. */
+function hash(a: number, b: number): number {
+  const s = Math.sin(a * 127.1 + b * 311.7) * 43758.5453;
+  return s - Math.floor(s);
+}
+
+interface Beacon {
+  readonly coal: Mesh;
+  readonly halo: Sprite;
+  readonly beam: Mesh;
+  readonly lit: MeshBasicMaterial;
+}
+
+/**
+ * Everything one zone draws that does not move with the game: ground, sea, sky,
+ * light and props. It can be dropped and another built (decision 10, D-021).
+ */
+export class ZoneScene {
+  readonly scene = new Scene();
+  readonly resources = new Resources();
+  readonly shapes: Shapes;
+  readonly glow: Texture;
+  readonly zone: ZoneView;
+  readonly look: ZoneLook;
+  /** Entities and effects are added here by their own layers. */
+  readonly world = new Group();
+
+  private readonly hemisphere = new HemisphereLight(0xbfd4e8, 0x2a2a30, 0.7);
+  private readonly sun = new DirectionalLight(0xffffff, 1);
+  private readonly lantern = new PointLight(0xffb648, 1, LANTERN.reach, LANTERN.decay);
+  private readonly fog = new Fog(0x2a3a4a, 110, 430);
+  private readonly sea: { readonly t: { value: number }; readonly deep: { value: Color }; readonly shallow: { value: Color }; readonly fogC: { value: Color }; readonly glint: { value: Color } };
+  private readonly sky: { readonly top: { value: Color }; readonly hor: { value: Color }; readonly sunC: { value: Color }; readonly sunD: { value: Vector3 } };
+  private readonly motes: Points;
+  private readonly runes: Mesh[] = [];
+  private readonly beacons: Beacon[] = [];
+  private dawn = DUSK;
+  private time = 0;
+  private lit = false;
+
+  constructor(view: GameView, zone: ZoneView) {
+    this.zone = zone;
+    this.look = zoneLook(zone.id);
+    const keep = this.resources;
+    this.shapes = makeShapes(keep);
+    this.glow = makeGlowTexture(keep);
+
+    this.scene.fog = this.fog;
+    this.sun.castShadow = true;
+    this.sun.shadow.mapSize.set(1536, 1536);
+    Object.assign(this.sun.shadow.camera, { left: -90, right: 90, top: 90, bottom: -90, near: 10, far: 320 });
+    this.sun.shadow.bias = -0.0012;
+    this.sun.shadow.normalBias = 0.4;
+    this.scene.add(this.hemisphere, this.sun, this.sun.target, this.lantern, this.world);
+
+    const ground = new Mesh(
+      keep.keep(buildGroundGeometry(zone.ground, buildIslandMesh(zone.ground), this.look)),
+      keep.keep(new MeshPhongMaterial({ vertexColors: true, flatShading: true, shininess: 0, specular: 0 })),
+    );
+    ground.receiveShadow = true;
+    this.scene.add(ground, this.buildFoam());
+
+    this.sea = {
+      t: { value: 0 },
+      deep: { value: new Color() },
+      shallow: { value: new Color() },
+      fogC: { value: new Color() },
+      glint: { value: new Color() },
+    };
+    const sea = new Mesh(
+      keep.keep(new PlaneGeometry(SEA_SIZE, SEA_SIZE, SEA_DETAIL, SEA_DETAIL).rotateX(-Math.PI / 2)),
+      keep.keep(new ShaderMaterial({ uniforms: this.sea, vertexShader: SEA_VERTEX, fragmentShader: SEA_FRAGMENT })),
+    );
+    sea.position.set(zone.x, 0, zone.z);
+    this.sky = {
+      top: { value: new Color() },
+      hor: { value: new Color() },
+      sunC: { value: new Color() },
+      sunD: { value: new Vector3(0.4, 0.15, -0.9).normalize() },
+    };
+    const sky = new Mesh(
+      keep.keep(new SphereGeometry(SKY_RADIUS, 24, 16)),
+      keep.keep(
+        new ShaderMaterial({
+          side: BackSide,
+          depthWrite: false,
+          fog: false,
+          uniforms: this.sky,
+          vertexShader: SKY_VERTEX,
+          fragmentShader: SKY_FRAGMENT,
+        }),
+      ),
+    );
+    sky.frustumCulled = false;
+    this.scene.add(sea, sky);
+
+    this.buildProps();
+    this.motes = this.buildMotes();
+    this.scene.add(this.motes);
+    this.applyLight(this.dawn);
+    this.lit = view.victory;
+  }
+
+  heightAt(x: number, z: number): number {
+    return groundHeightAt(this.zone.ground, x, z);
+  }
+
+  /** Moves light and dressing on. `focus` is where the camera looks. */
+  update(view: GameView, dt: number, focus: { x: number; z: number }, squad: { x: number; z: number }): void {
+    this.time += dt;
+    if (view.victory && !this.lit) {
+      this.lit = true;
+      for (const beacon of this.beacons) {
+        beacon.coal.material = beacon.lit;
+        beacon.halo.visible = true;
+        beacon.beam.visible = true;
+      }
+    }
+    const target = this.lit ? 1 : DUSK;
+    this.dawn += (target - this.dawn) * Math.min(1, dt * DAWN_RATE);
+    this.applyLight(this.dawn);
+    this.sea.t.value = this.time;
+
+    this.sun.position.set(focus.x + 60, 130, focus.z + 70);
+    this.sun.target.position.set(focus.x, 0, focus.z);
+    this.lantern.position.set(squad.x, this.zone.ground.relief.groundLevel + 3, squad.z);
+
+    const positions = this.motes.geometry.getAttribute('position') as BufferAttribute;
+    for (let index = 0; index < MOTES; index += 1) {
+      let y = positions.getY(index) + dt * 0.9;
+      if (y > MOTE_HEIGHT) y = 0;
+      positions.setY(index, y);
+    }
+    positions.needsUpdate = true;
+    this.motes.position.set(focus.x, 3, focus.z);
+    for (const rune of this.runes) {
+      rune.rotation.y = this.time * 1.4;
+    }
+  }
+
+  dispose(): void {
+    // The renderer makes the sun's shadow map, and only the light can free it.
+    this.sun.dispose();
+    this.scene.clear();
+    this.resources.dispose();
+  }
+
+  private applyLight(t: number): void {
+    const { dusk, sunrise } = this.look;
+    const mix = (out: Color, key: keyof Light): void => {
+      out.set(dusk[key]).lerp(new Color(sunrise[key]), t);
+    };
+    mix(this.sky.top.value, 'skyTop');
+    mix(this.sky.hor.value, 'horizon');
+    mix(this.sea.deep.value, 'deep');
+    mix(this.sea.shallow.value, 'shallow');
+    mix(this.sea.glint.value, 'glint');
+    mix(this.fog.color, 'fog');
+    this.sea.fogC.value.copy(this.fog.color);
+    mix(this.sun.color, 'sun');
+    this.sky.sunC.value.copy(this.sun.color).multiplyScalar(0.25 + t * 0.9);
+    this.sun.intensity = (dusk.sunIntensity + (sunrise.sunIntensity - dusk.sunIntensity) * t) * LEGACY_LIGHT;
+    this.hemisphere.intensity = (dusk.hemisphere + (sunrise.hemisphere - dusk.hemisphere) * t) * LEGACY_LIGHT;
+    this.lantern.intensity = (1.1 + (0.2 - 1.1) * t) * LEGACY_LIGHT * LANTERN.lift;
+  }
+
+  private buildFoam(): Mesh {
+    const { ground } = this.zone;
+    const segments = ground.mesh.segments;
+    const positions: number[] = [];
+    const indices: number[] = [];
+    for (let segment = 0; segment <= segments; segment += 1) {
+      const angle = (segment / segments) * TAU;
+      const rim = rimRadiusAt(ground, angle);
+      const inner = rim * 1.03;
+      const outer = rim * (1.09 + 0.03 * Math.sin(angle * 11 + 1));
+      positions.push(ground.x + Math.cos(angle) * inner, 0.18, ground.z + Math.sin(angle) * inner);
+      positions.push(ground.x + Math.cos(angle) * outer, 0.18, ground.z + Math.sin(angle) * outer);
+    }
+    for (let segment = 0; segment < segments; segment += 1) {
+      const i = segment * 2;
+      indices.push(i, i + 1, i + 2, i + 1, i + 3, i + 2);
+    }
+    const geometry = this.resources.keep(new BufferGeometry());
+    geometry.setAttribute('position', new Float32BufferAttribute(positions, 3));
+    geometry.setIndex(indices);
+    return new Mesh(
+      geometry,
+      this.resources.keep(
+        new MeshBasicMaterial({ color: 0xcfeee8, transparent: true, opacity: 0.22, side: DoubleSide, depthWrite: false }),
+      ),
+    );
+  }
+
+  private buildProps(): void {
+    const keep = this.resources;
+    const look = this.look;
+    const parts = {
+      trunk: keep.keep(new CylinderGeometry(0.28, 0.5, 4, 6).translate(0, 2, 0)),
+      blob: keep.keep(new IcosahedronGeometry(2.3, 0).translate(0, 5.1, 0)),
+      blob2: keep.keep(new IcosahedronGeometry(1.6, 0).translate(0.9, 6.6, 0.4)),
+      rock: keep.keep(new DodecahedronGeometry(1.4, 0).translate(0, 0.6, 0)),
+      tuft: keep.keep(new ConeGeometry(0.28, 1, 3).translate(0, 0.4, 0)),
+    };
+    type Part = keyof typeof parts;
+    const placed: Record<Part, { x: number; y: number; z: number; s: number; ry: number; c: number }[]> = {
+      trunk: [],
+      blob: [],
+      blob2: [],
+      rock: [],
+      tuft: [],
+    };
+    this.zone.obstacles.forEach((obstacle, index) => {
+      const { x, z } = obstacle;
+      const y = this.heightAt(x, z);
+      const ry = hash(index, 1) * TAU;
+      if (obstacle.kind === 'tree') {
+        const s = obstacle.radius / TREE_RADIUS;
+        const leaf = look.leaves[Math.floor(hash(index, 2) * look.leaves.length)] ?? look.lowland;
+        placed.trunk.push({ x, y, z, s, ry, c: look.bark });
+        placed.blob.push({ x, y, z, s, ry, c: leaf });
+        placed.blob2.push({ x, y, z, s, ry, c: leaf });
+      } else if (obstacle.kind === 'rock') {
+        placed.rock.push({ x, y, z, s: obstacle.radius / ROCK_RADIUS, ry, c: look.rock });
+      } else if (obstacle.kind === 'beacon') {
+        this.buildBeacon(x, y, z);
+      } else {
+        this.buildWaystone(x, y, z);
+      }
+    });
+    const { ground } = this.zone;
+    for (let index = 0; index < TUFTS; index += 1) {
+      const angle = hash(index, 5) * TAU;
+      const share = Math.sqrt(0.002 + hash(index, 6) * 0.778);
+      const radius = rimRadiusAt(ground, angle) * share;
+      const x = ground.x + Math.cos(angle) * radius;
+      const z = ground.z + Math.sin(angle) * radius;
+      placed.tuft.push({ x, y: this.heightAt(x, z), z, s: 0.7 + hash(index, 7) * 0.8, ry: hash(index, 8) * TAU, c: look.grass });
+    }
+
+    const material = keep.keep(new MeshPhongMaterial({ flatShading: true }));
+    const dummy = new Object3D();
+    const colour = new Color();
+    for (const key of Object.keys(parts) as Part[]) {
+      const list = placed[key];
+      if (list.length === 0) continue;
+      const mesh = new InstancedMesh(parts[key], material, list.length);
+      list.forEach((item, index) => {
+        dummy.position.set(item.x, item.y, item.z);
+        dummy.rotation.set(0, item.ry, 0);
+        dummy.scale.setScalar(item.s);
+        dummy.updateMatrix();
+        mesh.setMatrixAt(index, dummy.matrix);
+        mesh.setColorAt(index, colour.set(item.c));
+      });
+      mesh.castShadow = key !== 'tuft';
+      mesh.receiveShadow = true;
+      mesh.frustumCulled = false;
+      // An instanced mesh owns its instance buffers, so it is freed with the scene.
+      keep.keep(mesh);
+      this.scene.add(mesh);
+    }
+  }
+
+  private buildBeacon(x: number, y: number, z: number): void {
+    const keep = this.resources;
+    const stone = keep.keep(new MeshPhongMaterial({ color: 0x5c6468, flatShading: true }));
+    const group = new Group();
+    const base = new Mesh(keep.keep(new CylinderGeometry(3.4, 4.4, 1.2, 7)), stone);
+    const pillar = new Mesh(keep.keep(new CylinderGeometry(1.1, 1.7, 8, 6)), stone);
+    const bowl = new Mesh(keep.keep(new CylinderGeometry(2.2, 1, 1.3, 7)), stone);
+    base.position.y = 0.6;
+    pillar.position.y = 5;
+    bowl.position.y = 9.4;
+    for (const mesh of [base, pillar, bowl]) {
+      mesh.castShadow = true;
+      mesh.receiveShadow = true;
+    }
+    const coal = new Mesh(keep.keep(new IcosahedronGeometry(1.4, 0)), basicMaterial(keep, 0x2a2320));
+    coal.position.y = 10;
+    const halo = glowSprite(keep, this.glow, 0xffb648, 34);
+    halo.position.y = 11;
+    halo.visible = false;
+    const beam = new Mesh(
+      keep.keep(new CylinderGeometry(1.2, 2.6, 240, 12, 1, true)),
+      keep.keep(
+        new MeshBasicMaterial({
+          color: 0xffc070,
+          transparent: true,
+          opacity: 0.16,
+          blending: AdditiveBlending,
+          depthWrite: false,
+          side: DoubleSide,
+          fog: false,
+        }),
+      ),
+    );
+    beam.position.y = 130;
+    beam.visible = false;
+    group.add(base, pillar, bowl, coal, halo, beam);
+    group.position.set(x, y, z);
+    this.scene.add(group);
+    this.beacons.push({ coal, halo, beam, lit: basicMaterial(keep, 0xffd089) });
+  }
+
+  private buildWaystone(x: number, y: number, z: number): void {
+    const keep = this.resources;
+    const group = new Group();
+    const stone = new Mesh(
+      keep.keep(new CylinderGeometry(0.5, 1.1, 5, 5)),
+      keep.keep(new MeshPhongMaterial({ color: 0x5c6468, flatShading: true })),
+    );
+    stone.position.y = 2.5;
+    stone.castShadow = true;
+    const rune = new Mesh(keep.keep(new OctahedronGeometry(0.55)), basicMaterial(keep, 0x8fd6c4));
+    rune.position.y = 6;
+    const halo = glowSprite(keep, this.glow, 0x3f7a70, 4.5);
+    halo.position.y = 6;
+    group.add(stone, rune, halo);
+    group.position.set(x, y, z);
+    this.scene.add(group);
+    this.runes.push(rune);
+  }
+
+  private buildMotes(): Points {
+    const positions = new Float32Array(MOTES * 3);
+    for (let index = 0; index < MOTES; index += 1) {
+      positions[index * 3] = (hash(index, 11) * 2 - 1) * MOTE_SPREAD;
+      positions[index * 3 + 1] = hash(index, 12) * MOTE_HEIGHT;
+      positions[index * 3 + 2] = (hash(index, 13) * 2 - 1) * MOTE_SPREAD;
+    }
+    const geometry = this.resources.keep(new BufferGeometry());
+    geometry.setAttribute('position', new BufferAttribute(positions, 3));
+    const motes = new Points(
+      geometry,
+      this.resources.keep(
+        new PointsMaterial({
+          size: 0.38,
+          map: this.glow,
+          color: 0xfff2c0,
+          transparent: true,
+          depthWrite: false,
+          blending: AdditiveBlending,
+          opacity: 0.8,
+        }),
+      ),
+    );
+    motes.frustumCulled = false;
+    return motes;
+  }
+}

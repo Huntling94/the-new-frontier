@@ -3,7 +3,7 @@ import { createGame, step } from '../src/game';
 import type { Enemy, GameEvent, GameState, Unit } from '../src/state';
 
 export const FIGHTER = 1;
-export const SHOOTER = 2;
+export const SNIPER = 2;
 export const HEALER = 3;
 export const DUMMY_ID = 4;
 
@@ -34,7 +34,7 @@ export function place(unit: Unit, x: number, z: number): void {
 /** Takes the squad out of the dummy's way, so a test can bring in only who it needs. */
 export function sendAway(state: GameState): void {
   place(unitOf(state, FIGHTER), -60, 0);
-  place(unitOf(state, SHOOTER), -60, 8);
+  place(unitOf(state, SNIPER), -60, 8);
   place(unitOf(state, HEALER), -60, 16);
 }
 

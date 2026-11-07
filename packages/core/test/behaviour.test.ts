@@ -7,7 +7,7 @@ import {
   DUMMY_ID,
   FIGHTER,
   HEALER,
-  SHOOTER,
+  SNIPER,
   dummyGame,
   dummyOf,
   ofType,
@@ -33,41 +33,41 @@ describe('auto-attacks', () => {
     expect(dummy.knockX).toBeLessThan(0);
   });
 
-  it('the Shooter fires homing shots that travel', () => {
+  it('the Sniper fires homing shots that travel', () => {
     const state = dummyGame();
     sendAway(state);
     const dummy = dummyOf(state);
-    place(unitOf(state, SHOOTER), dummy.x + 20, dummy.z);
+    place(unitOf(state, SNIPER), dummy.x + 20, dummy.z);
     const first = run(state, 1);
-    expect(hitsBy(first, SHOOTER)).toEqual([]);
+    expect(hitsBy(first, SNIPER)).toEqual([]);
     expect(state.shots).toHaveLength(1);
     const [shot] = state.shots;
     expect(shot?.x).toBeCloseTo(dummy.x + 17, 6);
-    expect(hitsBy(run(state, 6), SHOOTER)).toHaveLength(1);
+    expect(hitsBy(run(state, 6), SNIPER)).toHaveLength(1);
   });
 
   it('a shot whose target has gone disappears', () => {
     const state = dummyGame();
     sendAway(state);
     const dummy = dummyOf(state);
-    place(unitOf(state, SHOOTER), dummy.x + 20, dummy.z);
+    place(unitOf(state, SNIPER), dummy.x + 20, dummy.z);
     run(state, 1);
     dummy.alive = false;
     dummy.respawnTicks = 100;
     const events = run(state, 3);
-    expect(hitsBy(events, SHOOTER)).toEqual([]);
+    expect(hitsBy(events, SNIPER)).toEqual([]);
     expect(state.shots).toEqual([]);
   });
 
   it('a shot runs out of time rather than flying for ever', () => {
     const state = dummyGame();
     sendAway(state);
-    const shooter = unitOf(state, SHOOTER);
+    const sniper = unitOf(state, SNIPER);
     const dummy = dummyOf(state);
     state.shots.push({
       x: dummy.x + 500,
       z: dummy.z,
-      unitId: shooter.id,
+      unitId: sniper.id,
       enemyId: dummy.id,
       multiplier: 1,
       crippling: false,
@@ -116,15 +116,15 @@ describe('the Healer (D-008)', () => {
     sendAway(state);
     const healer = unitOf(state, HEALER);
     const fighter = unitOf(state, FIGHTER);
-    const shooter = unitOf(state, SHOOTER);
+    const sniper = unitOf(state, SNIPER);
     place(healer, -40, 0);
     place(fighter, -50, 0);
-    place(shooter, -30, 0);
+    place(sniper, -30, 0);
     fighter.health = 1000;
-    shooter.health = 200;
+    sniper.health = 200;
     const events = run(state, 34);
     const heals = ofType(events, 'healed');
-    expect(heals.map(({ unitId }) => unitId)).toEqual([SHOOTER, SHOOTER]);
+    expect(heals.map(({ unitId }) => unitId)).toEqual([SNIPER, SNIPER]);
     expect(heals.map(({ tick }) => tick)).toEqual([0, 33]);
     expect(heals[0]?.amount).toBeCloseTo(1140 * 0.09 + 34 * 1.14 * 2, 6);
     expect(healer.mana).toBeCloseTo(400 - AUTO_HEAL.manaCost * 2 + 33 / 3, 6);
@@ -135,11 +135,11 @@ describe('the Healer (D-008)', () => {
     sendAway(state);
     place(unitOf(state, HEALER), -40, 0);
     const fighter = unitOf(state, FIGHTER);
-    const shooter = unitOf(state, SHOOTER);
+    const sniper = unitOf(state, SNIPER);
     place(fighter, -50, 0);
-    place(shooter, 0, 0);
+    place(sniper, 0, 0);
     fighter.health = fighter.maxHealth * 0.86;
-    shooter.health = 100;
+    sniper.health = 100;
     expect(ofType(run(state, 30), 'healed')).toEqual([]);
   });
 
@@ -169,9 +169,9 @@ describe('the Healer (D-008)', () => {
     const dummy = dummyOf(state);
     const healer = unitOf(state, HEALER);
     const fighter = unitOf(state, FIGHTER);
-    const shooter = unitOf(state, SHOOTER);
+    const sniper = unitOf(state, SNIPER);
     place(fighter, dummy.x + 3, dummy.z);
-    place(shooter, dummy.x - 3, dummy.z);
+    place(sniper, dummy.x - 3, dummy.z);
     place(healer, dummy.x, dummy.z + 20);
     healer.hold = false;
     const before = Math.hypot(healer.x - dummy.x, healer.z - dummy.z);
@@ -187,7 +187,7 @@ describe('the Healer (D-008)', () => {
     place(healer, dummy.x + 15, dummy.z);
     healer.hold = false;
     unitOf(state, FIGHTER).alive = false;
-    unitOf(state, SHOOTER).alive = false;
+    unitOf(state, SNIPER).alive = false;
     run(state, 30);
     expect(Number.isFinite(healer.x)).toBe(true);
     expect(healer.x).toBeCloseTo(dummy.x + 15, 6);
@@ -203,9 +203,9 @@ describe('attack-move', () => {
       const dummy = dummyOf(state);
       const fighter = unitOf(state, FIGHTER);
       place(fighter, dummy.x + 30, dummy.z);
-      place(unitOf(state, SHOOTER), dummy.x + 34, dummy.z - 4);
+      place(unitOf(state, SNIPER), dummy.x + 34, dummy.z - 4);
       place(unitOf(state, HEALER), dummy.x + 34, dummy.z + 4);
-      const unitIds = [FIGHTER, SHOOTER, HEALER];
+      const unitIds = [FIGHTER, SNIPER, HEALER];
       const order = { type: 'move', unitIds, x: dummy.x - 30, z: dummy.z, attack } as const;
       const events = [...step(state, [order]), ...run(state, 180)];
       return { fighter, dummy, hits: hitsBy(events, FIGHTER) };
@@ -254,11 +254,11 @@ describe('targeting', () => {
     const state = dummyGame();
     sendAway(state);
     const dummy = dummyOf(state);
-    const shooter = unitOf(state, SHOOTER);
-    place(shooter, dummy.x + 20, dummy.z);
-    shooter.hold = false;
+    const sniper = unitOf(state, SNIPER);
+    place(sniper, dummy.x + 20, dummy.z);
+    sniper.hold = false;
     run(state, 60);
-    expect(shooter.x).toBeCloseTo(dummy.x + 20, 6);
+    expect(sniper.x).toBeCloseTo(dummy.x + 20, 6);
   });
 
   it.each([
@@ -284,7 +284,7 @@ describe('targeting', () => {
     unitOf(state, FIGHTER).alive = false;
     expect(reason(DUMMY_ID)).toBe('no-living-units');
     dummyOf(state).alive = false;
-    expect(reason(DUMMY_ID, [SHOOTER])).toBe('no-target');
+    expect(reason(DUMMY_ID, [SNIPER])).toBe('no-target');
   });
 });
 

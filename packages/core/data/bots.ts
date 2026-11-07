@@ -26,11 +26,11 @@ export const BOTS = {
   /** Gear is bought in this order, up to this level, so it is never at risk. */
   upgradeBelow: 3,
   upgrades: [
-    { classId: 'shooter', slot: 'weapon' },
+    { classId: 'sniper', slot: 'weapon' },
     { classId: 'fighter', slot: 'weapon' },
     { classId: 'fighter', slot: 'chest' },
     { classId: 'healer', slot: 'chest' },
-    { classId: 'shooter', slot: 'chest' },
+    { classId: 'sniper', slot: 'chest' },
   ] as readonly BotUpgrade[],
   /** The careful bot dodges a telegraph once it is this far through, if it is small enough. */
   dodgeAfterShare: 0.4,

@@ -7,7 +7,7 @@ import { createGame, step } from '../src/game';
 import { nextRandom } from '../src/random';
 import type { BossMove, Enemy, GameState, PackData } from '../src/state';
 import { TICKS } from '../src/time';
-import { FIGHTER, HEALER, SHOOTER, ofType, place, run, sendAway, unitOf } from './helpers';
+import { FIGHTER, HEALER, SNIPER, ofType, place, run, sendAway, unitOf } from './helpers';
 
 const HOME = { x: 0, z: 16 };
 
@@ -78,15 +78,15 @@ describe('waking', () => {
   it('wakes when hit, and raises the event once', () => {
     const { state, boss } = bossGame();
     const events: Parameters<typeof hitEnemy>[4] = [];
-    hitEnemy(state, unitOf(state, SHOOTER), boss, 1, events);
-    hitEnemy(state, unitOf(state, SHOOTER), boss, 1, events);
+    hitEnemy(state, unitOf(state, SNIPER), boss, 1, events);
+    hitEnemy(state, unitOf(state, SNIPER), boss, 1, events);
     expect(ofType(events, 'boss-woken')).toHaveLength(1);
   });
 
   it('is not woken by a Taunt, and idle units leave it alone', () => {
     const { state, boss } = bossGame();
-    const shooter = unitOf(state, SHOOTER);
-    place(shooter, boss.x + BOSS.wakeRange + 2, boss.z);
+    const sniper = unitOf(state, SNIPER);
+    place(sniper, boss.x + BOSS.wakeRange + 2, boss.z);
     run(state, 40);
     expect(state.shots).toEqual([]);
     place(unitOf(state, FIGHTER), boss.x + BOSS.wakeRange + 3, boss.z + 5);
@@ -96,8 +96,8 @@ describe('waking', () => {
 
   it('is not attacked by attack-move while it sleeps', () => {
     const { state, boss } = bossGame();
-    place(unitOf(state, SHOOTER), boss.x + 22, boss.z);
-    step(state, [{ type: 'move', unitIds: [SHOOTER], x: boss.x + 14, z: boss.z, attack: true }]);
+    place(unitOf(state, SNIPER), boss.x + 22, boss.z);
+    step(state, [{ type: 'move', unitIds: [SNIPER], x: boss.x + 14, z: boss.z, attack: true }]);
     run(state, 90);
     expect(state.shots).toEqual([]);
     expect(boss.health).toBe(boss.maxHealth);
@@ -215,7 +215,7 @@ describe('interrupts', () => {
   function casting(): { state: GameState; boss: Enemy } {
     const game = awakeBoss();
     pacify(game.state);
-    place(unitOf(game.state, SHOOTER), game.boss.x + 20, game.boss.z);
+    place(unitOf(game.state, SNIPER), game.boss.x + 20, game.boss.z);
     forceMove(game.state, game.boss, 'blast');
     return game;
   }
@@ -229,7 +229,7 @@ describe('interrupts', () => {
 
   it('stops the cast on a Crippling Shot, and staggers the boss', () => {
     const { state, boss } = casting();
-    step(state, [{ type: 'cast', unitId: SHOOTER, spell: 'crippling-shot', enemyId: boss.id }]);
+    step(state, [{ type: 'cast', unitId: SNIPER, spell: 'crippling-shot', enemyId: boss.id }]);
     const events = run(state, 20);
     expect(ofType(events, 'interrupted')).toHaveLength(1);
     expect(stateOf(boss).castTicks).toBe(0);
@@ -250,7 +250,7 @@ describe('interrupts', () => {
 
   it('takes half as much again while staggered', () => {
     const { state, boss } = awakeBoss();
-    const unit = unitOf(state, SHOOTER);
+    const unit = unitOf(state, SNIPER);
     unit.crit = 0;
     const before = boss.health;
     hitEnemy(state, unit, boss, 1, []);
@@ -267,7 +267,7 @@ describe('interrupts', () => {
     const other = bossGame(1, [minionPack]).state.enemies[0];
     if (!other) throw new Error('No monster.');
     state.enemies.unshift({ ...other, id: 500, x: boss.x + 12, z: boss.z, awake: true });
-    step(state, [{ type: 'cast', unitId: SHOOTER, spell: 'crippling-shot', enemyId: 500 }]);
+    step(state, [{ type: 'cast', unitId: SNIPER, spell: 'crippling-shot', enemyId: 500 }]);
     const events = run(state, 20);
     expect(ofType(events, 'interrupted')).toEqual([]);
     expect(stateOf(boss).castTicks).toBeGreaterThan(0);
@@ -276,9 +276,9 @@ describe('interrupts', () => {
   it('does nothing to a boss that is not casting', () => {
     const { state, boss } = awakeBoss();
     pacify(state);
-    place(unitOf(state, SHOOTER), boss.x + 20, boss.z);
+    place(unitOf(state, SNIPER), boss.x + 20, boss.z);
     boss.strikeTicks = 1000;
-    step(state, [{ type: 'cast', unitId: SHOOTER, spell: 'crippling-shot', enemyId: boss.id }]);
+    step(state, [{ type: 'cast', unitId: SNIPER, spell: 'crippling-shot', enemyId: boss.id }]);
     expect(ofType(run(state, 20), 'interrupted')).toEqual([]);
     expect(boss.slowTicks).toBeGreaterThan(0);
     expect(boss.staggerTicks).toBe(0);
@@ -362,7 +362,7 @@ describe('victory', () => {
     const { state, boss } = awakeBoss();
     boss.health = 1;
     const events: Parameters<typeof hitEnemy>[4] = [];
-    hitEnemy(state, unitOf(state, SHOOTER), boss, 1, events);
+    hitEnemy(state, unitOf(state, SNIPER), boss, 1, events);
     expect(ofType(events, 'victory')).toHaveLength(1);
     expect(state.victory).toBe(true);
     const tick = state.tick;
@@ -381,7 +381,7 @@ describe('victory', () => {
   it('gives its XP', () => {
     const { state, boss } = awakeBoss();
     boss.health = 1;
-    hitEnemy(state, unitOf(state, SHOOTER), boss, 1, []);
+    hitEnemy(state, unitOf(state, SNIPER), boss, 1, []);
     expect(state.units.every(({ xp }) => xp === Math.round(BOSS.xp / 3))).toBe(true);
   });
 });
@@ -404,7 +404,7 @@ describe('wipes', () => {
     state.anchor = { x: 1, z: 1 };
     state.potions = 2;
     unitOf(state, FIGHTER).xp = 77;
-    unitOf(state, SHOOTER).spellTicks.volley = 300;
+    unitOf(state, SNIPER).spellTicks.volley = 300;
     state.scheduled.push({ kind: 'slam', ticks: 500, totalTicks: 500, enemyId: boss.id, x: 0, z: 0, radius: 1, hitRadius: 1, damage: 1 });
     for (const unit of state.units) {
       unit.health = 0;

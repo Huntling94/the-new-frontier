@@ -37,7 +37,7 @@ This is the same split as code and data (D-018), and it decides what a save hold
 | Art | A body of learning that unlocks spells and weapon categories |
 | Attribute | One of a character's five core abilities: STR, RAN, MAG, VIG or NIM. Attributes feed stats |
 | Character | One member of the family, such as a particular Fighter |
-| Class | The type of a character: Fighter, Sniper or Healer. Sniper is `shooter` in the code until S2.3a renames it. Wizard and Elementalist are working names, still to be designed |
+| Class | The type of a character: Fighter, Sniper or Healer (D-020). Wizard and Elementalist are working names, still to be designed |
 | Definition | Fixed game data, never saved |
 | Family | Everything the player owns: characters, the store, marks and progress |
 | Field | A zone of kind `field`: open and unsafe |

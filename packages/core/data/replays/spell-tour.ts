@@ -2,9 +2,9 @@ import type { Replay } from '../../src/state';
 import { DUMMY_SCENARIO } from '../scenarios';
 
 const FIGHTER = 1;
-const SHOOTER = 2;
+const SNIPER = 2;
 const HEALER = 3;
-const EVERYONE = [FIGHTER, SHOOTER, HEALER];
+const EVERYONE = [FIGHTER, SNIPER, HEALER];
 const DUMMY_ID = 4;
 const DUMMY_POINT = { x: 0, z: 30 };
 
@@ -33,15 +33,15 @@ export const SPELL_TOUR: Replay = {
     { tick: 300, commands: [{ type: 'cast', unitId: FIGHTER, spell: 'guard' }] },
     {
       tick: 330,
-      commands: [{ type: 'cast', unitId: SHOOTER, spell: 'aimed-shot', enemyId: DUMMY_ID }],
+      commands: [{ type: 'cast', unitId: SNIPER, spell: 'aimed-shot', enemyId: DUMMY_ID }],
     },
     {
       tick: 360,
-      commands: [{ type: 'cast', unitId: SHOOTER, spell: 'crippling-shot', point: DUMMY_POINT }],
+      commands: [{ type: 'cast', unitId: SNIPER, spell: 'crippling-shot', point: DUMMY_POINT }],
     },
     {
       tick: 390,
-      commands: [{ type: 'cast', unitId: SHOOTER, spell: 'volley', point: DUMMY_POINT }],
+      commands: [{ type: 'cast', unitId: SNIPER, spell: 'volley', point: DUMMY_POINT }],
     },
     { tick: 450, commands: [{ type: 'cast', unitId: HEALER, spell: 'rally' }] },
     { tick: 600, commands: [{ type: 'cast', unitId: HEALER, spell: 'mend' }] },
@@ -51,5 +51,5 @@ export const SPELL_TOUR: Replay = {
     { tick: 2580, commands: [{ type: 'regroup' }] },
     { tick: 2640, commands: [{ type: 'target', unitIds: EVERYONE, enemyId: DUMMY_ID }] },
   ],
-  expectedHash: '903a5150',
+  expectedHash: 'a54a5595',
 };

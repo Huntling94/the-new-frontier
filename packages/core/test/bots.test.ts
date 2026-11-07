@@ -7,7 +7,7 @@ import { botCommands } from '../src/bots';
 import { createGame, step } from '../src/game';
 import type { Command, GameState, MoveCommand } from '../src/state';
 import { TICKS } from '../src/time';
-import { FIGHTER, HEALER, SHOOTER, unitOf } from './helpers';
+import { FIGHTER, HEALER, SNIPER, unitOf } from './helpers';
 
 function island(seed = 1): GameState {
   return createGame(seed, ISLAND_SCENARIO);
@@ -52,7 +52,7 @@ describe('auto-combat', () => {
   it('walks to the nearest monster, on attack-move', () => {
     const [move] = moves(autoCommands(thinking(island())).commands);
     expect(move?.attack).toBe(true);
-    expect(move?.unitIds).toEqual([FIGHTER, SHOOTER, HEALER]);
+    expect(move?.unitIds).toEqual([FIGHTER, SNIPER, HEALER]);
   });
 
   it('fetches a fresh drop before the next monster', () => {
@@ -75,6 +75,27 @@ describe('auto-combat', () => {
     monster.x = 0;
     monster.z = 55;
     expect(autoCommands(state).commands).toEqual([]);
+  });
+
+  it('runs only the characters it is given, and leaves the rest alone (D-035)', () => {
+    const state = thinking(island());
+    const [move] = moves(autoCommands(state, [SNIPER]).commands);
+    expect(move?.unitIds).toEqual([SNIPER]);
+    expect(moves(autoCommands(state).commands)[0]?.unitIds).toEqual([FIGHTER, SNIPER, HEALER]);
+  });
+
+  it('is not held up by another character walking', () => {
+    const state = thinking(island());
+    const fighter = unitOf(state, FIGHTER);
+    fighter.dest = { x: 0, z: 0 };
+    expect(autoCommands(state).commands).toEqual([]);
+    expect(moves(autoCommands(state, [HEALER]).commands)).toHaveLength(1);
+  });
+
+  it('stops once everyone it runs is down', () => {
+    const state = thinking(island());
+    unitOf(state, SNIPER).alive = false;
+    expect(autoCommands(state, [SNIPER])).toEqual({ commands: [], stop: 'squad-down' });
   });
 
   it('does not wait on a monster nobody can reach, which is what stalled it', () => {
@@ -180,7 +201,7 @@ describe('bots', () => {
     const state = thinking(island());
     clearMonsters(state);
     const [first] = botCommands(state, 'careful');
-    expect(first).toEqual({ type: 'upgrade', unitId: SHOOTER, slot: 'weapon' });
+    expect(first).toEqual({ type: 'upgrade', unitId: SNIPER, slot: 'weapon' });
     expect(state.units[0]?.gear.weapon.upgrade).toBe(0);
   });
 
@@ -263,7 +284,7 @@ describe('bots', () => {
         const fighter = unitOf(state, FIGHTER);
         fighter.alive = false;
         fighter.health = 0;
-        unitOf(state, SHOOTER).health = 100;
+        unitOf(state, SNIPER).health = 100;
         const commands = botCommands(state, kind);
         expect(spells(commands)).toEqual(expect.arrayContaining(['revive', 'mend']));
         expect(commands.map(({ type }) => type)).toContain('potion');
@@ -272,7 +293,7 @@ describe('bots', () => {
 
     it('do not try a spell that is cooling down', () => {
       const state = fight();
-      unitOf(state, SHOOTER).spellTicks['aimed-shot'] = 5;
+      unitOf(state, SNIPER).spellTicks['aimed-shot'] = 5;
       expect(spells(botCommands(state, 'sloppy'))).not.toContain('aimed-shot');
     });
 

@@ -99,13 +99,25 @@ function autoStop(view: GameView): AutoStop | null {
   return view.enemies.some((enemy) => enemy.boss && enemy.awake) ? 'boss' : null;
 }
 
-function drink(view: GameView): Command[] {
-  const low = lowestShare(livingIn(view)) < AUTO.potionBelow;
-  return low && view.potions > 0 && view.potionCooldownTicks === 0 ? [{ type: 'potion' }] : [];
+function drink(view: GameView, named: boolean): Command[] {
+  const units = livingIn(view);
+  const low = lowestShare(units) < AUTO.potionBelow;
+  if (!low || view.potions === 0 || view.potionCooldownTicks > 0) {
+    return [];
+  }
+  const lowest = units.reduce((a, b) => (b.health / b.maxHealth < a.health / a.maxHealth ? b : a));
+  return [named ? { type: 'potion', unitId: lowest.id } : { type: 'potion' }];
 }
 
-/** Space: roam the island, killing and looting, and stop for bosses or danger (D-007). */
-export function autoCommands(view: GameView): AutoResult {
+/**
+ * Space: roam the island, killing and looting, and stop for bosses or danger (D-007).
+ * Given unit IDs, it runs only those characters, and the rest stay the player's (D-035).
+ */
+export function autoCommands(whole: GameView, unitIds?: readonly number[]): AutoResult {
+  const view = unitIds ? { ...whole, units: whole.units.filter(({ id }) => unitIds.includes(id)) } : whole;
+  if (livingIn(view).length === 0) {
+    return { commands: [], stop: 'squad-down' };
+  }
   const stop = autoStop(view);
   if (stop || view.tick % TICKS.autoThink !== 0) {
     return { commands: [], stop };
@@ -114,6 +126,6 @@ export function autoCommands(view: GameView): AutoResult {
   if (!next) {
     return { commands: [], stop: 'clear' };
   }
-  const commands = drink(view);
+  const commands = drink(view, unitIds !== undefined);
   return { commands: next === 'busy' ? commands : [...commands, moveAll(view, next, true)], stop };
 }

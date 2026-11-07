@@ -45,11 +45,11 @@ describe('starting state', () => {
     const game = createGame(1, EMPTY_SCENARIO);
     expect(game.units.map(({ id, classId, x, z }) => ({ id, classId, x, z }))).toEqual([
       { id: 1, classId: 'fighter', x: 0, z: 62 },
-      { id: 2, classId: 'shooter', x: -4.4, z: 66.2 },
+      { id: 2, classId: 'sniper', x: -4.4, z: 66.2 },
       { id: 3, classId: 'healer', x: 4.4, z: 66.2 },
     ]);
     expect(game.nextId).toBe(4);
-    expect(CLASSES.shooter.speed).toBe(11.5);
+    expect(CLASSES.sniper.speed).toBe(11.5);
   });
 });
 
@@ -105,7 +105,7 @@ describe('triangle formation', () => {
   it('turns the triangle to face the way the squad travels', () => {
     // Travelling along +x, the Fighter leads and the others trail either side.
     expect(triangleSlot('fighter', { x: 10, z: 20 }, 0)).toEqual({ x: 12.4, z: 20 });
-    expect(triangleSlot('shooter', { x: 10, z: 20 }, 0)).toEqual({ x: 7.4, z: 15.4 });
+    expect(triangleSlot('sniper', { x: 10, z: 20 }, 0)).toEqual({ x: 7.4, z: 15.4 });
     const turned = triangleSlot('fighter', { x: 0, z: 0 }, Math.PI / 2);
     expect(turned.x).toBeCloseTo(0, 9);
     expect(turned.z).toBeCloseTo(2.4, 9);
@@ -163,14 +163,14 @@ describe('line and hold', () => {
     const game = openGame();
     step(game, [move([2], -20, 40)]);
     run(game, 200);
-    const shooter = unit(game, 2);
-    expect(shooter.hold).toBe(true);
-    expect(shooter.dest).toBeNull();
-    expect(distance(shooter, { x: -20, z: 40 })).toBeLessThan(MOVEMENT.arriveDistance + 0.5);
-    const { x, z } = shooter;
+    const sniper = unit(game, 2);
+    expect(sniper.hold).toBe(true);
+    expect(sniper.dest).toBeNull();
+    expect(distance(sniper, { x: -20, z: 40 })).toBeLessThan(MOVEMENT.arriveDistance + 0.5);
+    const { x, z } = sniper;
     run(game, 100);
-    expect(shooter.x).toBeCloseTo(x, 9);
-    expect(shooter.z).toBeCloseTo(z, 9);
+    expect(sniper.x).toBeCloseTo(x, 9);
+    expect(sniper.z).toBeCloseTo(z, 9);
   });
 
   it('spreads several units along a line across their path', () => {

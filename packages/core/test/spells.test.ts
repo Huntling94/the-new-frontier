@@ -10,7 +10,7 @@ import {
   DUMMY_ID,
   FIGHTER,
   HEALER,
-  SHOOTER,
+  SNIPER,
   dummyGame,
   dummyOf,
   ofType,
@@ -87,9 +87,9 @@ describe('Guard', () => {
 
 describe('Aimed Shot', () => {
   it('fires a homing shot at 4.2 times', () => {
-    const state = nearDummy(SHOOTER, 20);
+    const state = nearDummy(SNIPER, 20);
     const dummy = dummyOf(state);
-    applyCommands(state, [cast(SHOOTER, 'aimed-shot', { enemyId: DUMMY_ID })]);
+    applyCommands(state, [cast(SNIPER, 'aimed-shot', { enemyId: DUMMY_ID })]);
     expect(state.shots).toHaveLength(1);
     const [shot] = state.shots;
     expect(shot?.multiplier).toBe(4.2);
@@ -104,9 +104,9 @@ describe('Aimed Shot', () => {
 
 describe('Crippling Shot', () => {
   it('sets the slow when it lands, not when it is fired', () => {
-    const state = nearDummy(SHOOTER, 20);
+    const state = nearDummy(SNIPER, 20);
     const dummy = dummyOf(state);
-    applyCommands(state, [cast(SHOOTER, 'crippling-shot', { enemyId: DUMMY_ID })]);
+    applyCommands(state, [cast(SNIPER, 'crippling-shot', { enemyId: DUMMY_ID })]);
     expect(dummy.slowTicks).toBe(0);
     run(state, 10);
     expect(dummy.slowTicks).toBeGreaterThan(110);
@@ -116,13 +116,13 @@ describe('Crippling Shot', () => {
 
 describe('Volley', () => {
   it('schedules three strikes as records in state, and lands them on time', () => {
-    const state = nearDummy(SHOOTER, 20);
+    const state = nearDummy(SNIPER, 20);
     const dummy = dummyOf(state);
     const point = { x: dummy.x, z: dummy.z };
-    applyCommands(state, [cast(SHOOTER, 'volley', { point })]);
+    applyCommands(state, [cast(SNIPER, 'volley', { point })]);
     expect(state.scheduled.map(({ ticks }) => ticks)).toEqual([5, 14, 23]);
     expect(JSON.parse(JSON.stringify(state.scheduled))).toEqual(state.scheduled);
-    const hits = ofType(run(state, 23), 'hit').filter(({ sourceId }) => sourceId === SHOOTER);
+    const hits = ofType(run(state, 23), 'hit').filter(({ sourceId }) => sourceId === SNIPER);
     const volleyHits = hits.filter(({ tick }) => [4, 13, 22].includes(tick));
     expect(volleyHits).toHaveLength(3);
     expect(state.scheduled).toEqual([]);
@@ -130,22 +130,22 @@ describe('Volley', () => {
 
   it('lands on the caster with no point', () => {
     const state = dummyGame();
-    const unit = unitOf(state, SHOOTER);
-    applyCommands(state, [cast(SHOOTER, 'volley')]);
+    const unit = unitOf(state, SNIPER);
+    applyCommands(state, [cast(SNIPER, 'volley')]);
     expect(state.scheduled[0]).toMatchObject({ x: unit.x, z: unit.z });
   });
 
   it('strikes where it was aimed, even if the caster walks off', () => {
-    const state = nearDummy(SHOOTER, 20);
+    const state = nearDummy(SNIPER, 20);
     const dummy = dummyOf(state);
-    applyCommands(state, [cast(SHOOTER, 'volley', { point: { x: dummy.x + 60, z: dummy.z } })]);
+    applyCommands(state, [cast(SNIPER, 'volley', { point: { x: dummy.x + 60, z: dummy.z } })]);
     expect(ofType(run(state, 30), 'hit').filter(({ tick }) => tick === 4)).toEqual([]);
   });
 });
 
 describe('aiming single-target shots', () => {
   const setup = () => {
-    const state = nearDummy(SHOOTER, 20);
+    const state = nearDummy(SNIPER, 20);
     const add = (x: number, z: number): Enemy => {
       const enemy = createDummy(state, { x, z });
       state.enemies.push(enemy);
@@ -159,7 +159,7 @@ describe('aiming single-target shots', () => {
     const { state, add } = setup();
     const named = add(40, 40);
     applyCommands(state, [
-      cast(SHOOTER, 'aimed-shot', { enemyId: named.id, point: { x: 0, z: 30 } }),
+      cast(SNIPER, 'aimed-shot', { enemyId: named.id, point: { x: 0, z: 30 } }),
     ]);
     expect(aimedAt(state)).toBe(named.id);
   });
@@ -168,7 +168,7 @@ describe('aiming single-target shots', () => {
     const { state, add } = setup();
     const near = add(40, 40);
     state.sharedTargetId = DUMMY_ID;
-    applyCommands(state, [cast(SHOOTER, 'aimed-shot', { point: { x: 48, z: 40 } })]);
+    applyCommands(state, [cast(SNIPER, 'aimed-shot', { point: { x: 48, z: 40 } })]);
     expect(aimedAt(state)).toBe(near.id);
   });
 
@@ -176,22 +176,22 @@ describe('aiming single-target shots', () => {
     const { state, add } = setup();
     const shared = add(40, 40);
     state.sharedTargetId = shared.id;
-    applyCommands(state, [cast(SHOOTER, 'aimed-shot', { point: { x: -60, z: 40 } })]);
+    applyCommands(state, [cast(SNIPER, 'aimed-shot', { point: { x: -60, z: 40 } })]);
     expect(aimedAt(state)).toBe(shared.id);
   });
 
   it("then the unit's own target", () => {
     const { state, add } = setup();
     const own = add(40, 40);
-    unitOf(state, SHOOTER).targetId = own.id;
-    applyCommands(state, [cast(SHOOTER, 'aimed-shot')]);
+    unitOf(state, SNIPER).targetId = own.id;
+    applyCommands(state, [cast(SNIPER, 'aimed-shot')]);
     expect(aimedAt(state)).toBe(own.id);
   });
 
   it('then the nearest enemy in range', () => {
     const { state, nearest, add } = setup();
     add(-40, -40);
-    applyCommands(state, [cast(SHOOTER, 'aimed-shot')]);
+    applyCommands(state, [cast(SNIPER, 'aimed-shot')]);
     expect(aimedAt(state)).toBe(nearest.id);
   });
 
@@ -199,14 +199,14 @@ describe('aiming single-target shots', () => {
     const { state, nearest, add } = setup();
     const gone = add(40, 40);
     gone.alive = false;
-    applyCommands(state, [cast(SHOOTER, 'aimed-shot', { enemyId: gone.id })]);
+    applyCommands(state, [cast(SNIPER, 'aimed-shot', { enemyId: gone.id })]);
     expect(aimedAt(state)).toBe(nearest.id);
   });
 
   it('is refused with nothing in range', () => {
     const state = createGame(1, EMPTY_SCENARIO);
-    expect(refusal(state, cast(SHOOTER, 'aimed-shot'))).toBe('no-target');
-    expect(unitOf(state, SHOOTER).spellTicks['aimed-shot'] ?? 0).toBe(0);
+    expect(refusal(state, cast(SNIPER, 'aimed-shot'))).toBe('no-target');
+    expect(unitOf(state, SNIPER).spellTicks['aimed-shot'] ?? 0).toBe(0);
   });
 });
 
@@ -223,15 +223,15 @@ describe('Mend', () => {
   it('uses the wounded ally nearest the point, then the lowest', () => {
     const state = dummyGame();
     const fighter = unitOf(state, FIGHTER);
-    const shooter = unitOf(state, SHOOTER);
+    const sniper = unitOf(state, SNIPER);
     fighter.health = 1900;
-    shooter.health = 100;
+    sniper.health = 100;
     applyCommands(state, [cast(HEALER, 'mend', { point: { x: fighter.x, z: fighter.z } })]);
     expect(fighter.health).toBe(fighter.maxHealth);
-    expect(shooter.health).toBe(100);
+    expect(sniper.health).toBe(100);
     run(state, 106);
     applyCommands(state, [cast(HEALER, 'mend', { point: { x: -80, z: 0 } })]);
-    expect(shooter.health).toBeGreaterThan(100);
+    expect(sniper.health).toBeGreaterThan(100);
   });
 
   it('is refused when nobody is hurt, with nothing spent', () => {
@@ -245,7 +245,7 @@ describe('Mend', () => {
 describe('Rally', () => {
   it('sets its timer on the living only', () => {
     const state = dummyGame();
-    unitOf(state, SHOOTER).alive = false;
+    unitOf(state, SNIPER).alive = false;
     applyCommands(state, [cast(HEALER, 'rally')]);
     expect(state.units.map((unit) => unit.rallyTicks)).toEqual([240, 0, 240]);
   });
@@ -256,19 +256,19 @@ describe('Revive', () => {
     const state = dummyGame();
     const healer = unitOf(state, HEALER);
     const fighter = unitOf(state, FIGHTER);
-    const shooter = unitOf(state, SHOOTER);
+    const sniper = unitOf(state, SNIPER);
     place(healer, 50, 0);
     place(fighter, 40, 0);
-    place(shooter, -60, 0);
+    place(sniper, -60, 0);
     fighter.alive = false;
     fighter.health = 0;
-    shooter.alive = false;
-    shooter.health = 0;
+    sniper.alive = false;
+    sniper.health = 0;
     const events = applyCommands(state, [cast(HEALER, 'revive')]);
     expect(fighter.alive).toBe(true);
     expect(fighter.health).toBe(fighter.maxHealth / 2);
     expect(fighter.invulnerableTicks).toBe(45);
-    expect(shooter.alive).toBe(false);
+    expect(sniper.alive).toBe(false);
     expect(ofType(events, 'unit-revived')).toEqual([
       { type: 'unit-revived', tick: 0, unitId: FIGHTER },
     ]);
@@ -318,7 +318,7 @@ describe('casting', () => {
   it('is refused for an unknown unit or a broken point', () => {
     expect(refusal(dummyGame(), cast(99, 'guard'))).toBe('unknown-unit');
     const point = { x: Number.NaN, z: 0 };
-    expect(refusal(dummyGame(), cast(SHOOTER, 'volley', { point }))).toBe('bad-point');
+    expect(refusal(dummyGame(), cast(SNIPER, 'volley', { point }))).toBe('bad-point');
   });
 
   it('mana comes back at 10 a second, up to the maximum', () => {
@@ -332,10 +332,10 @@ describe('casting', () => {
     expect(healer.mana).toBe(400);
   });
 
-  it('Fighter and Shooter have no mana to spend', () => {
+  it('Fighter and Sniper have no mana to spend', () => {
     const state = dummyGame();
     run(state, 30);
     expect(unitOf(state, FIGHTER).mana).toBe(0);
-    expect(unitOf(state, SHOOTER).mana).toBe(0);
+    expect(unitOf(state, SNIPER).mana).toBe(0);
   });
 });

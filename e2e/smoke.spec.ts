@@ -1,10 +1,14 @@
 import { expect, test } from '@playwright/test';
+import { watchErrors } from './game';
 
 /** Counts the distinct colours in a PNG, using the browser to decode it. */
 async function countColours(png: string): Promise<number> {
   const bytes = Uint8Array.from(atob(png), (char) => char.charCodeAt(0));
   const bitmap = await createImageBitmap(new Blob([bytes], { type: 'image/png' }));
-  const canvas = new OffscreenCanvas(bitmap.width, bitmap.height);
+  // A page canvas, not OffscreenCanvas, which some WebKit builds lack.
+  const canvas = document.createElement('canvas');
+  canvas.width = bitmap.width;
+  canvas.height = bitmap.height;
   const context = canvas.getContext('2d');
   if (!context) throw new Error('No 2D context.');
   context.drawImage(bitmap, 0, 0);
@@ -19,13 +23,9 @@ async function countColours(png: string): Promise<number> {
   return colours.size;
 }
 
-test('the island renders with a clean console', async ({ page }) => {
-  const errors: string[] = [];
-  page.on('console', (message) => {
-    if (message.type() === 'error') errors.push(message.text());
-  });
-  page.on('pageerror', (error) => errors.push(error.message));
-
+test('the game starts and draws with a clean console', async ({ page }) => {
+  test.setTimeout(60_000);
+  const errors = watchErrors(page);
   await page.goto('./');
   await expect(page).toHaveTitle('The New Frontier');
   const canvas = page.locator('#game');
@@ -34,11 +34,15 @@ test('the island renders with a clean console', async ({ page }) => {
 
   // The first frames can be blank while WebGL starts.
   await expect
-    .poll(async () => {
-      const png = (await canvas.screenshot()).toString('base64');
-      return page.evaluate(countColours, png);
-    })
-    .toBeGreaterThanOrEqual(4);
+    .poll(
+      async () => {
+        const png = (await canvas.screenshot()).toString('base64');
+        return page.evaluate(countColours, png);
+      },
+      // Software WebGL can take a while to start in some engines.
+      { timeout: 45_000 },
+    )
+    .toBeGreaterThanOrEqual(8);
 
   expect(errors).toEqual([]);
 });

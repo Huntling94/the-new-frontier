@@ -1,7 +1,7 @@
 import type { ClassData, ClassId } from '../src/state';
 
 /** Unit order, which sets IDs. */
-export const SQUAD: readonly ClassId[] = ['fighter', 'shooter', 'healer'];
+export const SQUAD: readonly ClassId[] = ['fighter', 'sniper', 'healer'];
 
 /** The squad test's classes. Times are seconds, and speeds are per second. */
 export const CLASSES: Readonly<Record<ClassId, ClassData>> = {
@@ -24,7 +24,7 @@ export const CLASSES: Readonly<Record<ClassId, ClassData>> = {
     attackMoveRange: 8,
     spells: ['taunt', 'cleave', 'guard'],
   },
-  shooter: {
+  sniper: {
     speed: 11.5,
     startOffset: { x: -4.4, z: 4.2 },
     slot: { forward: -2.6, side: -4.6 },

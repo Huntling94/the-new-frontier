@@ -1,10 +1,12 @@
-import { buildIslandMesh, TEST_ISLAND } from '@new-frontier/core';
+import { buildIslandMesh, createGame, currentZone, ISLAND_SCENARIO } from '@new-frontier/core';
 import { describe, expect, it } from 'vitest';
-import { buildIslandGeometry } from '../src/island-geometry';
+import { buildGroundGeometry } from '../src/ground-geometry';
+import { zoneLook } from '../src/looks';
 
-describe('island geometry', () => {
-  const mesh = buildIslandMesh(TEST_ISLAND);
-  const geometry = buildIslandGeometry(TEST_ISLAND, mesh);
+describe('ground geometry', () => {
+  const zone = currentZone(createGame(1, ISLAND_SCENARIO));
+  const mesh = buildIslandMesh(zone.ground);
+  const geometry = buildGroundGeometry(zone.ground, mesh, zoneLook(zone.id));
 
   it('keeps every vertex and triangle from the core', () => {
     expect(Array.from(geometry.getAttribute('position').array)).toEqual(

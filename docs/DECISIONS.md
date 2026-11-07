@@ -6,17 +6,17 @@ Every design and architecture decision, in one place. Entries are never rewritte
 |---|---|---|---|
 | [D-001](#d-001) | Command three characters at once | Accepted | 7 Nov 2026 |
 | [D-002](#d-002) | Name: The New Frontier | Accepted | 7 Nov 2026 |
-| [D-003](#d-003) | Right-click control and a free rotating camera | Accepted, extended by D-013 | 7 Nov 2026 |
+| [D-003](#d-003) | Right-click control and a free rotating camera | Accepted, extended by D-013, changed by D-031 and D-034 | 7 Nov 2026 |
 | [D-004](#d-004) | Individual levels, XP split among the living | Accepted | 7 Nov 2026 |
 | [D-005](#d-005) | Upgrades are safe to +4, then risk destruction | Accepted, extended by D-028 | 7 Nov 2026 |
 | [D-006](#d-006) | Five classes, with a Family House to rotate them | Accepted, extended by D-020 | 7 Nov 2026 |
-| [D-007](#d-007) | Space is auto-combat, and also the test bot | Accepted | 7 Nov 2026 |
+| [D-007](#d-007) | Space is auto-combat, and also the test bot | Accepted, extended by D-035 | 7 Nov 2026 |
 | [D-008](#d-008) | The Healer auto-heals one person at a time | Accepted | 7 Nov 2026 |
 | [D-009](#d-009) | TypeScript, three.js and a headless game core | Accepted | 7 Nov 2026 |
 | [D-010](#d-010) | MIT for new code; the 2019 files stay outside it | Accepted | 7 Nov 2026 |
 | [D-011](#d-011) | A world of safe cities and unsafe zones, and the goal is to help the frontier | Accepted, extended by D-021 | 7 Nov 2026 |
 | [D-012](#d-012) | The marketplace is NPC shops | Accepted | 7 Nov 2026 |
-| [D-013](#d-013) | The full control set, as approved in the squad test | Accepted | 7 Nov 2026 |
+| [D-013](#d-013) | The full control set, as approved in the squad test | Accepted, changed by D-031 and D-034 | 7 Nov 2026 |
 | [D-014](#d-014) | Commits: contributor and route | Accepted | 7 Nov 2026 |
 | [D-015](#d-015) | The game core is deterministic and driven by commands | Accepted, extended by D-021 and D-022 | 7 Nov 2026 |
 | [D-016](#d-016) | Four packages, and a guard on `legacy/` | Accepted | 7 Nov 2026 |
@@ -34,6 +34,9 @@ Every design and architecture decision, in one place. Entries are never rewritte
 | [D-028](#d-028) | Seven gear slots to start, on shared item types | Accepted | 7 Nov 2026 |
 | [D-029](#d-029) | Definitions and instances, and a data model document | Accepted | 7 Nov 2026 |
 | [D-030](#d-030) | Graphics come in two steps | Accepted | 7 Nov 2026 |
+| [D-031](#d-031) | Spell keys in a grid, one row per character | Accepted, changed by D-034 | 7 Nov 2026 |
+| [D-034](#d-034) | Controls after the first play of S2.3a | Accepted | 7 Nov 2026 |
+| [D-035](#d-035) | Auto-combat runs per character | Accepted | 7 Nov 2026 |
 
 ## D-001
 
@@ -217,3 +220,49 @@ This extends D-011 and D-015.
 **Graphics come in two steps.** The game keeps the squad test's level of 3D through S3 and S4, with a palette for each zone theme. A new stage, S5, then does the lift: art direction, an asset source, a performance budget, and reworking what exists. It comes before the bulk of content, so that nothing is made twice. If playtesters drop off because of how the game looks, S5 comes forward.
 
 **Why:** art cost scales with content. The simple look is good enough to build on, so the lift need not come before going public.
+
+## D-031
+
+**Spell keys in a grid, one row per character.** This replaces the keyboard parts of D-003 and D-013. The mouse controls do not change.
+
+| Input | Action |
+|---|---|
+| `Q` `W` `E` `R` | Spells of the first character in the active three |
+| `A` `S` `D` `F` | Spells of the second |
+| `Z` `X` `C` `V` | Spells of the third |
+| `1` `2` `3`, `F1` `F2` `F3` | Select one character |
+| `4` | Select all |
+| `G` | Regroup into the triangle |
+| Arrow keys | Pan, relative to the view |
+| `,` `.` | Rotate |
+| `Backspace` | Reset rotation and tilt |
+| Hold `T` + left click | Attack-move |
+| `5` | Potion |
+| `B` | Scatter |
+| `Y` | Use the anvil |
+
+Right click, right drag, middle drag, the wheel, left click and left drag, `Space`, `Shift`, `Home`, `H` and `N` keep their meanings. A row belongs to a character's place in the active three, not its class (D-025), and its keys follow the character's spell list in order (D-027), so a fourth spell takes the fourth key. Keys are read by position on the keyboard, so the grid keeps its shape on other layouts.
+
+**Why:** each character's spells sit under one row of the left hand, and each row has room for a fourth spell. The cost is panning from the left hand: it moves to the arrow keys and the right-drag grip.
+
+## D-034
+
+**Controls after the first play of S2.3a.** This changes D-003, D-013 and D-031 where they differ.
+
+| Input | Action |
+|---|---|
+| Right drag | Rotate and tilt the camera |
+| Middle drag | Grip the camera |
+| `Ctrl` + left click (`Cmd` on a Mac) | Attack-move: fight every enemy met on the way to the point |
+| `F1` `F2` `F3` | Select one character |
+| `F4` | Select all |
+
+`1` to `4` and `T` no longer act. The camera starts with follow on. Panning or gripping turns it off, and any move or target order turns it back on, so the camera goes with the squad.
+
+**Why:** the maintainer's first play beside the squad test. Rotating is the camera move used most, so it takes the easiest drag. Follow coming back on an order keeps the squad in view without pressing `Home`.
+
+## D-035
+
+**Auto-combat runs per character.** This extends D-007. `Space` puts the selected characters into auto-combat, or takes them out if they are all in it already. With everyone selected it runs the whole squad, as before. An order takes only the characters it names out of auto-combat, and regroup and scatter take everyone out. Selecting a character no longer stops it. The core's `autoCommands` takes an optional list of unit IDs, and runs only those characters.
+
+**Why:** the maintainer's first play. One character can fight on alone while the player commands the others.
