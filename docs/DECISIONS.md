@@ -18,7 +18,7 @@ Every design and architecture decision, in one place. Entries are never rewritte
 | [D-012](#d-012) | The marketplace is NPC shops | Accepted | 7 Nov 2026 |
 | [D-013](#d-013) | The full control set, as approved in the squad test | Accepted | 7 Nov 2026 |
 | [D-014](#d-014) | Commits: contributor and route | Accepted | 7 Nov 2026 |
-| [D-015](#d-015) | The game core is deterministic and driven by commands | Proposed | 7 Nov 2026 |
+| [D-015](#d-015) | The game core is deterministic and driven by commands | Accepted | 7 Nov 2026 |
 | [D-016](#d-016) | Four packages, and a guard on `legacy/` | Accepted | 7 Nov 2026 |
 | [D-017](#d-017) | The public page goes live in S2.1, unlinked | Accepted | 7 Nov 2026 |
 | [D-018](#d-018) | Code and data stay separate in the core | Accepted | 7 Nov 2026 |
@@ -112,7 +112,7 @@ The camera starts with follow on. Panning or gripping turns it off, and it stays
 
 ## D-015
 
-**The game core is deterministic and driven by commands.** The core advances in fixed ticks, 30 a second, from one seeded random generator. Commands go in, and state and events come out. Commands name their units and carry a world point or an ID, so the core never knows about the cursor, camera or selection. State is plain data, so a seed and a command list reproduce a run. Zones and items are data records, so the wider world in D-011 can build on them.
+**The game core is deterministic and driven by commands.** The core advances in fixed ticks, 30 a second, from one seeded generator whose state is part of game state. Commands go in, and state and events come out. Commands name the units they act on where the rule needs it, and carry a world point or an ID, so the core never knows about the cursor, camera or selection. State is plain data, so a seed and a command list, each command stamped with its tick, reproduce a run under the same rules and data. Zones and items are data records, so the wider world in D-011 can build on them.
 
 ## D-016
 

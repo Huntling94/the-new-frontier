@@ -9,9 +9,9 @@ The game is split so that its rules run and test without a browser (D-009, D-016
 | `packages/core` | Game rules, as plain functions and data | Nothing |
 | `packages/render` | Everything drawn on screen | `core`, three.js |
 | `packages/app` | The page, input and interface | `core`, `render` |
-| `packages/tools` | Command-line tools, run on Node through `tsx` | Node |
+| `packages/tools` | Command-line tools, run on Node through `tsx` | `core`, Node |
 
-Dependencies point one way: `app` to `render` to `core`. pnpm only lets a package import what its `package.json` declares, so an undeclared import fails to resolve.
+Dependencies point one way, towards `core`. pnpm only lets a package import what its `package.json` declares, so an undeclared import fails to resolve.
 
 ## Interfaces between packages
 
