@@ -4,19 +4,16 @@
 
 ## Now
 
-Stage S1, Preserve 2019. Briefs S2.1, S2.2a, S2.2b and S2.3 are drafted.
+Stage S2, Foundation. S1 is closed. Brief S2.1 is agreed and ready to build. Briefs S2.2a, S2.2b and S2.3 are drafted.
 
 ## Next
 
-1. Close brief S1.
-2. Settle the go-live question, then agree brief S2.1.
+1. Build brief S2.1.
 
 ## Open
 
 - The last two classes (D-006).
-- Rulings on D-015 and D-016, when S2.2a and S2.1 are agreed.
-- Go-live timing (S2.1).
-- The `v0-2019` tag is local only. Close S1 by pushing it.
+- Ruling on D-015, when S2.2a is agreed.
 
 ## Bugs
 

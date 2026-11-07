@@ -1,6 +1,6 @@
 # Brief S1 — Preserve 2019
 
-**Status:** draft.
+**Status:** closed 7 Nov 2026.
 **Read first:** `STATE.md`, D-002, and D-010.
 **Goal:** a visitor sees The New Frontier and can reach the untouched 2019 game in one click.
 
@@ -33,3 +33,7 @@ The repository holds one commit from 2019 and no licence. Everything else builds
 - A file in the commit was not in the approved list.
 
 ## Outcome (builder fills in)
+
+All four checks pass. The offline backup restored cleanly, and its tree hash matches `v0-2019` and `legacy/` on `master`. All 15 files match their 2019 versions in git. The push was not forced. The maintainer reviewed the live page and followed the link to the tag.
+
+**Departures:** the work landed directly on `master` rather than on a local branch, and `legacy/README.md` was dropped from scope.

@@ -19,7 +19,9 @@ Every design and architecture decision, in one place. Entries are never rewritte
 | [D-013](#d-013) | The full control set, as approved in the squad test | Accepted | 7 Nov 2026 |
 | [D-014](#d-014) | Commits: contributor and route | Accepted | 7 Nov 2026 |
 | [D-015](#d-015) | The game core is deterministic and driven by commands | Proposed | 7 Nov 2026 |
-| [D-016](#d-016) | Four packages, and a guard on `legacy/` | Proposed | 7 Nov 2026 |
+| [D-016](#d-016) | Four packages, and a guard on `legacy/` | Accepted | 7 Nov 2026 |
+| [D-017](#d-017) | The public page goes live in S2.1, unlinked | Accepted | 7 Nov 2026 |
+| [D-018](#d-018) | Code and data stay separate in the core | Accepted | 7 Nov 2026 |
 
 ## D-001
 
@@ -114,3 +116,11 @@ The camera starts with follow on. Panning or gripping turns it off, and it stays
 ## D-016
 
 **Four packages, and a guard on `legacy/`.** The code splits into `core`, `render`, `app` and `tools`. `core` holds the rules and depends on nothing, including the browser and Node. A read-only guard in the local checks and in CI proves that `legacy/` still matches the `v0-2019` tree. Line-ending rules name new file types only, there is no `.editorconfig`, and CI does not compile `ge.c`.
+
+## D-017
+
+**The public page goes live in S2.1, unlinked.** The empty island deploys to GitHub Pages, so the pipeline is proven early, and it can be switched off. The README does not link to it until the game is playable.
+
+## D-018
+
+**Code and data stay separate in the core.** `packages/core/src` holds logic, and `packages/core/data` holds typed data. Anything a designer might change is a parameter in the data: stats, formulas' constants, timings, ranges, tables, monsters, items, zones and world layout. Adding content should mean adding data, not changing logic. Lint keeps stray numbers out of the logic.
