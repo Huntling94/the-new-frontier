@@ -2,7 +2,7 @@ import { MOVEMENT } from '../data/movement';
 import { ZONES } from '../data/zones';
 import { TAU, coastDistanceAt, rimRadiusAt, type IslandData } from './island';
 import { randomBetween } from './random';
-import type { GameState, Obstacle, ObstacleKind, Point, Unit, ZoneState } from './state';
+import type { GameState, Obstacle, ObstacleKind, Point, ZoneState } from './state';
 
 export interface ObstacleGroup {
   readonly kind: ObstacleKind;
@@ -17,6 +17,8 @@ export interface ZoneData {
   readonly island: IslandData;
   /** Share of the way to the coast where walkable ground ends. */
   readonly walkableEdge: number;
+  /** The same for enemies, which stay a little further from the sea. */
+  readonly enemyEdge: number;
   /** Share of the way to the coast that an off-land point is pulled in to. */
   readonly offLandPull: number;
   readonly anvil: Point;
@@ -27,6 +29,8 @@ export interface ZoneData {
     readonly minCoastDistanceSquared: number;
     readonly maxCoastDistanceSquared: number;
     readonly triesPerObstacle: number;
+    /** Clear ground kept between obstacles, so that no unit can wedge between two. */
+    readonly minGap: number;
   };
   /** Circles kept free of placed obstacles. */
   readonly clearings: readonly (Point & { readonly radius: number })[];
@@ -35,6 +39,13 @@ export interface ZoneData {
 function isClear(zone: ZoneData, x: number, z: number): boolean {
   return zone.clearings.every((clearing) => {
     return Math.hypot(clearing.x - x, clearing.z - z) >= clearing.radius;
+  });
+}
+
+function hasRoom(obstacle: Obstacle, others: readonly Obstacle[], minGap: number): boolean {
+  return others.every((other) => {
+    const distance = Math.hypot(other.x - obstacle.x, other.z - obstacle.z);
+    return distance - other.radius - obstacle.radius >= minGap;
   });
 }
 
@@ -57,8 +68,11 @@ function placeGroup(
     const z = island.z + Math.sin(angle) * radius;
     if (isClear(zone, x, z)) {
       const scale = randomBetween(state, group.minScale, group.maxScale);
-      obstacles.push({ kind: group.kind, x, z, radius: group.radiusPerScale * scale });
-      placed += 1;
+      const obstacle = { kind: group.kind, x, z, radius: group.radiusPerScale * scale };
+      if (hasRoom(obstacle, obstacles, placement.minGap)) {
+        obstacles.push(obstacle);
+        placed += 1;
+      }
     }
   }
 }
@@ -78,6 +92,10 @@ export function isWalkable(x: number, z: number): boolean {
   return ZONES.some((zone) => coastDistanceAt(zone.island, x, z) < zone.walkableEdge);
 }
 
+export function isWalkableForEnemy(x: number, z: number): boolean {
+  return ZONES.some((zone) => coastDistanceAt(zone.island, x, z) < zone.enemyEdge);
+}
+
 function nearestZone(x: number, z: number): ZoneData {
   return ZONES.reduce((best, zone) =>
     coastDistanceAt(zone.island, x, z) < coastDistanceAt(best.island, x, z) ? zone : best,
@@ -95,17 +113,21 @@ export function pullOntoLand(x: number, z: number): Point {
   return { x: island.x + Math.cos(angle) * radius, z: island.z + Math.sin(angle) * radius };
 }
 
-/** Moves a unit to the edge of any obstacle it has walked into, which makes it slide round. */
-export function pushOutOfObstacles(state: GameState, unit: Unit): void {
+/** Moves a body to the edge of any obstacle it has walked into, which makes it slide round. */
+export function pushOutOfObstacles(
+  state: GameState,
+  body: { x: number; z: number },
+  radius: number,
+): void {
   for (const zone of state.zones) {
     for (const obstacle of zone.obstacles) {
-      const dx = unit.x - obstacle.x;
-      const dz = unit.z - obstacle.z;
+      const dx = body.x - obstacle.x;
+      const dz = body.z - obstacle.z;
       const distance = Math.hypot(dx, dz);
-      const reach = obstacle.radius + MOVEMENT.unitRadius;
+      const reach = obstacle.radius + radius;
       if (distance < reach && distance > MOVEMENT.minObstacleDistance) {
-        unit.x = obstacle.x + (dx / distance) * reach;
-        unit.z = obstacle.z + (dz / distance) * reach;
+        body.x = obstacle.x + (dx / distance) * reach;
+        body.z = obstacle.z + (dz / distance) * reach;
       }
     }
   }

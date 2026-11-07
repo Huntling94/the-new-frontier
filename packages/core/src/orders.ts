@@ -170,6 +170,9 @@ function applyPotion(
 }
 
 function apply(state: GameState, command: Command, events: GameEvent[]): RefusalReason | null {
+  if (state.victory) {
+    return 'run-over';
+  }
   if (state.squadDown) {
     return 'no-living-units';
   }

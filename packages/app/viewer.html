@@ -71,8 +71,12 @@
           <button id="pause" type="button">Pause</button>
           <button id="restart" type="button">Restart</button>
           <label>
-            Replay
+            Run
             <select id="replay"></select>
+          </label>
+          <label>
+            Bot seed
+            <input id="seed" type="number" min="1" value="1" />
           </label>
           <label>
             Speed
@@ -80,6 +84,7 @@
               <option value="1">Normal</option>
               <option value="0.25">Quarter</option>
               <option value="4">Four times</option>
+              <option value="16">Sixteen times</option>
             </select>
           </label>
         </p>
@@ -92,6 +97,8 @@
           <dd id="squad"></dd>
           <dt>Stock</dt>
           <dd id="stock"></dd>
+          <dt>Boss</dt>
+          <dd id="boss"></dd>
         </dl>
         <p class="legend">
           F Fighter, S Shooter, H Healer. A pale ring means holding position. A thin line leads to
@@ -100,8 +107,15 @@
           Rally, small dots are shots, and a large pale ring is a Volley about to land.
         </p>
         <p class="legend">
+          Monsters: w Sand Skitter, r Tide Crab, a Spit Anemone, G Slag Golem, and the large W is
+          the Warden. A dim shape is asleep, and a purple dot is a monster's shot. Red shapes are
+          telegraphs, the warnings before a big hit, and they fill as it nears. Small gold dots are
+          marks, and pink dots are potions.
+        </p>
+        <p class="legend">
           This hash will not equal the replay's expected hash. Browsers round sines and angles
-          slightly differently from Node, and replays are only required to match in Node.
+          slightly differently from Node, and replays are only required to match in Node. A live
+          bot reacts to whatever happens here, so its run is close to the terminal's but not equal.
         </p>
         <ol id="log"></ol>
       </aside>

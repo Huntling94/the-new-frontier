@@ -1,5 +1,4 @@
 import { AUTO_HEAL, COMBAT, MANA } from '../data/combat';
-import { DUMMY } from '../data/enemies';
 import { MOVEMENT, SCATTER } from '../data/movement';
 import { CLASSES } from '../data/squad';
 import { aliveEnemy, healUnit, hitEnemy, nearestEnemy } from './combat';
@@ -147,12 +146,14 @@ function attack(state: GameState, unit: Unit, enemy: Enemy, events: GameEvent[])
 /** Fights its target or the nearest enemy. Returns where the unit should walk. */
 function fight(state: GameState, unit: Unit, goal: Point | null, events: GameEvent[]): Point | null {
   const { aggroRange, range } = CLASSES[unit.classId];
-  const enemy = aliveEnemy(state, unit.targetId) ?? nearestEnemy(state, unit, aggroRange);
+  const enemy =
+    aliveEnemy(state, unit.targetId) ??
+    nearestEnemy(state, unit, aggroRange, ({ awake }) => awake);
   if (!enemy) {
     return goal;
   }
   const distance = Math.hypot(enemy.x - unit.x, enemy.z - unit.z);
-  if (distance - DUMMY.size * COMBAT.meleeSizeShare <= range) {
+  if (distance - enemy.size * COMBAT.meleeSizeShare <= range) {
     attack(state, unit, enemy, events);
     return null;
   }
@@ -190,9 +191,11 @@ function decide(state: GameState, unit: Unit, events: GameEvent[]): Point | null
   }
   let goal = orderTarget(state, unit, events);
   if (goal && unit.attackMove && !autoHeals) {
-    const enemy = nearestEnemy(state, unit, attackMoveRange);
+    const enemy = nearestEnemy(state, unit, attackMoveRange, ({ awake, boss }) => awake || !boss);
     if (enemy) {
       unit.targetId = enemy.id;
+      // A unit holding its line still closes on what it found.
+      unit.forced = true;
       goal = null;
     }
   }
@@ -218,5 +221,5 @@ export function updateUnit(state: GameState, unit: Unit, events: GameEvent[]): v
     walk(unit, goal);
   }
   pushApart(state, unit);
-  pushOutOfObstacles(state, unit);
+  pushOutOfObstacles(state, unit, MOVEMENT.unitRadius);
 }

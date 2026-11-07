@@ -1,7 +1,10 @@
 import { LEVELS, POTIONS } from '../data/combat';
 import { MARKS } from '../data/gear';
 import { CLASSES, SQUAD } from '../data/squad';
-import { createDummy, updateEnemy } from './enemies';
+import { removeMinions, resetBoss } from './boss';
+import { createBoss, createDummy, createPack, updateEnemy } from './enemies';
+import { triangleSlot } from './formation';
+import { updateDrops } from './loot';
 import { updateUnit } from './movement';
 import { applyCommands } from './orders';
 import { updateScheduled, updateShots } from './shots';
@@ -63,17 +66,29 @@ export function createGame(seed: number, scenario: Scenario): GameState {
     scatterCooldownTicks: 0,
     enemies: [],
     shots: [],
+    enemyShots: [],
     scheduled: [],
+    drops: [],
     sharedTargetId: null,
     marks: MARKS.start,
     potions: POTIONS.start,
     potionCooldownTicks: 0,
     squadDown: false,
+    wipeTicks: 0,
+    victory: false,
+    camp: scenario.squadStart,
+    campHeading: scenario.squadHeading,
   };
   state.zones = buildZones(state);
   state.units = SQUAD.map((classId) => createUnit(state, classId, scenario));
   if (scenario.dummy) {
-    state.enemies = [createDummy(state, scenario.dummy)];
+    state.enemies.push(createDummy(state, scenario.dummy));
+  }
+  scenario.packs.forEach((pack, packId) => {
+    state.enemies.push(...createPack(state, pack, packId));
+  });
+  if (scenario.boss) {
+    state.enemies.push(createBoss(state, scenario.boss));
   }
   return state;
 }
@@ -88,16 +103,60 @@ function runRules(state: GameState, events: GameEvent[]): void {
     updateEnemy(state, enemy, events);
   }
   updateShots(state, events);
+  updateDrops(state, events);
   updateScheduled(state, events);
+  state.enemies = state.enemies.filter((enemy) => enemy.alive || enemy.kind === 'dummy');
+}
+
+/** Everyone gets up at camp, whole. Marks, XP and hurt monsters all stay (S2.2c). */
+function returnToCamp(state: GameState, events: GameEvent[]): void {
+  state.anchor = state.camp;
+  state.heading = state.campHeading;
+  state.squadDown = false;
+  state.sharedTargetId = null;
+  state.shots = [];
+  state.enemyShots = [];
+  state.scheduled = [];
+  for (const unit of state.units) {
+    const { x, z } = triangleSlot(unit.classId, state.camp, state.campHeading);
+    Object.assign(unit, {
+      alive: true,
+      x,
+      z,
+      dest: null,
+      hold: false,
+      attackMove: false,
+      bestDistance: null,
+      stuckTicks: 0,
+      dashTicks: 0,
+      invulnerableTicks: 0,
+      health: unit.maxHealth,
+      mana: CLASSES[unit.classId].mana,
+      targetId: null,
+      forced: false,
+      attackTicks: 0,
+      spellTicks: {},
+      guardTicks: 0,
+      rallyTicks: 0,
+    });
+  }
+  removeMinions(state);
+  state.enemies.forEach(resetBoss);
+  events.push({ type: 'squad-returned', tick: state.tick });
 }
 
 /**
- * Runs one tick. Units update in ID order. Once the squad is down the tick still
- * counts, because replays and the viewer rely on it, and nothing else changes.
+ * Runs one tick. Units update in ID order. While the squad is down, or once the
+ * boss is dead, the tick still counts, because replays and the viewer rely on it.
  */
 export function advance(state: GameState): GameEvent[] {
   const events: GameEvent[] = [];
-  if (!state.squadDown) {
+  if (state.squadDown) {
+    state.wipeTicks -= 1;
+    if (state.wipeTicks <= 0) {
+      returnToCamp(state, events);
+    }
+  } else if (!state.victory) {
     runRules(state, events);
   }
   state.tick += 1;

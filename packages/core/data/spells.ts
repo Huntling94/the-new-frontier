@@ -1,6 +1,6 @@
 /** The nine spells, from the squad test. Times are seconds. */
 export const SPELLS = {
-  taunt: { cooldownSeconds: 9, mana: 0, radius: 17, seconds: 5 },
+  taunt: { cooldownSeconds: 9, mana: 0, radius: 17, seconds: 5, bossRadius: 26, bossSeconds: 4 },
   cleave: {
     cooldownSeconds: 5,
     mana: 0,

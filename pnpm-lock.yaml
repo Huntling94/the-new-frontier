@@ -223,6 +223,10 @@ importers:
         version: 0.187.0
 
   packages/tools:
+    dependencies:
+      '@new-frontier/core':
+        specifier: workspace:*
+        version: link:../core
     devDependencies:
       tsx:
         specifier: 4.23.15

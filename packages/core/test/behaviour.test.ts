@@ -87,6 +87,17 @@ describe('auto-attacks', () => {
     expect(hitsBy(run(state, 60), FIGHTER)).toEqual([]);
   });
 
+  it('a unit sent alone on attack-move closes on the enemy it finds', () => {
+    const state = dummyGame();
+    sendAway(state);
+    const dummy = dummyOf(state);
+    const fighter = unitOf(state, FIGHTER);
+    place(fighter, dummy.x, dummy.z + 20);
+    step(state, [{ type: 'move', unitIds: [FIGHTER], x: dummy.x, z: dummy.z, attack: true }]);
+    expect(fighter.hold).toBe(true);
+    expect(hitsBy(run(state, 120), FIGHTER).length).toBeGreaterThan(0);
+  });
+
   it('a unit stops attacking once its enemy is down', () => {
     const state = dummyGame();
     sendAway(state);

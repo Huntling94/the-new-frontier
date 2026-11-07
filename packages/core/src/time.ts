@@ -1,5 +1,6 @@
 import { AUTO_HEAL, COMBAT, POTIONS, SHOTS } from '../data/combat';
-import { DUMMY } from '../data/enemies';
+import { AUTO, BOTS } from '../data/bots';
+import { BOSS, DUMMY, LOOT, MONSTER_RULES, SPITTER, WIPE } from '../data/enemies';
 import { MOVEMENT, SCATTER } from '../data/movement';
 import { ROUNDING_SLACK, TICK_RATE } from '../data/sim';
 import { SPELLS } from '../data/spells';
@@ -26,6 +27,20 @@ export const TICKS = {
   guard: secondsToTicks(SPELLS.guard.seconds),
   slow: secondsToTicks(SPELLS['crippling-shot'].slowSeconds),
   rally: secondsToTicks(SPELLS.rally.seconds),
+  tauntBoss: secondsToTicks(SPELLS.taunt.bossSeconds),
+  wipe: secondsToTicks(WIPE.seconds),
+  dropFlight: secondsToTicks(LOOT.flightSeconds),
+  dropLife: secondsToTicks(AUTO.dropLifeSeconds),
+  autoThink: secondsToTicks(AUTO.thinkSeconds),
+  botThink: secondsToTicks(BOTS.thinkSeconds),
+  scatterRegroup: secondsToTicks(BOTS.regroupAfterSeconds),
+  spitLife: secondsToTicks(SPITTER.shotLifeSeconds),
+  bossFirstMove: secondsToTicks(BOSS.firstMoveSeconds),
+  bossWokenMove: secondsToTicks(BOSS.wokenMoveSeconds),
+  bossWalkAfter: secondsToTicks(BOSS.walkAfterSeconds),
+  bossMelee: secondsToTicks(BOSS.meleeSeconds),
+  bossInterrupt: secondsToTicks(BOSS.interruptSeconds),
+  chargeLength: secondsToTicks(BOSS.charge.seconds),
 };
 
 /** Turns a per-second value into a per-tick one. */
@@ -35,3 +50,6 @@ export function perTick(perSecond: number): number {
 
 /** Share of knockback left after one tick. */
 export const KNOCKBACK_LEFT_PER_TICK = Math.pow(COMBAT.knockbackLeftPerSecond, 1 / TICK_RATE);
+
+/** Share of the gap to a wanted speed that a monster closes in one tick. */
+export const TURN_PER_TICK = Math.min(1, perTick(MONSTER_RULES.turnRate));

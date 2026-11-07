@@ -17,7 +17,7 @@ const VIEW_RADIUS = 112;
 const UNIT_RADIUS = 11;
 const BAR_WIDTH = 30;
 const BAR_HEIGHT = 5;
-const DUMMY_SIZE = 12;
+const ENEMY_SIZE = 9;
 const SHOT_RADIUS = 3;
 const MARK_RING_RADIUS = 34;
 const VOLLEY_RING_RADIUS = 40;
@@ -29,7 +29,13 @@ const MANA_COLOUR = '#6aa8ef';
 const GUARD_COLOUR = '#8fd6c4';
 const RALLY_COLOUR = '#ffb648';
 const SHOT_COLOUR = '#ffe2a8';
-const DUMMY_COLOUR = '#b0653a';
+const ASLEEP_COLOUR = '#6d5a4a';
+const TELEGRAPH_COLOUR = '#ff5a3c';
+const TELEGRAPH_FILL_OPACITY = 0.3;
+const ENEMY_SHOT_COLOUR = '#c86aa8';
+const ENEMY_SHOT_RADIUS = 4;
+const DROP_RADIUS = 3;
+const DROP_COLOURS = { marks: '#ffcf6e', potion: '#ff9aa8' };
 
 /** The Healer's mana, for its bar. */
 const MAX_MANA = 400;
@@ -39,6 +45,15 @@ const OBSTACLE_COLOURS = {
   rock: '#7c786c',
   beacon: '#d8b878',
   waystone: '#8fd6c4',
+};
+
+const ENEMY_LOOKS = {
+  dummy: { colour: '#b0653a', letter: 'D', scale: 1.3 },
+  swarm: { colour: '#d8b878', letter: 'w', scale: 0.7 },
+  runner: { colour: '#d86a4a', letter: 'r', scale: 1 },
+  spitter: { colour: '#c86aa8', letter: 'a', scale: 1 },
+  brute: { colour: '#8a8890', letter: 'G', scale: 1.5 },
+  boss: { colour: '#ffb648', letter: 'W', scale: 2.6 },
 };
 
 const UNIT_LOOKS = {
@@ -72,6 +87,42 @@ function drawRing(
   context.beginPath();
   context.arc(x, y, radius, 0, 2 * Math.PI);
   context.stroke();
+}
+
+function drawTelegraph(
+  context: CanvasRenderingContext2D,
+  entry: GameView['scheduled'][number],
+  toX: (x: number) => number,
+  toY: (z: number) => number,
+  scale: number,
+): void {
+  if (entry.kind === 'volley-strike') {
+    drawRing(context, toX(entry.x), toY(entry.z), VOLLEY_RING_RADIUS, SHOT_COLOUR);
+    return;
+  }
+  const filled = 1 - entry.ticks / entry.totalTicks;
+  context.fillStyle = TELEGRAPH_COLOUR;
+  context.strokeStyle = TELEGRAPH_COLOUR;
+  context.lineWidth = 2;
+  if (entry.kind === 'slam') {
+    const radius = entry.radius * scale;
+    drawRing(context, toX(entry.x), toY(entry.z), radius, TELEGRAPH_COLOUR);
+    context.globalAlpha = TELEGRAPH_FILL_OPACITY;
+    context.beginPath();
+    context.arc(toX(entry.x), toY(entry.z), radius * filled, 0, 2 * Math.PI);
+    context.fill();
+    context.globalAlpha = 1;
+    return;
+  }
+  context.save();
+  context.translate(toX(entry.x), toY(entry.z));
+  context.rotate(entry.angle);
+  const length = entry.length * scale;
+  const width = entry.width * scale;
+  context.strokeRect(0, -width / 2, length, width);
+  context.globalAlpha = TELEGRAPH_FILL_OPACITY;
+  context.fillRect(0, -width / 2, length * filled, width);
+  context.restore();
 }
 
 function healthColour(share: number): string {
@@ -122,15 +173,31 @@ export function drawGame(
   context.font = `bold ${String(UNIT_RADIUS * 1.5)}px system-ui, sans-serif`;
   context.textAlign = 'center';
   context.textBaseline = 'middle';
+  for (const entry of game.scheduled) {
+    drawTelegraph(context, entry, toX, toY, scale);
+  }
+
+  for (const drop of game.drops) {
+    context.fillStyle = DROP_COLOURS[drop.kind];
+    context.beginPath();
+    context.arc(toX(drop.x), toY(drop.z), DROP_RADIUS, 0, 2 * Math.PI);
+    context.fill();
+  }
+
   for (const enemy of game.enemies) {
     const x = toX(enemy.x);
     const y = toY(enemy.z);
-    context.fillStyle = enemy.alive ? DUMMY_COLOUR : DOWN_COLOUR;
-    context.fillRect(x - DUMMY_SIZE, y - DUMMY_SIZE, DUMMY_SIZE * 2, DUMMY_SIZE * 2);
+    const look = ENEMY_LOOKS[enemy.kind];
+    const size = ENEMY_SIZE * look.scale;
+    const awakeColour = enemy.awake ? look.colour : ASLEEP_COLOUR;
+    context.fillStyle = enemy.alive ? awakeColour : DOWN_COLOUR;
+    context.fillRect(x - size, y - size, size * 2, size * 2);
     context.fillStyle = '#182530';
-    context.fillText('D', x, y);
-    const share = enemy.health / enemy.maxHealth;
-    drawBar(context, x, y - DUMMY_SIZE * 2, share, healthColour(share));
+    context.fillText(look.letter, x, y);
+    if (enemy.health < enemy.maxHealth) {
+      const share = enemy.health / enemy.maxHealth;
+      drawBar(context, x, y - size - BAR_HEIGHT * 2, share, healthColour(share));
+    }
   }
 
   for (const unit of game.units) {
@@ -177,8 +244,11 @@ export function drawGame(
     context.arc(toX(shot.x), toY(shot.z), SHOT_RADIUS, 0, 2 * Math.PI);
     context.fill();
   }
-  for (const strike of game.scheduled) {
-    drawRing(context, toX(strike.x), toY(strike.z), VOLLEY_RING_RADIUS, SHOT_COLOUR);
+  context.fillStyle = ENEMY_SHOT_COLOUR;
+  for (const shot of game.enemyShots) {
+    context.beginPath();
+    context.arc(toX(shot.x), toY(shot.z), ENEMY_SHOT_RADIUS, 0, 2 * Math.PI);
+    context.fill();
   }
 
   for (const mark of marks) {

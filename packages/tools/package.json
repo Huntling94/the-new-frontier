@@ -5,9 +5,14 @@
   "type": "module",
   "scripts": {
     "guard:legacy": "tsx src/legacy-guard-cli.ts",
-    "typecheck": "tsc --noEmit -p tsconfig.json"
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "sim": "tsx src/sim-cli.ts",
+    "sim:report": "tsx src/report-cli.ts"
   },
   "devDependencies": {
     "tsx": "4.23.15"
+  },
+  "dependencies": {
+    "@new-frontier/core": "workspace:*"
   }
 }

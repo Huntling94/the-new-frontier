@@ -53,11 +53,13 @@ The rules run in fixed ticks, 30 a second, whatever the frame rate (D-015). A se
 - **Commands go in, and events come out.** Commands carry everything a rule needs, so the core has no cursor, camera or selection. Events report what happened, and are not part of state.
 - **A replay proves it.** `packages/core/data/replays/` holds hand-written replays, each ending on an `expectedHash`. Changing rules or data changes the hash. The failing test prints the new one, updating it is a deliberate edit, and CI's result is the reference.
 - **Time is seconds in the data and whole ticks in state,** converted once in `packages/core/src/time.ts`.
-- **A tick runs in a fixed order:** commands, units, enemies, shots, then delayed effects.
-- **Anything that lands later is a record in state.** Shots and Volley's strikes are plain entries, so a save keeps them.
+- **A tick runs in a fixed order:** commands, units, enemies, shots, drops, then delayed effects.
+- **Anything that lands later is a record in state.** Shots, Volley's strikes, telegraphs and drops are plain entries, so a save keeps them.
 - **The core resolves aiming.** A `cast` carries a point or enemy ID, and the rule picks the target. The shared target is in state, and selection stays in `packages/app`.
+- **Enemies carry their own stats,** because level scales them. Monster types, packs and the boss are data.
+- **Auto-combat and bots are players.** `autoCommands` and `botCommands` read `GameView` and return commands. They keep no memory and use no randomness, so a run needs only a seed.
 
-The viewer at `/viewer.html` plays any replay on a plain 2D canvas under `pnpm dev`. It is dev-only: Vite builds only `index.html`, and `e2e/public-build.spec.ts` proves no viewer page or replay reaches the public build.
+The viewer at `/viewer.html` plays any replay, or a live bot from a seed, on a plain 2D canvas under `pnpm dev`. It is dev-only: Vite builds only `index.html`, and `e2e/public-build.spec.ts` proves no viewer page or replay reaches the public build.
 
 ## Protecting `legacy/`
 
@@ -75,6 +77,8 @@ The viewer at `/viewer.html` plays any replay on a plain 2D canvas under `pnpm d
 | `pnpm build` | Builds the static site to `packages/app/dist` |
 | `pnpm check` | Typecheck, lint, unit tests and the `legacy/` guard |
 | `pnpm test:e2e` | Builds, then runs the browser test |
+| `pnpm sim --seed <n> --bot careful\|sloppy` | Plays one bot run in the terminal |
+| `pnpm sim:report --seeds <n>` | Summarises both bots and auto-combat across many seeds |
 
 The browser test needs Chromium once per machine: `pnpm exec playwright install chromium`.
 

@@ -1,8 +1,14 @@
 import { AIM } from '../data/combat';
-import { DUMMY } from '../data/enemies';
 import { SPELLS } from '../data/spells';
 import { CLASSES } from '../data/squad';
-import { aliveEnemy, healUnit, hitEnemy, lowestHealthUnit, nearestEnemy } from './combat';
+import {
+  aliveEnemy,
+  healUnit,
+  hitEnemy,
+  lowestHealthUnit,
+  nearestEnemy,
+  wakePack,
+} from './combat';
 import { livingUnits } from './formation';
 import { fireShot } from './shots';
 import type {
@@ -28,9 +34,13 @@ function aimEnemy(state: GameState, unit: Unit, command: CastCommand): Enemy | n
 }
 
 function taunt(state: GameState, unit: Unit): Point {
+  const { radius, bossRadius } = SPELLS.taunt;
   for (const enemy of state.enemies) {
-    if (enemy.alive && Math.hypot(enemy.x - unit.x, enemy.z - unit.z) < SPELLS.taunt.radius) {
-      enemy.tauntTicks = TICKS.taunt;
+    const reach = enemy.boss ? bossRadius : radius;
+    if (enemy.alive && Math.hypot(enemy.x - unit.x, enemy.z - unit.z) < reach) {
+      enemy.tauntTicks = enemy.boss ? TICKS.tauntBoss : TICKS.taunt;
+      enemy.tauntUnitId = unit.id;
+      wakePack(state, enemy);
     }
   }
   return unit;
@@ -39,7 +49,7 @@ function taunt(state: GameState, unit: Unit): Point {
 function cleave(state: GameState, unit: Unit, events: GameEvent[]): Point {
   const { radius, sizeShare, multiplier, knockback } = SPELLS.cleave;
   for (const enemy of state.enemies) {
-    const reach = radius + DUMMY.size * sizeShare;
+    const reach = radius + enemy.size * sizeShare;
     if (enemy.alive && Math.hypot(enemy.x - unit.x, enemy.z - unit.z) < reach) {
       const direction = Math.atan2(enemy.z - unit.z, enemy.x - unit.x);
       hitEnemy(state, unit, enemy, multiplier, events, knockback, direction);

@@ -41,42 +41,42 @@ describe('damage to an enemy', () => {
 
   it('carries the attack modifier, AR against DR, and Def', () => {
     const { unit, enemy } = setup();
-    expect(damageToEnemy(unit, enemy, DUMMY, 1, false)).toBe(128);
+    expect(damageToEnemy(unit, enemy, 1, false)).toBe(128);
   });
 
   it("carries the spell's multiplier", () => {
     const { unit, enemy } = setup();
-    expect(damageToEnemy(unit, enemy, DUMMY, 2.3, false)).toBe(294);
+    expect(damageToEnemy(unit, enemy, 2.3, false)).toBe(294);
   });
 
   it('doubles on a crit', () => {
     const { unit, enemy } = setup();
-    expect(damageToEnemy(unit, enemy, DUMMY, 1, true)).toBe(256);
+    expect(damageToEnemy(unit, enemy, 1, true)).toBe(256);
   });
 
   it('adds 30% under Rally', () => {
     const { unit, enemy } = setup();
     unit.rallyTicks = 1;
-    expect(damageToEnemy(unit, enemy, DUMMY, 1, false)).toBe(166);
+    expect(damageToEnemy(unit, enemy, 1, false)).toBe(166);
   });
 
   it('adds 50% against a staggered enemy', () => {
     const { unit, enemy } = setup();
     enemy.staggerTicks = 1;
-    expect(damageToEnemy(unit, enemy, DUMMY, 1, false)).toBe(192);
+    expect(damageToEnemy(unit, enemy, 1, false)).toBe(192);
   });
 
   it('multiplies every term together', () => {
     const { unit, enemy } = setup();
     unit.rallyTicks = 1;
     enemy.staggerTicks = 1;
-    expect(damageToEnemy(unit, enemy, DUMMY, 2.3, true)).toBe(1148);
+    expect(damageToEnemy(unit, enemy, 2.3, true)).toBe(1148);
   });
 
   it('is at least 1', () => {
     const { unit, enemy } = setup();
     unit.attack = 0;
-    expect(damageToEnemy(unit, enemy, DUMMY, 1, false)).toBe(1);
+    expect(damageToEnemy(unit, enemy, 1, false)).toBe(1);
   });
 });
 
@@ -87,18 +87,18 @@ describe('damage to an enemy', () => {
 describe('damage to a unit', () => {
   it('carries AR against DR, and Def', () => {
     const unit = unitOf(dummyGame(), FIGHTER);
-    expect(damageToUnit(unit, DUMMY.attack, DUMMY)).toBe(41);
+    expect(damageToUnit(unit, DUMMY.attack, DUMMY.ar)).toBe(41);
   });
 
   it('takes 70% off under Guard', () => {
     const unit = unitOf(dummyGame(), FIGHTER);
     unit.guardTicks = 1;
-    expect(damageToUnit(unit, DUMMY.attack, DUMMY)).toBe(12);
+    expect(damageToUnit(unit, DUMMY.attack, DUMMY.ar)).toBe(12);
   });
 
   it('is at least 1', () => {
     const unit = unitOf(dummyGame(), FIGHTER);
-    expect(damageToUnit(unit, 0, DUMMY)).toBe(1);
+    expect(damageToUnit(unit, 0, DUMMY.ar)).toBe(1);
   });
 
   it('skips a unit that is invulnerable, and leaves one briefly so after a hit', () => {
@@ -131,8 +131,8 @@ describe('ge.c bugs that must not come back', () => {
     const state = dummyGame();
     const unit = unitOf(state, FIGHTER);
     unit.ar = -1000;
-    expect(damageToEnemy(unit, dummyOf(state), DUMMY, 1, false)).toBeGreaterThan(0);
-    expect(damageToUnit(unit, DUMMY.attack, { ...DUMMY, ar: -1000 })).toBeGreaterThan(0);
+    expect(damageToEnemy(unit, dummyOf(state), 1, false)).toBeGreaterThan(0);
+    expect(damageToUnit(unit, DUMMY.attack, -1000)).toBeGreaterThan(0);
   });
 });
 
@@ -333,7 +333,7 @@ describe('going down', () => {
     expect([unit.x, unit.z]).toEqual([x, z]);
   });
 
-  it('all three down raises squad-down once, and then only the tick moves', () => {
+  it('all three down raises squad-down once, and only the clocks move until the return', () => {
     const state = dummyGame();
     sendAway(state);
     const dummy = dummyOf(state);
@@ -348,8 +348,9 @@ describe('going down', () => {
     expect(ofType(events, 'squad-down')).toHaveLength(1);
     expect(state.squadDown).toBe(true);
 
+    state.wipeTicks = 1000;
     const before = state.tick;
-    const hash = hashState({ ...state, tick: 0 });
+    const hash = hashState({ ...state, tick: 0, wipeTicks: 0 });
     const after = [
       ...step(state, [{ type: 'regroup' }]),
       ...step(state, [{ type: 'potion' }]),
@@ -357,7 +358,7 @@ describe('going down', () => {
       ...run(state, 30),
     ];
     expect(state.tick).toBe(before + 33);
-    expect(hashState({ ...state, tick: 0 })).toBe(hash);
+    expect(hashState({ ...state, tick: 0, wipeTicks: 0 })).toBe(hash);
     expect(ofType(after, 'order-refused').map(({ reason }) => reason)).toEqual([
       'no-living-units',
       'no-living-units',

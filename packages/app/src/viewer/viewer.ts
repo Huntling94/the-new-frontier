@@ -1,13 +1,17 @@
 import {
+  ISLAND_SCENARIO,
   REPLAYS,
+  RUNS,
   TICK_RATE,
+  botCommands,
   createGame,
   hashState,
   step,
+  type BotKind,
+  type Command,
   type GameEvent,
   type GameState,
   type GameView,
-  type Replay,
 } from '@new-frontier/core';
 import { drawGame, type Mark } from './draw';
 
@@ -40,16 +44,47 @@ const speedSelect = element<HTMLSelectElement>('speed');
 const replaySelect = element<HTMLSelectElement>('replay');
 const log = element<HTMLOListElement>('log');
 
-function chosenReplay(): Replay {
-  return REPLAYS[replaySelect.value || firstName] as Replay;
+const seedInput = element<HTMLInputElement>('seed');
+
+/** What the viewer is playing: a game, how long it runs, and where its commands come from. */
+interface Run {
+  readonly game: GameState;
+  readonly ticks: number;
+  readonly commands: (game: GameState) => readonly Command[];
 }
 
-for (const name of Object.keys(REPLAYS)) {
+const BOTS: Readonly<Record<string, BotKind>> = {
+  'live bot, careful': 'careful',
+  'live bot, sloppy': 'sloppy',
+};
+
+function chosenRun(): Run {
+  const name = replaySelect.value || firstName;
+  const bot = BOTS[name];
+  if (bot) {
+    return {
+      game: createGame(Number(seedInput.value), ISLAND_SCENARIO),
+      ticks: RUNS.tickLimit,
+      commands: (view) => botCommands(view, bot),
+    };
+  }
+  const replay = REPLAYS[name];
+  if (!replay) {
+    throw new Error(`No replay is called ${name}.`);
+  }
+  return {
+    game: createGame(replay.seed, replay.scenario),
+    ticks: replay.ticks,
+    commands: (view) => replay.entries.find(({ tick }) => tick === view.tick)?.commands ?? [],
+  };
+}
+
+for (const name of [...Object.keys(BOTS), ...Object.keys(REPLAYS)]) {
   replaySelect.add(new Option(name, name));
 }
 
-let replay = chosenReplay();
-let game: GameState = createGame(replay.seed, replay.scenario);
+let run = chosenRun();
+let game = run.game;
 let marks: Mark[] = [];
 let paused = false;
 let owedSeconds = 0;
@@ -85,6 +120,16 @@ function describe(event: GameEvent): string {
       return `${String(event.tick)} unit ${String(event.unitId)} ${event.slot} +${String(event.level)} destroyed`;
     case 'squad-down':
       return `${String(event.tick)} squad down`;
+    case 'squad-returned':
+      return `${String(event.tick)} squad back at camp`;
+    case 'boss-woken':
+      return `${String(event.tick)} the Warden has woken`;
+    case 'interrupted':
+      return `${String(event.tick)} the Warden was interrupted`;
+    case 'loot':
+      return `${String(event.tick)} found ${event.kind === 'marks' ? `${String(event.value)} marks` : 'a potion'}`;
+    case 'victory':
+      return `${String(event.tick)} the Warden is down`;
   }
 }
 
@@ -120,16 +165,17 @@ function addToLog(event: GameEvent): void {
 }
 
 function runOneTick(): void {
-  const entry = replay.entries.find(({ tick }) => tick === game.tick);
-  for (const event of step(game, entry?.commands ?? [])) {
-    addToLog(event);
+  for (const event of step(game, run.commands(game))) {
+    if (event.type !== 'loot') {
+      addToLog(event);
+    }
     addMark(event);
   }
   marks = marks.filter(({ until }) => until > game.tick);
 }
 
 function showStatus(view: GameView): void {
-  element('tick').textContent = `${String(view.tick)} of ${String(replay.ticks)}`;
+  element('tick').textContent = `${String(view.tick)} of ${String(run.ticks)}`;
   element('hash').textContent = hashState(view);
   element('squad').textContent = view.units
     .map((unit) => {
@@ -138,6 +184,14 @@ function showStatus(view: GameView): void {
     })
     .join('\n');
   element('stock').textContent = `${String(view.marks)} marks, ${String(view.potions)} potions`;
+  const boss = view.enemies.find((enemy) => enemy.boss);
+  const cast = boss?.boss && boss.boss.castTicks > 0 ? ', casting' : '';
+  const state = view.victory ? 'down' : boss?.awake ? `awake${cast}` : 'asleep';
+  element('boss').textContent = boss
+    ? `${String(Math.round(boss.health))} of ${String(boss.maxHealth)}, ${state}`
+    : view.victory
+      ? 'down'
+      : 'none';
 }
 
 function frame(now: number): void {
@@ -147,11 +201,12 @@ function frame(now: number): void {
   if (!paused) {
     owedSeconds += elapsed * Number(speedSelect.value);
   }
-  while (owedSeconds >= 1 / TICK_RATE && game.tick < replay.ticks) {
+  const over = (): boolean => game.tick >= run.ticks || game.victory;
+  while (owedSeconds >= 1 / TICK_RATE && !over()) {
     owedSeconds -= 1 / TICK_RATE;
     runOneTick();
   }
-  if (game.tick === replay.ticks) {
+  if (over()) {
     owedSeconds = 0;
   }
   drawGame(context as CanvasRenderingContext2D, game, marks);
@@ -164,8 +219,8 @@ pauseButton.addEventListener('click', () => {
 });
 
 function restart(): void {
-  replay = chosenReplay();
-  game = createGame(replay.seed, replay.scenario);
+  run = chosenRun();
+  game = run.game;
   marks = [];
   owedSeconds = 0;
   log.replaceChildren();
@@ -173,6 +228,7 @@ function restart(): void {
 
 element('restart').addEventListener('click', restart);
 replaySelect.addEventListener('change', restart);
+seedInput.addEventListener('change', restart);
 
 requestAnimationFrame((now) => {
   lastFrame = now;

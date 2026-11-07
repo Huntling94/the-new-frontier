@@ -17,7 +17,9 @@
     "test": "vitest run",
     "guard:legacy": "pnpm --filter @new-frontier/tools guard:legacy",
     "check": "pnpm typecheck && pnpm lint && pnpm test && pnpm guard:legacy",
-    "test:e2e": "pnpm build && playwright test"
+    "test:e2e": "pnpm build && playwright test",
+    "sim": "pnpm --filter @new-frontier/tools sim",
+    "sim:report": "pnpm --filter @new-frontier/tools sim:report"
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",

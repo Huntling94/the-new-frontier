@@ -92,7 +92,12 @@ export interface Unit {
   rallyTicks: number;
 }
 
-export interface EnemyData {
+export type MonsterKind = 'swarm' | 'runner' | 'spitter' | 'brute';
+
+export type EnemyKind = 'dummy' | 'boss' | MonsterKind;
+
+/** An enemy's stats. Level scales them, so each enemy carries its own in state. */
+export interface EnemyStats {
   readonly level: number;
   readonly health: number;
   readonly attack: number;
@@ -100,30 +105,144 @@ export interface EnemyData {
   readonly dr: number;
   readonly defence: number;
   readonly size: number;
+  /** World units per second. */
+  readonly speed: number;
   readonly reach: number;
   readonly xp: number;
-  readonly strikeSeconds: number;
-  readonly respawnSeconds: number;
   /** Share of knockback that moves it. */
   readonly knockbackShare: number;
 }
 
-export interface Enemy {
+export interface MonsterData {
+  readonly name: string;
+  readonly behaviour: 'melee' | 'spitter' | 'slammer';
+  readonly healthShare: number;
+  readonly attackShare: number;
+  readonly size: number;
+  readonly speed: number;
+  readonly reach: number;
+  readonly xpShare: number;
+  readonly knockbackShare: number;
+  /** How long it winds up before a strike lands. */
+  readonly windSeconds: number;
+  readonly coins: { readonly least: number; readonly most: number };
+}
+
+export interface PackData extends Point {
+  readonly level: number;
+  readonly mobs: readonly { readonly kind: MonsterKind; readonly count: number }[];
+}
+
+export interface BossData extends EnemyStats {
+  readonly wakeRange: number;
+  readonly firstMoveSeconds: number;
+  readonly wokenMoveSeconds: number;
+  readonly enrageBelowShare: number;
+  readonly calmPace: number;
+  readonly enragedPace: number;
+  readonly slowShare: number;
+  readonly walkAfterSeconds: number;
+  readonly meleeExtraReach: number;
+  readonly meleeShare: number;
+  readonly meleeSeconds: number;
+  readonly interruptSeconds: number;
+  readonly slam: {
+    readonly radius: number;
+    readonly hitRadius: number;
+    readonly telegraphSeconds: number;
+    readonly waitSeconds: number;
+    readonly cooldownSeconds: number;
+    readonly damageShare: number;
+    readonly calmCount: number;
+    readonly enragedCount: number;
+    /** Later slams land up to this far from the first. */
+    readonly spread: number;
+  };
+  readonly charge: {
+    readonly length: number;
+    readonly width: number;
+    readonly telegraphSeconds: number;
+    readonly seconds: number;
+    readonly speed: number;
+    /** Contact is the boss's size plus this. */
+    readonly hitExtra: number;
+    readonly damageShare: number;
+    readonly cooldownSeconds: number;
+  };
+  readonly blast: {
+    readonly calmSeconds: number;
+    readonly enragedSeconds: number;
+    readonly damageShare: number;
+    readonly cooldownSeconds: number;
+  };
+  readonly summon: {
+    readonly kind: MonsterKind;
+    readonly level: number;
+    readonly health: number;
+    readonly calmCount: number;
+    readonly enragedCount: number;
+    readonly distance: number;
+    /** Largest random turn of the ring of minions, in radians. */
+    readonly turn: number;
+    readonly waitSeconds: number;
+    readonly cooldownSeconds: number;
+  };
+}
+
+export type BossMove = 'slam' | 'charge' | 'blast' | 'summon';
+
+/** What only the boss remembers. */
+export interface BossState {
+  /** `aiming` waits on the charge's telegraph, and `waiting` on `waitTicks`. */
+  phase: 'free' | 'waiting' | 'aiming' | 'charging';
+  /** Ticks since the phase began. */
+  phaseTicks: number;
+  waitTicks: number;
+  lastMove: BossMove | null;
+  /** Left of the cast, and how long it was, for a cast bar. */
+  castTicks: number;
+  castTotalTicks: number;
+  meleeTicks: number;
+  chargeAngle: number;
+  /** Units this charge has already hit. */
+  chargeHitIds: number[];
+}
+
+export interface Enemy extends Omit<EnemyStats, 'health'> {
   readonly id: number;
-  readonly kind: 'dummy';
+  readonly kind: EnemyKind;
+  /** Members of a pack wake together. */
+  readonly packId: number | null;
+  /** Summoned by the boss, so it goes when the boss resets. */
+  readonly minion: boolean;
+  /** Where the enemy goes back to, if it resets. */
+  readonly homeX: number;
+  readonly homeZ: number;
   alive: boolean;
+  /** Asleep until a unit comes near or something hits it. */
+  awake: boolean;
   x: number;
   z: number;
+  /** Speed it is walking at. Knockback is on top of this. */
+  moveX: number;
+  moveZ: number;
   health: number;
   readonly maxHealth: number;
+  /** Until its next strike. */
   strikeTicks: number;
+  /** Left of a wind-up, which is 0 when it is not winding up. */
+  windTicks: number;
   respawnTicks: number;
-  /** Taunt, the slow and knockback are set here, and monsters act on them in S2.2c. */
   tauntTicks: number;
+  /** Who taunted it. */
+  tauntUnitId: number | null;
+  /** Goes for this unit first, if it lives. */
+  preferId: number | null;
   slowTicks: number;
   knockX: number;
   knockZ: number;
   staggerTicks: number;
+  boss: BossState | null;
 }
 
 /** A shot homes in on its enemy until it hits or runs out of time. */
@@ -137,6 +256,32 @@ export interface Shot {
   ticks: number;
 }
 
+/** A monster's shot flies straight, and hits the first unit it meets. */
+export interface EnemyShot {
+  x: number;
+  z: number;
+  readonly speedX: number;
+  readonly speedZ: number;
+  readonly damage: number;
+  readonly sourceId: number;
+  readonly sourceAr: number;
+  ticks: number;
+}
+
+/** Loot in the world. Coins carry marks, and a potion carries one potion. */
+export interface Drop {
+  readonly id: number;
+  readonly kind: 'marks' | 'potion';
+  readonly value: number;
+  x: number;
+  z: number;
+  readonly speedX: number;
+  readonly speedZ: number;
+  /** Left of its flight. It cannot be collected until it lands. */
+  flightTicks: number;
+  ageTicks: number;
+}
+
 /** A delayed effect, held as a record so that a save keeps it (D-015). */
 export interface ScheduledStrike {
   readonly kind: 'volley-strike';
@@ -145,6 +290,36 @@ export interface ScheduledStrike {
   readonly x: number;
   readonly z: number;
 }
+
+/** A warning drawn on the ground, which lands when `ticks` runs out (D-015). */
+export interface SlamTelegraph {
+  readonly kind: 'slam';
+  ticks: number;
+  readonly totalTicks: number;
+  readonly enemyId: number;
+  readonly x: number;
+  readonly z: number;
+  /** What is drawn. */
+  readonly radius: number;
+  /** What lands, which is a little wider. */
+  readonly hitRadius: number;
+  readonly damage: number;
+}
+
+/** The line of a charge. The boss sets off along it when `ticks` runs out. */
+export interface ChargeTelegraph {
+  readonly kind: 'charge';
+  ticks: number;
+  readonly totalTicks: number;
+  readonly enemyId: number;
+  readonly x: number;
+  readonly z: number;
+  readonly angle: number;
+  readonly length: number;
+  readonly width: number;
+}
+
+export type ScheduledEffect = ScheduledStrike | SlamTelegraph | ChargeTelegraph;
 
 export type ObstacleKind = 'tree' | 'rock' | 'beacon' | 'waystone';
 
@@ -172,14 +347,23 @@ export interface GameState {
   scatterCooldownTicks: number;
   enemies: Enemy[];
   shots: Shot[];
-  scheduled: ScheduledStrike[];
+  enemyShots: EnemyShot[];
+  scheduled: ScheduledEffect[];
+  drops: Drop[];
   /** The enemy the squad was last told to attack. */
   sharedTargetId: number | null;
   marks: number;
   potions: number;
   potionCooldownTicks: number;
-  /** All three are down, and only the tick still moves. */
+  /** All three are down. Only the tick moves until they return to camp. */
   squadDown: boolean;
+  /** Left until the squad returns to camp. */
+  wipeTicks: number;
+  /** The boss is dead. Only the tick still moves. */
+  victory: boolean;
+  /** Where the squad returns to after a wipe. */
+  readonly camp: Point;
+  readonly campHeading: number;
 }
 
 type DeepReadonly<T> = T extends readonly (infer Item)[]
@@ -198,6 +382,9 @@ export interface Scenario {
   readonly squadHeading: number;
   /** Where the training dummy stands, if there is one. */
   readonly dummy: Point | null;
+  readonly packs: readonly PackData[];
+  /** Where the boss stands, if there is one. */
+  readonly boss: Point | null;
 }
 
 export interface MoveCommand {
@@ -255,7 +442,8 @@ export type RefusalReason =
   | 'nobody-hurt'
   | 'no-marks'
   | 'not-near-anvil'
-  | 'already-max';
+  | 'already-max'
+  | 'run-over';
 
 export type GameEvent =
   | { readonly type: 'order-accepted'; readonly tick: number; readonly order: Command['type'] }
@@ -314,7 +502,34 @@ export type GameEvent =
       readonly slot: GearSlot;
       readonly level: number;
     }
-  | { readonly type: 'squad-down'; readonly tick: number };
+  | { readonly type: 'squad-down'; readonly tick: number }
+  | { readonly type: 'squad-returned'; readonly tick: number }
+  | { readonly type: 'boss-woken'; readonly tick: number; readonly enemyId: number }
+  | { readonly type: 'interrupted'; readonly tick: number; readonly enemyId: number }
+  | {
+      readonly type: 'loot';
+      readonly tick: number;
+      readonly unitId: number;
+      readonly kind: Drop['kind'];
+      readonly value: number;
+    }
+  | { readonly type: 'victory'; readonly tick: number };
+
+/** Why auto-combat has stopped (D-007). */
+export type AutoStop = 'boss' | 'danger' | 'clear' | 'squad-down' | 'victory';
+
+export interface AutoResult {
+  readonly commands: readonly Command[];
+  readonly stop: AutoStop | null;
+}
+
+export type BotKind = 'careful' | 'sloppy';
+
+/** One item on a bot's shopping list. */
+export interface BotUpgrade {
+  readonly classId: ClassId;
+  readonly slot: GearSlot;
+}
 
 export interface ReplayEntry {
   readonly tick: number;

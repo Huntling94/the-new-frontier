@@ -75,6 +75,20 @@ describe('ticks and rounding', () => {
       guard: 120,
       slow: 120,
       rally: 240,
+      tauntBoss: 120,
+      wipe: 66,
+      dropFlight: 17,
+      dropLife: 360,
+      autoThink: 15,
+      botThink: 6,
+      scatterRegroup: 42,
+      spitLife: 78,
+      bossFirstMove: 75,
+      bossWokenMove: 45,
+      bossWalkAfter: 6,
+      bossMelee: 54,
+      bossInterrupt: 72,
+      chargeLength: 21,
     });
   });
 

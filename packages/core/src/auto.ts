@@ -1,0 +1,119 @@
+import { AUTO } from '../data/bots';
+import { CLASSES } from '../data/squad';
+import type { AutoResult, AutoStop, Command, GameView, Point } from './state';
+import { TICKS } from './time';
+
+type LivingUnits = GameView['units'][number][];
+
+export function livingIn(view: GameView): LivingUnits {
+  return view.units.filter((unit) => unit.alive);
+}
+
+export function centreIn(units: LivingUnits): Point {
+  const x = units.reduce((sum, unit) => sum + unit.x, 0);
+  const z = units.reduce((sum, unit) => sum + unit.z, 0);
+  return { x: x / units.length, z: z / units.length };
+}
+
+/** The lowest share of health among the living. */
+export function lowestShare(units: LivingUnits): number {
+  return Math.min(...units.map((unit) => unit.health / unit.maxHealth));
+}
+
+/** A straight line through the boss's arena would wake it, so the path swings round. */
+function aroundArena(from: Point, to: Point): Point {
+  const { arenaRadius, detourRadius } = AUTO;
+  if (Math.hypot(to.x, to.z) <= arenaRadius) {
+    return to;
+  }
+  const dx = to.x - from.x;
+  const dz = to.z - from.z;
+  const lengthSquared = dx * dx + dz * dz || 1;
+  const along = -(from.x * dx + from.z * dz) / lengthSquared;
+  const share = Math.min(1, Math.max(0, along));
+  const x = from.x + dx * share;
+  const z = from.z + dz * share;
+  if (Math.hypot(x, z) > arenaRadius) {
+    return to;
+  }
+  const angle = Math.atan2(z, x);
+  return { x: Math.cos(angle) * detourRadius, z: Math.sin(angle) * detourRadius };
+}
+
+/** Sends everyone alive to a point, swinging round the arena. */
+export function moveAll(view: GameView, to: Point, attack: boolean): Command {
+  const units = livingIn(view);
+  const { x, z } = aroundArena(centreIn(units), to);
+  return { type: 'move', unitIds: units.map((unit) => unit.id), x, z, attack };
+}
+
+export function nearest(from: Point, points: readonly Point[]): Point | null {
+  let best: Point | null = null;
+  let bestDistance = Infinity;
+  for (const point of points) {
+    const distance = Math.hypot(point.x - from.x, point.z - from.z);
+    if (distance < bestDistance) {
+      best = point;
+      bestDistance = distance;
+    }
+  }
+  return best;
+}
+
+/**
+ * What the squad does next on the island: `busy` while it is fighting or walking,
+ * the next point to attack-move to, or null with nothing left to fight or fetch.
+ */
+export function roam(view: GameView): Point | 'busy' | null {
+  const units = livingIn(view);
+  const centre = centreIn(units);
+  const monsters = view.enemies.filter((enemy) => enemy.alive && !enemy.boss);
+  const fighting = units.some(({ classId, x, z }) => {
+    const { autoHeals, aggroRange } = CLASSES[classId];
+    return (
+      !autoHeals &&
+      monsters.some((enemy) => {
+        return enemy.awake && Math.hypot(enemy.x - x, enemy.z - z) - enemy.size < aggroRange;
+      })
+    );
+  });
+  if (fighting || units.some((unit) => unit.dest)) {
+    return 'busy';
+  }
+  const drops = view.drops.filter((drop) => {
+    return drop.ageTicks < TICKS.dropLife && Math.hypot(drop.x, drop.z) > AUTO.dropClearOfCentre;
+  });
+  return nearest(centre, drops) ?? nearest(centre, monsters);
+}
+
+function autoStop(view: GameView): AutoStop | null {
+  if (view.victory) {
+    return 'victory';
+  }
+  if (view.squadDown) {
+    return 'squad-down';
+  }
+  if (lowestShare(livingIn(view)) < AUTO.dangerBelow && view.potions === 0) {
+    return 'danger';
+  }
+  return view.enemies.some((enemy) => enemy.boss && enemy.awake) ? 'boss' : null;
+}
+
+function drink(view: GameView): Command[] {
+  const low = lowestShare(livingIn(view)) < AUTO.potionBelow;
+  return low && view.potions > 0 && view.potionCooldownTicks === 0 ? [{ type: 'potion' }] : [];
+}
+
+/** Space: roam the island, killing and looting, and stop for bosses or danger (D-007). */
+export function autoCommands(view: GameView): AutoResult {
+  const stop = autoStop(view);
+  if (stop || view.tick % TICKS.autoThink !== 0) {
+    return { commands: [], stop };
+  }
+  const next = roam(view);
+  if (!next) {
+    return { commands: [], stop: 'clear' };
+  }
+  const commands = drink(view);
+  return { commands: next === 'busy' ? commands : [...commands, moveAll(view, next, true)], stop };
+}

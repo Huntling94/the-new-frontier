@@ -7,6 +7,7 @@ export const ZONES: readonly ZoneData[] = [
     id: 'isle',
     island: TEST_ISLAND,
     walkableEdge: 0.9,
+    enemyEdge: 0.87,
     offLandPull: 0.86,
     anvil: { x: 6, z: 66 },
     fixedObstacles: [
@@ -21,6 +22,7 @@ export const ZONES: readonly ZoneData[] = [
       minCoastDistanceSquared: 0.04,
       maxCoastDistanceSquared: 0.68,
       triesPerObstacle: 8,
+      minGap: 1.8,
     },
     clearings: [
       { x: 0, z: 0, radius: 34 },

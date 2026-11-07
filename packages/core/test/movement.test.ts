@@ -73,6 +73,21 @@ describe('obstacles', () => {
     }
   });
 
+  it('leave room for a unit between any two, so that none can wedge', () => {
+    const { minGap } = ZONES[0]?.placement ?? { minGap: 0 };
+    expect(minGap).toBeGreaterThan(MOVEMENT.unitRadius * 2);
+    for (const seed of [1, 13, 17, 40]) {
+      const [zone] = createGame(seed, EMPTY_SCENARIO).zones;
+      const obstacles = zone?.obstacles ?? [];
+      expect(obstacles.length).toBeGreaterThan(90);
+      obstacles.forEach((one, index) => {
+        for (const other of obstacles.slice(index + 1)) {
+          expect(distance(one, other) - one.radius - other.radius).toBeGreaterThanOrEqual(minGap);
+        }
+      });
+    }
+  });
+
   it('stay out of the clearings', () => {
     const [zoneData] = ZONES;
     const [zone] = createGame(3, EMPTY_SCENARIO).zones;
