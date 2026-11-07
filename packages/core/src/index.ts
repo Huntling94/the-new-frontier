@@ -1,3 +1,10 @@
 export { TEST_ISLAND } from '../data/island';
+export { REPLAYS } from '../data/replays';
+export { TICK_RATE } from '../data/sim';
+export { advance, createGame, step } from './game';
+export { hashState } from './hash';
 export { buildIslandMesh, coastDistanceAt, groundHeightAt, rimRadiusAt } from './island';
 export type { IslandData, IslandMesh } from './island';
+export { applyCommands } from './orders';
+export { runReplay } from './replay';
+export type { Command, GameEvent, GameState, GameView, Replay, Scenario } from './state';

@@ -44,6 +44,18 @@ The island shows the pattern for later features:
 
 The renderer never sees the noise, and the core never sees a colour.
 
+## The simulation
+
+The rules run in fixed ticks, 30 a second, whatever the frame rate (D-015). A seed and a list of commands replay a run exactly.
+
+- **All of the game is in `GameState`,** as plain data, generator included. Nothing in `core` keeps changing values anywhere else, so a save is `JSON.stringify(state)`.
+- **The core changes state in place.** Outside code reads it as `GameView`, which is read-only. It passes state back only to `step`, `applyCommands` and `advance`.
+- **Commands go in, and events come out.** Commands carry everything a rule needs, so the core has no cursor, camera or selection. Events report what happened, and are not part of state.
+- **A replay proves it.** `packages/core/data/replays/` holds hand-written replays, each ending on an `expectedHash`. Changing rules or data changes the hash. The failing test prints the new one, updating it is a deliberate edit, and CI's result is the reference.
+- **Time is seconds in the data and whole ticks in state,** converted once in `packages/core/src/time.ts`.
+
+The viewer at `/viewer.html` plays a replay on a plain 2D canvas under `pnpm dev`. It is dev-only: Vite builds only `index.html`, and `e2e/public-build.spec.ts` proves no viewer page or replay reaches the public build.
+
 ## Protecting `legacy/`
 
 `legacy/` is the 2019 game and never changes (D-016).
@@ -56,7 +68,7 @@ The renderer never sees the noise, and the core never sees a colour.
 
 | Command | Does |
 |---|---|
-| `pnpm dev` | Runs the game locally |
+| `pnpm dev` | Runs the game locally, with the replay viewer at `/viewer.html` |
 | `pnpm build` | Builds the static site to `packages/app/dist` |
 | `pnpm check` | Typecheck, lint, unit tests and the `legacy/` guard |
 | `pnpm test:e2e` | Builds, then runs the browser test |

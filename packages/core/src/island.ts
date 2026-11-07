@@ -6,7 +6,7 @@
  * y = 0.
  */
 
-const TAU = 2 * Math.PI;
+export const TAU = 2 * Math.PI;
 
 export interface RimWave {
   /** Bumps around the coast. */

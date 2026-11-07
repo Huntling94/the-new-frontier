@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="en-AU">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Replay viewer</title>
+    <link rel="icon" href="data:," />
+    <style>
+      html,
+      body {
+        height: 100%;
+        margin: 0;
+        background: #182530;
+        color: #e8eef2;
+        font: 14px/1.5 system-ui, sans-serif;
+      }
+      main {
+        display: flex;
+        gap: 1rem;
+        height: 100%;
+        box-sizing: border-box;
+        padding: 1rem;
+      }
+      canvas {
+        flex: none;
+        height: 100%;
+        aspect-ratio: 1;
+        max-width: 70vw;
+        background: #2f6f8f;
+      }
+      aside {
+        flex: 1;
+        min-width: 16rem;
+        overflow: auto;
+      }
+      h1 {
+        margin: 0 0 0.5rem;
+        font-size: 1.1rem;
+      }
+      dl {
+        display: grid;
+        grid-template-columns: auto 1fr;
+        gap: 0 1rem;
+        margin: 0.75rem 0;
+      }
+      dt {
+        color: #9fb4c0;
+      }
+      dd {
+        margin: 0;
+        font-family: ui-monospace, monospace;
+      }
+      ol {
+        margin: 0;
+        padding: 0;
+        list-style: none;
+        font-family: ui-monospace, monospace;
+      }
+      .legend {
+        color: #9fb4c0;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <canvas id="map" width="1000" height="1000" aria-label="Top-down map of the replay"></canvas>
+      <aside>
+        <h1>Replay viewer</h1>
+        <p>
+          <button id="pause" type="button">Pause</button>
+          <button id="restart" type="button">Restart</button>
+          <label>
+            Speed
+            <select id="speed">
+              <option value="1">Normal</option>
+              <option value="0.25">Quarter</option>
+              <option value="4">Four times</option>
+            </select>
+          </label>
+        </p>
+        <dl>
+          <dt>Tick</dt>
+          <dd id="tick"></dd>
+          <dt>Hash</dt>
+          <dd id="hash"></dd>
+        </dl>
+        <p class="legend">
+          F Fighter, S Shooter, H Healer. A pale ring means holding position. A thin line leads to
+          a unit's destination, and the cross marks the triangle's centre.
+        </p>
+        <p class="legend">
+          This hash will not equal the replay's expected hash. Browsers round sines and angles
+          slightly differently from Node, and replays are only required to match in Node.
+        </p>
+        <ol id="log"></ol>
+      </aside>
+    </main>
+    <script type="module" src="/src/viewer/viewer.ts"></script>
+  </body>
+</html>
