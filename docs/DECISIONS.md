@@ -6,14 +6,20 @@ Every design and architecture decision, in one place. Entries are never rewritte
 |---|---|---|---|
 | [D-001](#d-001) | Command three characters at once | Accepted | 7 Nov 2026 |
 | [D-002](#d-002) | Name: The New Frontier | Accepted | 7 Nov 2026 |
-| [D-003](#d-003) | Right-click control and a free rotating camera | Accepted | 7 Nov 2026 |
+| [D-003](#d-003) | Right-click control and a free rotating camera | Accepted, extended by D-013 | 7 Nov 2026 |
 | [D-004](#d-004) | Individual levels, XP split among the living | Accepted | 7 Nov 2026 |
 | [D-005](#d-005) | Upgrades are safe to +4, then risk destruction | Accepted | 7 Nov 2026 |
 | [D-006](#d-006) | Five classes, with a Family House to rotate them | Accepted | 7 Nov 2026 |
 | [D-007](#d-007) | Space is auto-combat, and also the test bot | Accepted | 7 Nov 2026 |
 | [D-008](#d-008) | The Healer auto-heals one person at a time | Accepted | 7 Nov 2026 |
-| [D-009](#d-009) | TypeScript, three.js and a headless game core | Proposed | 7 Nov 2026 |
-| [D-010](#d-010) | MIT for new code; the 2019 files stay outside it | Proposed | 7 Nov 2026 |
+| [D-009](#d-009) | TypeScript, three.js and a headless game core | Accepted | 7 Nov 2026 |
+| [D-010](#d-010) | MIT for new code; the 2019 files stay outside it | Accepted | 7 Nov 2026 |
+| [D-011](#d-011) | A world of safe cities and unsafe zones, and the goal is to help the frontier | Accepted | 7 Nov 2026 |
+| [D-012](#d-012) | The marketplace is NPC shops | Accepted | 7 Nov 2026 |
+| [D-013](#d-013) | The full control set, as approved in the squad test | Accepted | 7 Nov 2026 |
+| [D-014](#d-014) | Commits: contributor and route | Accepted | 7 Nov 2026 |
+| [D-015](#d-015) | The game core is deterministic and driven by commands | Proposed | 7 Nov 2026 |
+| [D-016](#d-016) | Four packages, and a guard on `legacy/` | Proposed | 7 Nov 2026 |
 
 ## D-001
 
@@ -71,3 +77,40 @@ A character moved alone holds that spot until regrouped. The camera follows only
 ## D-010
 
 **MIT for new code; the 2019 files stay outside it.**
+
+## D-011
+
+**A world of safe cities and unsafe zones, and the goal is to help the frontier.** Cities are safe and hold NPCs. Map zones and dungeons are unsafe, each with its own monsters, item drops and levels. Characters help the frontier by levelling up, doing quests and reaching new cities. More story comes later.
+
+This replaces the earlier premise of relighting beacons on islands that the sea is taking.
+
+## D-012
+
+**The marketplace is NPC shops.** Players buy and sell with NPCs. There is no trading between players, so the game needs no server or accounts.
+
+## D-013
+
+**The full control set, as approved in the squad test.** These extend D-003.
+
+| Input | Action |
+|---|---|
+| `Z` `X` `C` | Select one character, as `F1` `F2` `F3` do |
+| Up and down arrows | Pan, as `W` and `S` do |
+| `Home` | Snap the camera to the squad and turn follow on |
+| `R` | Reset rotation and tilt |
+| `E` | Use the anvil |
+| `H`, `N` | Hide help, mute sound |
+
+The camera starts with follow on. Panning or gripping turns it off, and it stays off until the player asks for it. An order never turns it back on.
+
+## D-014
+
+**Commits: contributor and route.** Claude appears as a contributor through a `Co-Authored-By` line. This is a one-person project, so there are no pull requests: changes go straight to `master` once local checks pass and the maintainer approves.
+
+## D-015
+
+**The game core is deterministic and driven by commands.** The core advances in fixed ticks, 30 a second, from one seeded random generator. Commands go in, and state and events come out. Commands name their units and carry a world point or an ID, so the core never knows about the cursor, camera or selection. State is plain data, so a seed and a command list reproduce a run. Zones and items are data records, so the wider world in D-011 can build on them.
+
+## D-016
+
+**Four packages, and a guard on `legacy/`.** The code splits into `core`, `render`, `app` and `tools`. `core` holds the rules and depends on nothing, including the browser and Node. A read-only guard in the local checks and in CI proves that `legacy/` still matches the `v0-2019` tree. Line-ending rules name new file types only, there is no `.editorconfig`, and CI does not compile `ge.c`.

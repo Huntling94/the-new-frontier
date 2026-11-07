@@ -1,7 +1,7 @@
 # Brief S1 — Preserve 2019
 
 **Status:** draft.
-**Read first:** `STATE.md`, D-002, D-003 and D-012.
+**Read first:** `STATE.md`, D-002, and D-010.
 **Goal:** a visitor sees The New Frontier and can reach the untouched 2019 game in one click.
 
 ## Why now
@@ -10,7 +10,7 @@ The repository holds one commit from 2019 and no licence. Everything else builds
 
 ## Scope
 
-**In:** a verified offline backup; tag `v0-2019` on commit `5c863cf`; `legacy/` holding all 15 files unchanged; `legacy/README.md`; root `README.md`; `LICENSE`, `NOTICE`; governance files.
+**In:** a verified offline backup; tag `v0-2019` on commit `5c863cf`; `legacy/` holding all 15 files unchanged; root `README.md`; `LICENSE`, `NOTICE`; governance files.
 **Out:** fixing `ge.c` (never); prototypes and project structure (S2); the finished public page (S6).
 
 ## Plan

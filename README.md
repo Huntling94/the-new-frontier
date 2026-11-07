@@ -1,6 +1,6 @@
 # The New Frontier
 
-**A free, open-source 3D squad RPG for your browser. Command three characters at once, and relight the beacons before the sea rises.**
+**A free, open-source 3D squad RPG for your browser. Command three characters at once, level them up, and help the frontier reach new cities.**
 
 ![The Fighter, Shooter and Healer interrupting a boss in the squad test](docs/media/squad-test.jpg)
 
@@ -10,7 +10,7 @@
 
 ## Purpose
 
-In 2018-2019 as part of studying computer science, I deepened my understanding of C and fundamental algorithms and data strctures by writing a text RPG inspired by an MMORPG I played when I was younger. It ran to nearly 5,000 lines, but was only terminal-based. Now with Claude Code, I wanted to port it into a quick and simple 3D game.
+In 2018-2019 as part of studying computer science, I deepened my understanding of C and fundamental algorithms and data structures by writing a text RPG inspired by an MMORPG I played when I was younger. It ran to nearly 5,000 lines, but was only terminal-based. Now with Claude Code, I wanted to port it into a quick and simple 3D game.
 
 The New Frontier expands my original text-based port into a full-fledged 3D game.
 
