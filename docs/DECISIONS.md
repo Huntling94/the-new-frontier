@@ -42,6 +42,8 @@ Every design and architecture decision, in one place. Entries are never rewritte
 | [D-036](#d-036) | Auto-combat fights bosses | Accepted | 7 Nov 2026 |
 | [D-037](#d-037) | The camera follows a character selected alone | Accepted | 7 Nov 2026 |
 | [D-038](#d-038) | The world borrows the 2019 shape, with original names and places | Accepted | 8 Nov 2026 |
+| [D-039](#d-039) | Upgrades come only from a smith in a town | Accepted | 8 Nov 2026 |
+| [D-040](#d-040) | `Alt` + `E` opens the inventory | Accepted | 8 Nov 2026 |
 
 ## D-001
 
@@ -318,3 +320,21 @@ Right click, right drag, middle drag, the wheel, left click and left drag, `Spac
 - `legacy/` stays untouched as the historical record (D-016).
 
 **Why:** the project is public and MIT-licensed, and `NOTICE` already keeps the 2019 files outside that licence. The 2019 game's value is its shape, which suits a squad game, not its names.
+
+## D-039
+
+**Upgrades come only from a smith in a town.** The anvil is reached only by talking to a smith NPC in a town, never in a field or dungeon. This extends D-005 and D-012, and replaces the anvil's place in the field.
+
+- Every town has an upgrade merchant. Who they are, and whether towns differ, is settled with the town briefs.
+- The field anvil on Lande de Montclaire stays as a stand-in until the town brief builds Montclaire and its smith, then it is removed.
+- Towns are safe, so no upgrade happens during a fight.
+- The odds, costs and spares in D-005 do not change, and a save still follows every result (D-024).
+- Bots and auto-combat must then walk to town to upgrade, so the town brief gives them a way to plan a route across zones.
+
+**Why:** the maintainer's direction. It makes towns matter, matches the 2019 game's upgrade merchants, and makes the risk of an upgrade a trip, not a key press in the field.
+
+## D-040
+
+**`Alt` + `E` opens the inventory.** This extends D-034. The inventory screen (brief S3b) opens and closes with `Alt` + `E`, anywhere, including in fields and dungeons. Holding `Alt` keeps `E` from casting the first character's third spell (D-031). `Esc` also closes it. The key is read by position, so it works on other layouts and on a Mac, where `Option` + `E` would otherwise type an accent.
+
+**Why:** the maintainer's direction. The inventory should be reachable on the battlefield without a spell key firing by mistake.
