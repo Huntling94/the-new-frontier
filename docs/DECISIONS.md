@@ -22,6 +22,7 @@ Every design and architecture decision, in one place. Entries are never rewritte
 | [D-016](#d-016) | Four packages, and a guard on `legacy/` | Accepted | 7 Nov 2026 |
 | [D-017](#d-017) | The public page goes live in S2.1, unlinked | Accepted | 7 Nov 2026 |
 | [D-018](#d-018) | Code and data stay separate in the core | Accepted | 7 Nov 2026 |
+| [D-019](#d-019) | Packages meet at small, explicit interfaces | Accepted | 7 Nov 2026 |
 
 ## D-001
 
@@ -124,3 +125,9 @@ The camera starts with follow on. Panning or gripping turns it off, and it stays
 ## D-018
 
 **Code and data stay separate in the core.** `packages/core/src` holds logic, and `packages/core/data` holds typed data. Anything a designer might change is a parameter in the data: stats, formulas' constants, timings, ranges, tables, monsters, items, zones and world layout. Adding content should mean adding data, not changing logic. Lint keeps stray numbers out of the logic.
+
+## D-019
+
+**Packages meet at small, explicit interfaces.** Each package's `src/index.ts` is its whole public interface, and other packages import only from it. What crosses between packages is named, typed and read-only. `core` exposes plain data, never three.js or browser objects. A change to an interface is deliberate, and the brief that makes it says so. Inside a package, code stays simple: an abstraction waits until a second real use needs it.
+
+**Why:** the game will grow to many cities, zones and quests, and the graphics will be redone after the base game works. Either should be possible without rewriting the rest.

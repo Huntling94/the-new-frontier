@@ -13,6 +13,15 @@ The game is split so that its rules run and test without a browser (D-009, D-016
 
 Dependencies point one way: `app` to `render` to `core`. pnpm only lets a package import what its `package.json` declares, so an undeclared import fails to resolve.
 
+## Interfaces between packages
+
+Packages meet at small, explicit interfaces (D-019), so one can be rebuilt without rewriting the others. The renderer is the likely first case, because the graphics will be redone after the base game works.
+
+- **`src/index.ts` is a package's whole public interface.** The `exports` field in `package.json` makes anything else impossible to import. `app` is the top of the stack, so nothing imports it.
+- **What crosses is named, typed and read-only.** `core` exposes plain data, never three.js or browser objects.
+- **Interface changes are deliberate.** The brief that makes one says so.
+- **Inside a package, code stays simple.** An abstraction waits until a second real use needs it.
+
 ## Rules for the core
 
 `core` must run anywhere and give the same answer each time. Lint and TypeScript enforce that.
