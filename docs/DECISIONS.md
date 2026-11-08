@@ -7,7 +7,7 @@ Every design and architecture decision, in one place. Entries are never rewritte
 | [D-001](#d-001) | Command three characters at once | Accepted | 7 Nov 2026 |
 | [D-002](#d-002) | Name: The New Frontier | Accepted | 7 Nov 2026 |
 | [D-003](#d-003) | Right-click control and a free rotating camera | Accepted, extended by D-013, changed by D-031 and D-034 | 7 Nov 2026 |
-| [D-004](#d-004) | Individual levels, XP split among the living | Accepted | 7 Nov 2026 |
+| [D-004](#d-004) | Individual levels, XP split among the living | Accepted, extended by D-051 | 7 Nov 2026 |
 | [D-005](#d-005) | Upgrades are safe to +4, then risk destruction | Replaced by D-042 | 7 Nov 2026 |
 | [D-006](#d-006) | Five classes, with a Family House to rotate them | Accepted, extended by D-020 | 7 Nov 2026 |
 | [D-007](#d-007) | Space is auto-combat, and also the test bot | Accepted, extended by D-035, changed by D-036 | 7 Nov 2026 |
@@ -29,7 +29,7 @@ Every design and architecture decision, in one place. Entries are never rewritte
 | [D-023](#d-023) | One walkable grid for movement and routes | Accepted | 7 Nov 2026 |
 | [D-024](#d-024) | Saves are automatic, versioned and arrive in S3 | Accepted, extended by D-032 | 7 Nov 2026 |
 | [D-025](#d-025) | The family holds the store, and gear moves onto characters | Accepted | 7 Nov 2026 |
-| [D-026](#d-026) | Attributes and stats are calculated in a fixed order | Accepted | 7 Nov 2026 |
+| [D-026](#d-026) | Attributes and stats are calculated in a fixed order | Accepted, changed by D-049 | 7 Nov 2026 |
 | [D-027](#d-027) | Arts decide what a character can use | Accepted, extended by D-048 | 7 Nov 2026 |
 | [D-028](#d-028) | Seven gear slots to start, on shared item types | Accepted, changed by D-042, extended by D-046 | 7 Nov 2026 |
 | [D-029](#d-029) | Definitions and instances, and a data model document | Accepted, extended by D-044 | 7 Nov 2026 |
@@ -39,7 +39,7 @@ Every design and architecture decision, in one place. Entries are never rewritte
 | [D-033](#d-033) | Optional sign-in and cloud saves, after browser saves work | Proposed | 7 Nov 2026 |
 | [D-034](#d-034) | Controls after the first play of S2.3a | Accepted, extended by D-037 | 7 Nov 2026 |
 | [D-035](#d-035) | Auto-combat runs per character | Accepted | 7 Nov 2026 |
-| [D-036](#d-036) | Auto-combat fights bosses | Accepted | 7 Nov 2026 |
+| [D-036](#d-036) | Auto-combat fights bosses | Replaced for now by D-052 | 7 Nov 2026 |
 | [D-037](#d-037) | The camera follows a character selected alone | Accepted | 7 Nov 2026 |
 | [D-038](#d-038) | The world borrows the 2019 shape, with original names and places | Accepted | 8 Nov 2026 |
 | [D-039](#d-039) | Upgrades come only from a smith in a town | Accepted, changed by D-042, extended by D-043, extended by D-044 | 8 Nov 2026 |
@@ -49,9 +49,16 @@ Every design and architecture decision, in one place. Entries are never rewritte
 | [D-043](#d-043) | Montclaire comes first as a place to walk, and its systems arrive one at a time | Accepted, extended by D-044 | 8 Nov 2026 |
 | [D-044](#d-044) | NPCs are placed in zones and offer a list of services | Accepted | 8 Nov 2026 |
 | [D-045](#d-045) | A shop sells from its own list of offers | Accepted | 8 Nov 2026 |
-| [D-046](#d-046) | Enhancements are random, and an item can hold several | Accepted | 8 Nov 2026 |
+| [D-046](#d-046) | Enhancements are random, and an item can hold several | Accepted, extended by D-055 | 8 Nov 2026 |
 | [D-047](#d-047) | The bank is shared across towns | Accepted | 8 Nov 2026 |
 | [D-048](#d-048) | A character knows several arts, with one active at a time | Accepted | 8 Nov 2026 |
+| [D-049](#d-049) | One combat sheet, and the 2019 hit formula with three fixes | Accepted | 9 Nov 2026 |
+| [D-050](#d-050) | The Lande's monsters are a wasp, a rooster, a viper and a wild boar | Accepted | 9 Nov 2026 |
+| [D-051](#d-051) | XP depends on the gap between a character's level and the monster's | Accepted | 9 Nov 2026 |
+| [D-052](#d-052) | No bosses for now, and the game does not end | Accepted | 9 Nov 2026 |
+| [D-053](#d-053) | Farming while away is the core of the game | Accepted | 9 Nov 2026 |
+| [D-054](#d-054) | The money is called sol | Accepted | 9 Nov 2026 |
+| [D-055](#d-055) | Monsters drop trophies and gear, and dropped gear may carry enhancements | Accepted | 9 Nov 2026 |
 
 ## D-001
 
@@ -428,3 +435,57 @@ Right click, right drag, middle drag, the wheel, left click and left drag, `Spac
 - Whether a switch is allowed during a fight, and what happens to a weapon the new art does not permit, are rules for the arts brief.
 
 **Why:** the maintainer's direction, 8 Nov 2026.
+
+## D-049
+
+**One combat sheet, and the 2019 hit formula with three fixes.** This changes D-026.
+
+- **Characters and monsters share a sheet:** health, attack, attack speed, AR, DR, defence, crit, and fire, ice, lightning and mental resistance. Monsters also carry the XP they grant. There are no hits per attack.
+- **AR and DR stay, and evade goes.** Block stays planned for shields.
+- **The formula comes from `player_damage_calc` and `monster_damage_calc` in `legacy/ge.c`:** a character's attack is multiplied by 1.6 and doubled on a crit, AR below DR takes 10% for the difference plus one, and each point of defence takes 0.5%, up to 95%.
+- **Three fixes:** AR above DR adds a steady 25% a point up to +200%, damage has a floor so a hit cannot heal, and the final ×3 goes, because three real bodies now fight.
+- **No healing is carried over from the 2019 battle loop.** The Healer and potions are unchanged.
+- Resistances do nothing until attacks have damage types.
+
+**Why:** the maintainer's direction, 9 Nov 2026. The 2019 formula was tuned by hand, and is the place to start tuning from.
+
+## D-050
+
+**The Lande's monsters are a wasp, a rooster, a viper and a wild boar.** They replace the squad test's four, keep its behaviours, and suit a lavender heath. Each type carries its own full sheet and attack speed. Names are working names (D-038), and families of monsters wait for a later brief. Placement stays fixed (D-022), and a monster that would respawn on a character shifts to a clear spot.
+
+**Why:** the maintainer's direction, 9 Nov 2026.
+
+## D-051
+
+**XP depends on the gap between a character's level and the monster's.** This extends D-004. After the equal split, each character earns by its own level, in bands from the 2019 `exp_from_kill`: 60% when more than 10 levels above the monster, none when more than 10 levels plus a tenth of its level above, and a bonus when well below it.
+
+**Why:** the maintainer's direction, 9 Nov 2026. Nobody should reach the top level in an easy zone, so farming pushes players to harder ones.
+
+## D-052
+
+**No bosses for now, and the game does not end.** This replaces D-036 for now. The Warden comes off the Lande, and winning goes from play. The boss code stays, unused. Not every zone will have a boss. Later they come as random empowered monsters during long farming, or deliberately through quests and raids. Every bot run still has a clear finish and a hard time limit.
+
+**Why:** the maintainer's direction, 9 Nov 2026.
+
+## D-053
+
+**Farming while away is the core of the game.** The squad should be able to keep hunting and levelling with no one at the keyboard. Its own brief settles how the game runs in a hidden browser tab, how auto-combat keeps hunting, and saving during non-stop fights.
+
+**Why:** the maintainer's direction, 9 Nov 2026.
+
+## D-054
+
+**The money is called sol.** An old French coin, and one syllable. The name is what the player sees. It arrives with the shop, and open to the naming session (D-038).
+
+**Why:** the maintainer's direction, 9 Nov 2026.
+
+## D-055
+
+**Monsters drop trophies and gear, and dropped gear may carry enhancements.** This extends D-046.
+
+- **A trophy** is a common body part that cannot be worn. Weapons and armour are rarer.
+- **All dropped gear is +0, and may carry unknown enhancements.** Gear from a shop has none.
+- **Items a monster drops fly into a character** and reach the inventory. There is no way for a player to drop an item on the ground.
+- Rates, and what "unknown" means in play, are rules for the drops brief.
+
+**Why:** the maintainer's direction, 9 Nov 2026. An enhanced drop can beat the same item from a shop, so drops are worth having.

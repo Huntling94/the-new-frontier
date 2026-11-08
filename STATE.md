@@ -8,7 +8,7 @@ Stage S2, Foundation, is done: the game plays from a public URL, with tests and 
 
 ## Next
 
-1. S3f, the shop, needs a brief. The maintainer wants it to consider monster drops, drop tables and how much can be sold (8 Nov 2026). Then the Enhancer, a first quest giver, and the bank once items drop (D-044 to D-048).
+1. S3f, monsters and combat, is agreed and ready to build (`docs/briefs/S3f-monsters-and-combat.md`). Then S3g, drops and the shop, and S3h, farming while away, which each need a brief (D-053 to D-055). Then the Enhancer, a first quest giver, and the bank once items drop (D-044 to D-048).
 2. The two S3c play questions, on what Continue brought back and whether saving was clear, were not answered separately.
 
 ## Open
@@ -39,6 +39,9 @@ Stage S2, Foundation, is done: the game plays from a public URL, with tests and 
 - The unarmed type, and the cap, buckler and necklace numbers, are placeholders until balance. Which spells need which weapon (cleave a sword, the Sniper's three a rifle) was set in S3b for the maintainer to confirm.
 - Firefox and WebKit are not tested yet. The code avoids engine-only features (S2.3a).
 - Replays match in Node only. Browsers round `sin`, `cos` and `atan2` slightly differently, so a replay recorded in a browser will not reproduce exactly in Node. Decision 13 of S2.2a allows this. It matters if a later brief wants browser runs checked on CI.
+- Backlog: random placement of monsters, with a collision test before placing, a zone maximum and a spread algorithm (maintainer, 9 Nov 2026).
+- Backlog: random empowered monsters during long farming, and quest or raid bosses (D-052).
+- S3g must settle what a dropped item's "unknown" enhancements mean in play, and the drop rates. S3h starts by proving the game runs in a hidden tab, perhaps with `core` in a Web Worker (D-053).
 
 ## Bugs
 
