@@ -24,6 +24,7 @@ describe('reads for the screen', () => {
     expect(zone.gates).toEqual([
       { id: 'lande-to-cave', x: -16, z: 72, radius: 3, to: 'lande-cave' },
       { id: 'lande-to-montclaire', x: 16, z: 72, radius: 3, to: 'montclaire' },
+      { id: 'lande-to-colosse', x: -68, z: 54, radius: 3, to: 'carrefour-du-colosse' },
     ]);
     expect(zone.lots).toEqual([]);
   });

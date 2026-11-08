@@ -1,6 +1,13 @@
 export { RUNS } from '../data/bots';
 export { REPLAYS } from '../data/replays';
-export { ISLAND_SCENARIO, TOWN_SCENARIO } from '../data/scenarios';
+export { COLOSSE_SCENARIO, ISLAND_SCENARIO, TOWN_SCENARIO } from '../data/scenarios';
+export {
+  COLOSSE_DOOR,
+  COLOSSE_LAKE,
+  COLOSSE_LAKE_ROUTE,
+  COLOSSE_ROAD,
+  COLOSSE_SOUTH_ROUTE,
+} from '../data/colosse';
 export { ZONES } from '../data/zones';
 export { TICK_RATE } from '../data/sim';
 export { autoCommands } from './auto';

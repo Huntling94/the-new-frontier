@@ -1,5 +1,6 @@
 import {
   cardOf,
+  COLOSSE_SCENARIO,
   ISLAND_SCENARIO,
   TOWN_SCENARIO,
   REPLAYS,
@@ -75,8 +76,41 @@ const TOWN_WALK: readonly { readonly x: number; readonly z: number }[] = [
 /** Ticks between the walk's orders. */
 const TOWN_LEG_TICKS = 300;
 
+/**
+ * Carrefour du Colosse (M1): the plan, with its eight packs asleep and the squad at the east tip,
+ * and a walk along the road to the far flank and up to the lake end, with the packs taken out
+ * so nothing stops the squad.
+ */
+const COLOSSE_PLAN_RUN = 'colosse plan';
+const COLOSSE_WALK_RUN = 'colosse walk';
+const COLOSSE_WALK: readonly { readonly x: number; readonly z: number }[] = [
+  { x: -93, z: 27 },
+  { x: -24, z: -16 },
+  { x: -24, z: -53 },
+  { x: 98, z: 6 },
+];
+const COLOSSE_LEG_TICKS = 900;
+const PLAN_TICKS = 7200;
+
 function chosenRun(): Run {
   const name = replaySelect.value || firstName;
+  if (name === COLOSSE_PLAN_RUN) {
+    return { game: createGame(Number(seedInput.value), COLOSSE_SCENARIO), ticks: PLAN_TICKS, commands: () => [] };
+  }
+  if (name === COLOSSE_WALK_RUN) {
+    const unitIds = [1, 2, 3];
+    return {
+      game: createGame(Number(seedInput.value), {
+        ...COLOSSE_SCENARIO,
+        contents: { dummy: null, packs: [], boss: null },
+      }),
+      ticks: COLOSSE_WALK.length * COLOSSE_LEG_TICKS,
+      commands: (view) => {
+        const leg = COLOSSE_WALK[view.tick / COLOSSE_LEG_TICKS];
+        return leg ? [{ type: 'move', unitIds, x: leg.x, z: leg.z, attack: false }] : [];
+      },
+    };
+  }
   if (name === TOWN_RUN) {
     const unitIds = [1, 2, 3];
     return {
@@ -107,7 +141,7 @@ function chosenRun(): Run {
   };
 }
 
-for (const name of [...Object.keys(BOTS), TOWN_RUN, ...Object.keys(REPLAYS)]) {
+for (const name of [...Object.keys(BOTS), TOWN_RUN, COLOSSE_PLAN_RUN, COLOSSE_WALK_RUN, ...Object.keys(REPLAYS)]) {
   replaySelect.add(new Option(name, name));
 }
 

@@ -49,6 +49,18 @@ export type GroundShape =
       readonly bounds: Box;
       readonly streets: readonly Street[];
       readonly places: readonly Place[];
+    }
+  | {
+      /**
+       * Walkable ground is every point inside the outline, minus the blocked outlines
+       * and the blocked walls, each a centreline and a width (M1 decision 3). Water is
+       * blocked ground. Single rocks are ordinary obstacles.
+       */
+      readonly shape: 'basin';
+      readonly bounds: Box;
+      readonly outline: readonly Point[];
+      readonly blocked: readonly Place[];
+      readonly walls: readonly Street[];
     };
 
 /** A cell a character may stand in. Obstacles are grown by a character's radius. */
@@ -125,6 +137,21 @@ function onStreets(ground: Extract<GroundShape, { shape: 'streets' }>, x: number
   );
 }
 
+/**
+ * Whether a character may stand at a point of a basin: inside its outline, a character's
+ * radius clear of the edge, and clear of every blocked outline and blocked wall.
+ */
+function inBasin(ground: Extract<GroundShape, { shape: 'basin' }>, x: number, z: number): boolean {
+  const radius = MOVEMENT.unitRadius;
+  if (!insideOutline(ground.outline, x, z) || pathDistance(ground.outline, x, z, true) <= radius) {
+    return false;
+  }
+  const inBlocked = ground.blocked.some(
+    ({ outline }) => insideOutline(outline, x, z) || pathDistance(outline, x, z, true) <= radius,
+  );
+  return !inBlocked && !ground.walls.some(({ points, width }) => pathDistance(points, x, z, false) < width / 2 + radius);
+}
+
 function groundBounds(ground: GroundShape): Box {
   if (ground.shape !== 'island') {
     return ground.bounds;
@@ -143,6 +170,9 @@ function groundFlags(ground: GroundShape, x: number, z: number): number {
   }
   if (ground.shape === 'streets') {
     return onStreets(ground, x, z) ? OPEN | ENEMY_OPEN : 0;
+  }
+  if (ground.shape === 'basin') {
+    return inBasin(ground, x, z) ? OPEN | ENEMY_OPEN : 0;
   }
   const { bounds, walls } = ground;
   const inside = insideBox(bounds, x, z, -radius);

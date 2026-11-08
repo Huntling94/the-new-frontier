@@ -145,9 +145,10 @@ export class ZoneScene {
       this.scene.add(ground, this.buildFoam(island));
     } else if (zone.ground.shape === 'walled') {
       this.buildCave(zone.ground, groundMaterial);
-    } else {
+    } else if (zone.ground.shape === 'streets') {
       this.town = new Town(view, zone, zone.ground, keep, this.look, this.scene);
     }
+    // A basin draws nothing yet: its look is the render half of M1, in a separate session.
 
     this.sea = {
       t: { value: 0 },

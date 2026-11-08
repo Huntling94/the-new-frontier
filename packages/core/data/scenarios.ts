@@ -1,4 +1,5 @@
 import type { Scenario, ZoneContents } from '../src/state';
+import { COLOSSE_CAMP } from './colosse';
 import { MONTCLAIRE_START } from './montclaire';
 import { START_ZONE, TOWN_ZONE } from './zones';
 
@@ -18,6 +19,14 @@ export const TOWN_SCENARIO: Scenario = {
   zone: TOWN_ZONE,
   squadStart: { x: MONTCLAIRE_START.x, z: MONTCLAIRE_START.z },
   squadHeading: MONTCLAIRE_START.heading,
+};
+
+/** The squad just inside the east tip of Carrefour du Colosse (M1), with its packs. Tests and the viewer use it. */
+export const COLOSSE_SCENARIO: Scenario = {
+  name: 'colosse',
+  zone: 'carrefour-du-colosse',
+  squadStart: { x: COLOSSE_CAMP.x, z: COLOSSE_CAMP.z },
+  squadHeading: COLOSSE_CAMP.heading,
 };
 
 /** The squad at camp, with nothing else in the zone. */

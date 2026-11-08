@@ -1,4 +1,17 @@
-import { cardOf, characterOf, currentZone, rimRadiusAt, zoneGrid, type GameView } from '@new-frontier/core';
+import {
+  cardOf,
+  characterOf,
+  COLOSSE_DOOR,
+  COLOSSE_LAKE,
+  COLOSSE_LAKE_ROUTE,
+  COLOSSE_ROAD,
+  COLOSSE_SOUTH_ROUTE,
+  currentZone,
+  rimRadiusAt,
+  zoneGrid,
+  type GameView,
+  type Point,
+} from '@new-frontier/core';
 
 /** Something brief to show on the map: a word or number, and perhaps a ring. */
 export interface Mark {
@@ -16,6 +29,8 @@ const RIM_POINTS = 180;
 const VIEW_RADIUS = 112;
 /** A town is smaller, so the viewer comes closer (S3d). */
 const TOWN_VIEW_RADIUS = 64;
+/** A basin fills its 240 by 240 footprint (M1), so the viewer takes in all of it. */
+const BASIN_VIEW_RADIUS = 124;
 const UNIT_RADIUS = 11;
 const BAR_WIDTH = 30;
 const BAR_HEIGHT = 5;
@@ -49,6 +64,10 @@ const ENEMY_ONLY_COLOUR = '#ffb64833';
 const ROUTE_DASH = [6, 4];
 const CORNER_RADIUS = 3;
 const GATE_COLOUR = '#8fd6c4';
+const LAKE_COLOUR = '#6fa3c4';
+const ROAD_COLOUR = '#ffe2a8';
+const SIDE_ROUTE_COLOUR = '#ffe2a8aa';
+const PLAN_DASH = [10, 6];
 
 const OBSTACLE_COLOURS = {
   stone: '#9a96a0',
@@ -215,9 +234,61 @@ function drawGround(context: CanvasRenderingContext2D, game: GameView, toX: (x: 
     context.restore();
     return;
   }
+  if (ground.shape === 'basin') {
+    // The mountains are dark, the lake is pale water beyond the outline, and the basin is ground.
+    const trace = (points: readonly Point[]): void => {
+      context.beginPath();
+      for (const point of points) context.lineTo(toX(point.x), toY(point.z));
+      context.closePath();
+    };
+    context.fillStyle = WALL_COLOUR;
+    box(ground.bounds);
+    context.fillStyle = LAKE_COLOUR;
+    trace(COLOSSE_LAKE);
+    context.fill();
+    context.fillStyle = GROUND_COLOUR;
+    trace(ground.outline);
+    context.fill();
+    context.fillStyle = WALL_COLOUR;
+    for (const { outline } of ground.blocked) {
+      trace(outline);
+      context.fill();
+    }
+    context.lineCap = 'round';
+    context.lineJoin = 'round';
+    for (const { id, points, width } of ground.walls) {
+      context.strokeStyle = id === 'river' || id === 'pool' ? LAKE_COLOUR : WALL_COLOUR;
+      context.lineWidth = toX(width) - toX(0);
+      context.beginPath();
+      for (const point of points) context.lineTo(toX(point.x), toY(point.z));
+      context.stroke();
+    }
+    return;
+  }
   box(ground.bounds);
   context.fillStyle = WALL_COLOUR;
   ground.walls.forEach(box);
+}
+
+/** The basin's plan: the main road, the two side routes and the closed dungeon door (M1 appendix). */
+function drawPlan(context: CanvasRenderingContext2D, toX: (x: number) => number, toY: (z: number) => number): void {
+  context.save();
+  context.setLineDash(PLAN_DASH);
+  context.lineWidth = 2;
+  const line = (points: readonly Point[], colour: string, widthPx: number): void => {
+    context.strokeStyle = colour;
+    context.lineWidth = widthPx;
+    context.beginPath();
+    for (const point of points) context.lineTo(toX(point.x), toY(point.z));
+    context.stroke();
+  };
+  line(COLOSSE_ROAD, ROAD_COLOUR, 3);
+  line(COLOSSE_LAKE_ROUTE, SIDE_ROUTE_COLOUR, 2);
+  line(COLOSSE_SOUTH_ROUTE, SIDE_ROUTE_COLOUR, 2);
+  context.restore();
+  context.fillStyle = ROAD_COLOUR;
+  context.fillRect(toX(COLOSSE_DOOR.x) - CORNER_RADIUS * 2, toY(COLOSSE_DOOR.z) - CORNER_RADIUS * 3, CORNER_RADIUS * 4, CORNER_RADIUS * 6);
+  context.fillText('door (look only)', toX(COLOSSE_DOOR.x), toY(COLOSSE_DOOR.z) + CORNER_RADIUS * 6);
 }
 
 /** Each unit's live route: a dashed line from the unit through its corners (decision 14). */
@@ -251,7 +322,8 @@ export function drawGame(
 ): void {
   const { width } = context.canvas;
   const zone = currentZone(game);
-  const scale = width / ((zone.kind === 'town' ? TOWN_VIEW_RADIUS : VIEW_RADIUS) * 2);
+  const viewRadius = zone.kind === 'town' ? TOWN_VIEW_RADIUS : zone.ground.shape === 'basin' ? BASIN_VIEW_RADIUS : VIEW_RADIUS;
+  const scale = width / (viewRadius * 2);
   const toX = (x: number): number => width / 2 + x * scale;
   // The map is seen from above, with +z towards the bottom of the screen.
   const toY = (z: number): number => width / 2 + z * scale;
@@ -264,6 +336,11 @@ export function drawGame(
     context.beginPath();
     context.arc(toX(obstacle.x), toY(obstacle.z), obstacle.radius * scale, 0, 2 * Math.PI);
     context.fill();
+  }
+  if (zone.ground.shape === 'basin') {
+    context.font = `${String(UNIT_RADIUS * 1.2)}px system-ui, sans-serif`;
+    context.textAlign = 'center';
+    drawPlan(context, toX, toY);
   }
   for (const gate of zone.gates) {
     drawRing(context, toX(gate.x), toY(gate.z), gate.radius * scale, GATE_COLOUR);

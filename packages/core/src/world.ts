@@ -8,12 +8,13 @@ export type ZoneKind = 'field' | 'dungeon' | 'town';
 
 /**
  * A zone's ground: an island with a noisy coast, a rectangle with walls (S3a decision 5),
- * or a town's streets and open places (S3d decision 1).
+ * a town's streets and open places (S3d decision 1), or a basin: an outline minus
+ * blocked outlines and walls (M1 decision 3).
  */
 export type Ground =
   | (GroundShape & { readonly shape: 'island'; readonly island: IslandData })
   | (GroundShape & {
-      readonly shape: 'walled' | 'streets';
+      readonly shape: 'walled' | 'streets' | 'basin';
       /** Height of the floor. */
       readonly level: number;
     });

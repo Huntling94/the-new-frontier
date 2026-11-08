@@ -1,5 +1,14 @@
 import type { PackData } from '../src/state';
 import type { ZoneData } from '../src/world';
+import {
+  COLOSSE_BLOCKED,
+  COLOSSE_BOUNDS,
+  COLOSSE_CAMP,
+  COLOSSE_OBSTACLES,
+  COLOSSE_OUTLINE,
+  COLOSSE_PACKS,
+  COLOSSE_WALLS,
+} from './colosse';
 import { PACKS } from './enemies';
 import { TEST_ISLAND } from './island';
 import { LANDE_LAYOUT } from './lande-layout';
@@ -66,6 +75,17 @@ export const ZONES: readonly ZoneData[] = [
         requires: [],
         cost: [],
       },
+      {
+        // On the western edge, to the east tip of Carrefour du Colosse (M1 decision 6). It sits on the
+        // rim's south-west, where no bot's route goes in 300 runs: a gate further north was walked into.
+        id: 'lande-to-colosse',
+        area: { x: -68, z: 54, radius: 3 },
+        to: 'carrefour-du-colosse',
+        arrival: { x: 100, z: 9 },
+        heading: Math.PI,
+        requires: [],
+        cost: [],
+      },
     ],
     lots: [],
     npcs: [],
@@ -124,6 +144,36 @@ export const ZONES: readonly ZoneData[] = [
     ],
     lots: MONTCLAIRE_LOTS,
     npcs: MONTCLAIRE_NPCS,
+  },
+  {
+    id: 'carrefour-du-colosse',
+    kind: 'field',
+    place: { x: -250, z: 0 },
+    ground: {
+      shape: 'basin',
+      level: 3,
+      bounds: COLOSSE_BOUNDS,
+      outline: COLOSSE_OUTLINE,
+      blocked: COLOSSE_BLOCKED,
+      walls: COLOSSE_WALLS,
+    },
+    camp: COLOSSE_CAMP,
+    obstacles: COLOSSE_OBSTACLES,
+    contents: { dummy: null, packs: COLOSSE_PACKS, boss: null },
+    packRespawnSeconds: PACK_RESPAWN_SECONDS,
+    gates: [
+      {
+        id: 'colosse-to-lande',
+        area: { x: 112, z: 13, radius: 3 },
+        to: 'lande',
+        arrival: { x: -62, z: 54 },
+        heading: 0,
+        requires: [],
+        cost: [],
+      },
+    ],
+    lots: [],
+    npcs: [],
   },
 ];
 
