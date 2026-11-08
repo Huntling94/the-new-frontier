@@ -74,7 +74,7 @@ export function strayEnemyReferences(view: GameView): string[] {
   if (view.sharedTargetId !== null && !live.has(view.sharedTargetId)) {
     problems.push(`the shared target ${String(view.sharedTargetId)} is not in the live group`);
   }
-  for (const unit of view.units) {
+  for (const unit of view.bodies) {
     if (unit.targetId !== null && !live.has(unit.targetId)) {
       problems.push(`unit ${String(unit.id)} targets ${String(unit.targetId)}, which is not in the live group`);
     }

@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { SLOTS } from '../data/items';
 import { DUMMY } from '../data/enemies';
 import { EMPTY_SCENARIO } from '../data/scenarios';
 import {
@@ -10,6 +11,7 @@ import {
   hurtUnit,
   shareXp,
 } from '../src/combat';
+import { characterOf } from '../src/family';
 import { applyCommands } from '../src/orders';
 import { createGame, step } from '../src/game';
 import { hashState } from '../src/hash';
@@ -154,7 +156,7 @@ describe('the maths behind them', () => {
   it('starting stats follow the squad test', () => {
     const state = dummyGame();
     const fighter = unitOf(state, FIGHTER);
-    expect(fighter.level).toBe(3);
+    expect(characterOf(state, FIGHTER).level).toBe(3);
     expect(fighter.maxHealth).toBe(2040);
     expect(fighter.health).toBe(2040);
     expect(fighter.attack).toBeCloseTo(70.68, 8);
@@ -162,14 +164,16 @@ describe('the maths behind them', () => {
     expect(fighter.dr).toBe(5);
     expect(unitOf(state, SNIPER).maxHealth).toBe(1140);
     expect(unitOf(state, HEALER).mana).toBe(400);
-    expect(state.marks).toBe(450);
-    expect(state.potions).toBe(6);
+    expect(state.family.marks).toBe(450);
+    expect(state.family.potions).toBe(6);
   });
 
-  it('has twelve gear slots, four per character', () => {
+  it('has seven slots per character, four of them filled at the start (D-028)', () => {
     const state = dummyGame();
-    const slots = state.units.flatMap((unit) => Object.keys(unit.gear));
-    expect(slots).toHaveLength(12);
+    for (const character of state.family.characters) {
+      expect(Object.keys(character.items)).toEqual([...SLOTS]);
+      expect(Object.values(character.items).filter((item) => item !== null)).toHaveLength(4);
+    }
   });
 
   it('rolls crits from the seeded generator', () => {
@@ -192,14 +196,14 @@ describe('XP and levels (D-004)', () => {
   it('splits equally among the living', () => {
     const state = dummyGame();
     shareXp(state, 300, []);
-    expect(state.units.map((unit) => unit.xp)).toEqual([100, 100, 100]);
+    expect(state.family.characters.map((character) => character.xp)).toEqual([100, 100, 100]);
   });
 
   it('gives nothing to the dead, and more to the rest', () => {
     const state = dummyGame();
     unitOf(state, SNIPER).alive = false;
     shareXp(state, 300, []);
-    expect(state.units.map((unit) => unit.xp)).toEqual([150, 0, 150]);
+    expect(state.family.characters.map((character) => character.xp)).toEqual([150, 0, 150]);
   });
 
   it('a kill shares the dummy\'s XP', () => {
@@ -210,7 +214,7 @@ describe('XP and levels (D-004)', () => {
     const events: ReturnType<typeof run> = [];
     hitEnemy(state, unitOf(state, FIGHTER), dummy, 1, events);
     expect(ofType(events, 'enemy-down')).toHaveLength(1);
-    expect(unitOf(state, HEALER).xp).toBe(Math.round(DUMMY.xp / 3));
+    expect(characterOf(state, HEALER).xp).toBe(Math.round(DUMMY.xp / 3));
   });
 
   it('levels up, restores health and raises stats', () => {
@@ -220,8 +224,8 @@ describe('XP and levels (D-004)', () => {
     const { attack, maxHealth } = unit;
     const events: ReturnType<typeof run> = [];
     shareXp(state, xpToNextLevel(3) * 3, events);
-    expect(unit.level).toBe(4);
-    expect(unit.xp).toBe(0);
+    expect(characterOf(state, FIGHTER).level).toBe(4);
+    expect(characterOf(state, FIGHTER).xp).toBe(0);
     expect(unit.health).toBe(unit.maxHealth);
     expect(unit.maxHealth).toBeGreaterThan(maxHealth);
     expect(unit.attack).toBeGreaterThan(attack);
@@ -232,14 +236,15 @@ describe('XP and levels (D-004)', () => {
   it('can rise more than one level at once', () => {
     const state = dummyGame();
     shareXp(state, (xpToNextLevel(3) + xpToNextLevel(4)) * 3, []);
-    expect(unitOf(state, FIGHTER).level).toBe(5);
+    expect(characterOf(state, FIGHTER).level).toBe(5);
   });
 
   it('keeps a wounded unit wounded by the same amount when its maximum changes', () => {
-    const unit = unitOf(dummyGame(), FIGHTER);
+    const state = dummyGame();
+    const unit = unitOf(state, FIGHTER);
     unit.health -= 500;
-    unit.level = 4;
-    recalculate(unit);
+    characterOf(state, FIGHTER).level = 4;
+    recalculate(characterOf(state, FIGHTER), unit);
     expect(unit.maxHealth - unit.health).toBe(500);
   });
 });
@@ -337,7 +342,7 @@ describe('going down', () => {
     const state = dummyGame();
     sendAway(state);
     const dummy = dummyOf(state);
-    for (const unit of state.units) {
+    for (const unit of state.bodies) {
       place(unit, dummy.x + 2, dummy.z);
       unit.health = 1;
     }
@@ -375,7 +380,7 @@ describe('potions', () => {
     unit.health = 100;
     const events = applyCommands(state, [{ type: 'potion', unitId: FIGHTER }]);
     expect(unit.health).toBe(100 + 2040 * 0.4);
-    expect(state.potions).toBe(5);
+    expect(state.family.potions).toBe(5);
     expect(ofType(events, 'healed')).toHaveLength(1);
   });
 
@@ -412,7 +417,8 @@ describe('potions', () => {
     ['no potions are left', 'no-potions', { potions: 0 }],
     ['nobody is hurt', 'nobody-hurt', {}],
   ] as const)('is refused when %s', (_name, reason, change) => {
-    const state = Object.assign(dummyGame(), change);
+    const state = dummyGame();
+    Object.assign(state.family, change);
     if ('potions' in change) unitOf(state, FIGHTER).health = 100;
     const events = applyCommands(state, [{ type: 'potion' }]);
     expect(ofType(events, 'order-refused').map((event) => event.reason)).toEqual([reason]);
@@ -429,6 +435,6 @@ describe('potions', () => {
       'no-living-units',
       'unknown-unit',
     ]);
-    expect(state.potions).toBe(6);
+    expect(state.family.potions).toBe(6);
   });
 });

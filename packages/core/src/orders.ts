@@ -1,6 +1,7 @@
 import { POTIONS } from '../data/combat';
 import { MOVEMENT, SCATTER } from '../data/movement';
 import { aliveEnemy, healUnit, lowestHealthUnit } from './combat';
+import { placeOf } from './family';
 import { centreOf, livingUnits, triangleSlot } from './formation';
 import { TAU } from './island';
 import { clearOrder } from './movement';
@@ -14,14 +15,15 @@ import type {
   PotionCommand,
   RefusalReason,
   TargetCommand,
-  Unit,
+  Body,
 } from './state';
 import { TICKS } from './time';
+import { applyEquip, applyUnequip } from './items';
 import { applyUpgrade } from './upgrades';
 import { clearAlong } from './grid';
 import { gridOf, pullOntoLand } from './world';
 
-function sendTo(unit: Unit, dest: Point, attack: boolean): void {
+function sendTo(unit: Body, dest: Point, attack: boolean): void {
   unit.dest = dest;
   unit.attackMove = attack;
   unit.bestDistance = null;
@@ -29,7 +31,7 @@ function sendTo(unit: Unit, dest: Point, attack: boolean): void {
   unit.targetId = null;
 }
 
-function formTriangle(state: GameState, units: readonly Unit[], point: Point, attack: boolean): void {
+function formTriangle(state: GameState, units: readonly Body[], point: Point, attack: boolean): void {
   const centre = centreOf(units);
   if (Math.hypot(point.x - centre.x, point.z - centre.z) > MOVEMENT.minHeadingDistance) {
     state.heading = Math.atan2(point.z - centre.z, point.x - centre.x);
@@ -38,11 +40,11 @@ function formTriangle(state: GameState, units: readonly Unit[], point: Point, at
   for (const unit of units) {
     unit.hold = false;
     // A place in the triangle beyond a wall or stone is pulled in short of it.
-    sendTo(unit, clearAlong(gridOf(state), point, triangleSlot(unit.classId, point, state.heading)), attack);
+    sendTo(unit, clearAlong(gridOf(state), point, triangleSlot(placeOf(state, unit.id), point, state.heading)), attack);
   }
 }
 
-function formLine(state: GameState, units: readonly Unit[], point: Point, attack: boolean): void {
+function formLine(state: GameState, units: readonly Body[], point: Point, attack: boolean): void {
   const centre = centreOf(units);
   const facing = Math.atan2(point.z - centre.z, point.x - centre.x);
   units.forEach((unit, index) => {
@@ -54,7 +56,7 @@ function formLine(state: GameState, units: readonly Unit[], point: Point, attack
 }
 
 /** All the living form the triangle, and some of them form a line and hold it. */
-function orderMove(state: GameState, units: readonly Unit[], target: Point, attack: boolean): void {
+function orderMove(state: GameState, units: readonly Body[], target: Point, attack: boolean): void {
   const point = pullOntoLand(state, target.x, target.z);
   if (units.length === livingUnits(state).length) {
     formTriangle(state, units, point, attack);
@@ -67,7 +69,7 @@ function applyMove(state: GameState, command: MoveCommand): RefusalReason | null
   if (!Number.isFinite(command.x) || !Number.isFinite(command.z)) {
     return 'bad-point';
   }
-  const known = state.units.map((unit) => unit.id);
+  const known = state.bodies.map((unit) => unit.id);
   if (!command.unitIds.every((id) => known.includes(id))) {
     return 'unknown-unit';
   }
@@ -118,7 +120,7 @@ function applyScatter(state: GameState): RefusalReason | null {
 
 /** Points units at an enemy. They chase it, even while holding. */
 function applyTarget(state: GameState, command: TargetCommand): RefusalReason | null {
-  const known = state.units.map((unit) => unit.id);
+  const known = state.bodies.map((unit) => unit.id);
   if (!command.unitIds.every((id) => known.includes(id))) {
     return 'unknown-unit';
   }
@@ -145,7 +147,7 @@ function applyPotion(
   command: PotionCommand,
   events: GameEvent[],
 ): RefusalReason | null {
-  const named = state.units.find((unit) => unit.id === command.unitId);
+  const named = state.bodies.find((unit) => unit.id === command.unitId);
   if (command.unitId !== undefined && !named) {
     return 'unknown-unit';
   }
@@ -155,14 +157,14 @@ function applyPotion(
   if (state.potionCooldownTicks > 0) {
     return 'on-cooldown';
   }
-  if (state.potions === 0) {
+  if (state.family.potions === 0) {
     return 'no-potions';
   }
   const unit = named ?? lowestHealthUnit(state);
   if (!unit || unit.health >= unit.maxHealth) {
     return 'nobody-hurt';
   }
-  state.potions -= 1;
+  state.family.potions -= 1;
   state.potionCooldownTicks = TICKS.potionCooldown;
   healUnit(state, unit, unit.maxHealth * POTIONS.healthShare, events);
   return null;
@@ -190,6 +192,10 @@ function apply(state: GameState, command: Command, events: GameEvent[]): Refusal
       return applyPotion(state, command, events);
     case 'upgrade':
       return applyUpgrade(state, command, events);
+    case 'equip':
+      return applyEquip(state, command, events);
+    case 'unequip':
+      return applyUnequip(state, command, events);
   }
 }
 

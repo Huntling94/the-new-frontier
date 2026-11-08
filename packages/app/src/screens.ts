@@ -1,6 +1,6 @@
-import { TICK_RATE, upgradeOffer, type GameEvent, type GameView, type GearSlot } from '@new-frontier/core';
-import { characterLook } from '@new-frontier/render';
-import { anvilRows, itemName } from './anvil';
+import { characterOf, TICK_RATE, upgradeOffer, type GameEvent, type GameView, type GearSlot } from '@new-frontier/core';
+import { characterLook, itemName } from '@new-frontier/render';
+import { anvilRows } from './anvil';
 import { KEY_LIST } from './hud';
 import type { RunTally } from './reactions';
 
@@ -40,15 +40,24 @@ export function showStart(onStart: () => void): void {
 }
 
 /** What an upgrade did, for the anvil's result box, as the squad test wrote it. */
-export function upgradeResult(view: GameView, unitId: number, slot: GearSlot, chance: number, events: readonly GameEvent[]): string {
-  const unit = view.units.find(({ id }) => id === unitId);
+export function upgradeResult(
+  view: GameView,
+  unitId: number,
+  slot: GearSlot,
+  chance: number,
+  events: readonly GameEvent[],
+  before: string | null,
+): string {
+  const unit = view.family.characters.find(({ id }) => id === unitId);
   if (!unit) return '';
-  const who = characterLook(unit.classId).name;
+  const who = unit.name;
   const rate = `Success Rate: ${chance.toFixed(ODDS_PLACES)}`;
   for (const event of events) {
-    if (event.type === 'upgraded') return `${rate}\n${who}'s ${itemName(unit.classId, slot, { ...unit.gear[slot], upgrade: 0 })} is now +${event.level}.`;
+    if (event.type === 'upgraded') return `${rate}\n${who}'s ${itemName(before ?? '')} is now +${event.level}.`;
     if (event.type === 'item-destroyed') {
-      return `${rate}\n${who}'s ${itemName(unit.classId, slot, { upgrade: event.level, spare: false })} shatters on the anvil.`;
+      const spare = unit.items[slot];
+      const handed = spare ? ` The smith hands over a ${itemName(spare.typeId)}.` : '';
+      return `${rate}\n${who}'s ${itemName(before ?? '', event.level)} shatters on the anvil.${handed}`;
     }
     if (event.type === 'order-refused') return event.reason === 'no-marks' ? 'Not enough marks.' : 'The anvil is out of reach.';
   }
@@ -101,7 +110,7 @@ export class Anvil {
   private draw(view: GameView): void {
     this.view = view;
     const head = make('div', 'mhead');
-    head.append(make('h3', '', 'The anvil'), make('span', 'money', `${Math.round(view.marks).toLocaleString('en-AU')} marks`));
+    head.append(make('h3', '', 'The anvil'), make('span', 'money', `${Math.round(view.family.marks).toLocaleString('en-AU')} marks`));
     const blurb = make(
       'p',
       'dim',
@@ -110,10 +119,11 @@ export class Anvil {
     const parts: HTMLElement[] = [head, blurb];
     if (this.result) parts.push(make('div', 'resbox', this.result));
     const columns = make('div', 'ucols');
-    for (const unit of view.units) {
+    for (const unit of view.bodies) {
+      const character = characterOf(view, unit.id);
       const column = make('div');
-      column.append(make('h4', '', characterLook(unit.classId).name));
-      for (const row of anvilRows(unit, (slot) => upgradeOffer(view, unit.id, slot as GearSlot), view.marks)) {
+      column.append(make('h4', '', `${character.name}, ${characterLook(character.classId).name}`));
+      for (const row of anvilRows(character, (slot) => upgradeOffer(view, unit.id, slot as GearSlot), view.family.marks)) {
         const button = make('button', 'urow') as HTMLButtonElement;
         button.type = 'button';
         if (row.offer) {
@@ -154,7 +164,7 @@ export function showVictory(view: GameView, tally: RunTally): void {
     make(
       'p',
       'dim',
-      `${minutes} min ${seconds % SECONDS_IN_MINUTE} sec. Levels ${view.units.map(({ level }) => level).join(', ')}. ` +
+      `${minutes} min ${seconds % SECONDS_IN_MINUTE} sec. Levels ${view.family.active.map((id) => characterOf(view, id).level).join(', ')}. ` +
         `Squad wipes ${tally.wipes}, characters down ${tally.downs}, revives ${tally.revives}, ` +
         `upgrades ${tally.upgrades}, items destroyed ${tally.destroyed}.`,
     ),

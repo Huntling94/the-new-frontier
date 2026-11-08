@@ -1,4 +1,4 @@
-import { TICK_RATE, type GameEvent, type GameView } from '@new-frontier/core';
+import { TICK_RATE, characterOf, type GameEvent, type GameView } from '@new-frontier/core';
 import {
   BoxGeometry,
   Color,
@@ -19,7 +19,7 @@ import { looseGlowSprite, Resources } from './kit';
 import { characterLook, MARKS, monsterLook, spellLook } from './looks';
 import type { ZoneScene } from './zone-scene';
 
-type UnitView = GameView['units'][number];
+type UnitView = GameView['bodies'][number];
 type EnemyView = GameView['live']['enemies'][number];
 type ShotView = GameView['live']['shots'][number];
 type EnemyShotView = GameView['live']['enemyShots'][number];
@@ -144,7 +144,7 @@ export class EntityLayer {
   /** Copies positions before a tick, so frames can be drawn between ticks. */
   snapshot(view: GameView): void {
     this.before.clear();
-    for (const unit of view.units) this.before.set(unit.id, { x: unit.x, z: unit.z });
+    for (const unit of view.bodies) this.before.set(unit.id, { x: unit.x, z: unit.z });
     for (const enemy of view.live.enemies) this.before.set(enemy.id, { x: enemy.x, z: enemy.z });
     for (const drop of view.live.drops) this.before.set(drop.id, { x: drop.x, z: drop.z });
     for (const shot of [...view.live.shots, ...view.live.enemyShots]) this.shotsBefore.set(shot, { x: shot.x, z: shot.z });
@@ -233,7 +233,7 @@ export class EntityLayer {
   }
 
   private event(view: GameView, event: GameEvent): void {
-    const unitAt = (id: number): UnitView | undefined => view.units.find((unit) => unit.id === id);
+    const unitAt = (id: number): UnitView | undefined => view.bodies.find((unit) => unit.id === id);
     const fx = this.effects;
     switch (event.type) {
       case 'hit': {
@@ -262,7 +262,7 @@ export class EntityLayer {
         const look = spellLook(event.spell);
         if (look && caster) fx.shock(caster.x, caster.z, look.radius, look.colour, look.seconds);
         if (event.spell === 'rally') {
-          for (const unit of view.units) {
+          for (const unit of view.bodies) {
             if (unit.alive) fx.burst(unit.x, this.zone.heightAt(unit.x, unit.z) + 3, unit.z, 0xffb648, 12, 6);
           }
         }
@@ -328,12 +328,13 @@ export class EntityLayer {
 
   private drawUnits(view: GameView, alpha: number, dt: number, marks: Marks): void {
     const seen = new Set<number>();
-    for (const unit of view.units) {
+    for (const unit of view.bodies) {
       seen.add(unit.id);
       let body = this.units.get(unit.id);
       if (!body) {
         const resources = new Resources();
-        body = this.newBody(buildCharacter(this.kit(resources), characterLook(unit.classId)), resources, view.heading, unit.classId);
+        const { classId } = characterOf(view, unit.id);
+        body = this.newBody(buildCharacter(this.kit(resources), characterLook(classId)), resources, view.heading, classId);
         this.units.set(unit.id, body);
         const ring = new Mesh(this.unitRing, this.ringMaterial);
         this.rings.set(unit.id, ring);
@@ -381,7 +382,7 @@ export class EntityLayer {
 
   private drawEnemies(view: GameView, alpha: number, dt: number): void {
     const seen = new Set<number>();
-    const living = view.units.filter(({ alive }) => alive);
+    const living = view.bodies.filter(({ alive }) => alive);
     for (const enemy of view.live.enemies) {
       seen.add(enemy.id);
       let body = this.enemies.get(enemy.id);

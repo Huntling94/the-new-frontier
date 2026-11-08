@@ -1,65 +1,61 @@
-import type { ClassData, ClassId } from '../src/state';
+import type { CharacterStart, ClassData, ClassId, FormationPlace } from '../src/state';
 
-/** Unit order, which sets IDs. */
-export const SQUAD: readonly ClassId[] = ['fighter', 'sniper', 'healer'];
+/**
+ * The three places of the triangle, in the order of the active three (D-025).
+ * With the starting family these are the squad test's numbers for each class.
+ */
+export const FORMATION: readonly FormationPlace[] = [
+  { startOffset: { x: 0, z: 0 }, slot: { forward: 2.4, side: 0 } },
+  { startOffset: { x: -4.4, z: 4.2 }, slot: { forward: -2.6, side: -4.6 } },
+  { startOffset: { x: 4.4, z: 4.2 }, slot: { forward: -2.6, side: 4.6 } },
+];
 
-/** The squad test's classes. Times are seconds, and speeds are per second. */
+/**
+ * The family a new game starts with, in order, which sets IDs and places (decision 2).
+ * The names are placeholders until names are chosen (decision 3).
+ */
+export const STARTING_FAMILY: readonly CharacterStart[] = [
+  { classId: 'fighter', name: 'Aurelio' },
+  { classId: 'sniper', name: 'Inês' },
+  { classId: 'healer', name: 'Mireille' },
+];
+
+/**
+ * The squad test's classes. Speeds are per second. Weapon values now sit on each
+ * class's starting weapon type in `data/items.ts` (decision 10).
+ */
 export const CLASSES: Readonly<Record<ClassId, ClassData>> = {
   fighter: {
     speed: 11,
-    startOffset: { x: 0, z: 0 },
-    slot: { forward: 2.4, side: 0 },
     health: 1700,
     mana: 0,
-    attack: 62,
-    ar: 4,
-    crit: 8,
-    range: 3.3,
-    attackSeconds: 0.85,
     armourScale: 1.35,
-    melee: true,
-    knockback: 8,
     autoHeals: false,
     aggroRange: 15,
     attackMoveRange: 8,
-    spells: ['taunt', 'cleave', 'guard'],
+    arts: ['swordplay'],
+    startingItems: { 'main-hand': 'sword', chest: 'metal-chest', gloves: 'metal-gloves', boots: 'metal-boots' },
   },
   sniper: {
     speed: 11.5,
-    startOffset: { x: -4.4, z: 4.2 },
-    slot: { forward: -2.6, side: -4.6 },
     health: 950,
     mana: 0,
-    attack: 76,
-    ar: 5,
-    crit: 12,
-    range: 25,
-    attackSeconds: 1.05,
     armourScale: 0.75,
-    melee: false,
-    knockback: 0,
     autoHeals: false,
     aggroRange: 25,
     attackMoveRange: 20,
-    spells: ['aimed-shot', 'crippling-shot', 'volley'],
+    arts: ['marksmanship'],
+    startingItems: { 'main-hand': 'rifle', chest: 'leather-chest', gloves: 'leather-gloves', boots: 'leather-boots' },
   },
   healer: {
     speed: 11.5,
-    startOffset: { x: 4.4, z: 4.2 },
-    slot: { forward: -2.6, side: 4.6 },
     health: 900,
     mana: 400,
-    attack: 34,
-    ar: 3,
-    crit: 0,
-    range: 22,
-    attackSeconds: 1.5,
     armourScale: 0.7,
-    melee: false,
-    knockback: 0,
     autoHeals: true,
     aggroRange: 22,
     attackMoveRange: 0,
-    spells: ['mend', 'rally', 'revive'],
+    arts: ['mending'],
+    startingItems: { 'main-hand': 'staff', chest: 'coat-chest', gloves: 'coat-gloves', boots: 'coat-boots' },
   },
 };

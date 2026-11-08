@@ -1,5 +1,5 @@
 import type { GameEvent, GameView } from '@new-frontier/core';
-import { characterLook, monsterLook, zoneLook } from '@new-frontier/render';
+import { monsterLook, zoneLook } from '@new-frontier/render';
 import { FEEL } from './feel';
 import type { SoundName } from './sound';
 
@@ -59,8 +59,8 @@ interface Before {
 }
 
 const nameOfUnit = (view: GameView, id: number): string => {
-  const unit = view.units.find((candidate) => candidate.id === id);
-  return unit ? characterLook(unit.classId).name : 'Someone';
+  const character = view.family.characters.find((candidate) => candidate.id === id);
+  return character ? character.name : 'Someone';
 };
 
 /**
@@ -99,7 +99,7 @@ export class Reactions {
     const say = (text: string, tone: Tone = 'plain'): void => {
       reaction.log.push({ text, tone });
     };
-    const isUnit = (id: number): boolean => view.units.some((unit) => unit.id === id);
+    const isUnit = (id: number): boolean => view.bodies.some((unit) => unit.id === id);
     const enemyOf = (id: number) => view.live.enemies.find((enemy) => enemy.id === id);
     let lastHitter: number | null = null;
     const interrupted = new Set<number>();

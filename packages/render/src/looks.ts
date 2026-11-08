@@ -9,17 +9,15 @@ export interface CharacterLook {
   readonly coat: number;
   readonly hat: 'helm' | 'brim' | 'hood' | null;
   readonly weapon: 'sword' | 'rifle' | 'staff' | null;
-  /** What the anvil calls the weapon. */
-  readonly weaponName: string;
 }
 
 const CHARACTERS: Readonly<Record<string, CharacterLook>> = {
-  fighter: { name: 'Fighter', coat: 0x8a3a2a, hat: 'helm', weapon: 'sword', weaponName: 'Sword' },
-  sniper: { name: 'Sniper', coat: 0x2f5a7a, hat: 'brim', weapon: 'rifle', weaponName: 'Rifle' },
-  healer: { name: 'Healer', coat: 0xd8d0b8, hat: 'hood', weapon: 'staff', weaponName: 'Lamp Staff' },
+  fighter: { name: 'Fighter', coat: 0x8a3a2a, hat: 'helm', weapon: 'sword' },
+  sniper: { name: 'Sniper', coat: 0x2f5a7a, hat: 'brim', weapon: 'rifle' },
+  healer: { name: 'Healer', coat: 0xd8d0b8, hat: 'hood', weapon: 'staff' },
 };
 
-const PLAIN_CHARACTER: CharacterLook = { name: 'Adventurer', coat: 0x7a7468, hat: null, weapon: null, weaponName: 'Weapon' };
+const PLAIN_CHARACTER: CharacterLook = { name: 'Adventurer', coat: 0x7a7468, hat: null, weapon: null };
 
 export function characterLook(classId: string): CharacterLook {
   return CHARACTERS[classId] ?? PLAIN_CHARACTER;
@@ -210,19 +208,76 @@ export function spellName(spell: string): string {
   return SPELL_NAMES[spell] ?? tidy(spell);
 }
 
-/** What the anvil calls a gear slot's item. The weapon takes its name from the class. */
+/** What the screens call each slot (D-028). */
 const SLOT_NAMES: Readonly<Record<string, string>> = {
-  chest: 'Coat',
+  'main-hand': 'Main hand',
+  'off-hand': 'Off hand',
+  head: 'Head',
+  chest: 'Chest',
   gloves: 'Gloves',
   boots: 'Boots',
-  head: 'Hat',
   necklace: 'Necklace',
-  'off-hand': 'Off Hand',
 };
 
-export function gearName(classId: string, slot: string): string {
-  if (slot === 'weapon' || slot === 'main-hand') return characterLook(classId).weaponName;
+export function slotName(slot: string): string {
   return SLOT_NAMES[slot] ?? tidy(slot);
+}
+
+/** What the screens call each category, and its tile colour (S3b decision 9). */
+const CATEGORIES: Readonly<Record<string, { readonly name: string; readonly colour: string }>> = {
+  sword: { name: 'Sword', colour: '#c9d2d8' },
+  'great-sword': { name: 'Great Sword', colour: '#c9d2d8' },
+  dagger: { name: 'Dagger', colour: '#c9d2d8' },
+  spear: { name: 'Spear', colour: '#c9d2d8' },
+  pistol: { name: 'Pistol', colour: '#8fc0e0' },
+  rifle: { name: 'Rifle', colour: '#8fc0e0' },
+  staff: { name: 'Staff', colour: '#9be8a6' },
+  shield: { name: 'Shield', colour: '#d8b878' },
+  leather: { name: 'Leather', colour: '#c89a6a' },
+  metal: { name: 'Metal', colour: '#a8b4bc' },
+  coat: { name: 'Coat', colour: '#e0d4b8' },
+  jewellery: { name: 'Jewellery', colour: '#ffb648' },
+};
+
+export function categoryLook(category: string): { readonly name: string; readonly colour: string } {
+  return CATEGORIES[category] ?? { name: tidy(category), colour: '#9fb0ad' };
+}
+
+/**
+ * Item names, keyed by item type ID (D-029). Items are named by category for now;
+ * named items come with a naming session (S3b, D-038).
+ */
+const ITEM_NAMES: Readonly<Record<string, string>> = {
+  sword: 'Sword',
+  rifle: 'Rifle',
+  staff: 'Staff',
+  'plain-sword': 'Plain Sword',
+  'plain-rifle': 'Plain Rifle',
+  'plain-staff': 'Plain Staff',
+  'metal-chest': 'Metal Armour',
+  'metal-gloves': 'Metal Gloves',
+  'metal-boots': 'Metal Boots',
+  'leather-chest': 'Leather Armour',
+  'leather-gloves': 'Leather Gloves',
+  'leather-boots': 'Leather Boots',
+  'coat-chest': 'Coat',
+  'coat-gloves': 'Coat Gloves',
+  'coat-boots': 'Coat Boots',
+  'plain-chest': 'Plain Armour',
+  'plain-gloves': 'Plain Gloves',
+  'plain-boots': 'Plain Boots',
+  cap: 'Leather Cap',
+  'plain-cap': 'Plain Cap',
+  buckler: 'Buckler',
+  'plain-buckler': 'Plain Buckler',
+  necklace: 'Necklace',
+  'plain-necklace': 'Plain Necklace',
+};
+
+/** An item's name, with a plain default for any type the data adds. */
+export function itemName(typeId: string, upgrade = 0): string {
+  const base = ITEM_NAMES[typeId] ?? tidy(typeId);
+  return `${base}${upgrade > 0 ? ` +${upgrade}` : ''}`;
 }
 
 /** Colours of the marks the player makes. */

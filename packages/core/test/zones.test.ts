@@ -1,4 +1,6 @@
 import { describe, expect, it } from 'vitest';
+import { MANA } from '../data/combat';
+import { TICK_RATE } from '../data/sim';
 import { MOVEMENT } from '../data/movement';
 import { EMPTY_SCENARIO, ISLAND_SCENARIO } from '../data/scenarios';
 import { START_ZONE, ZONES } from '../data/zones';
@@ -136,11 +138,35 @@ describe('gates (D-021)', () => {
     ]);
     expect(state.zoneId).toBe('lande-cave');
     expect(state.anchor).toEqual(INTO_CAVE?.arrival);
-    for (const unit of state.units) {
+    for (const unit of state.bodies) {
       expect(Math.hypot(unit.x - state.anchor.x, unit.z - state.anchor.z)).toBeLessThan(6);
       expect(unit.dest).toBeNull();
     }
     expect(unitOf(state, HEALER).alive).toBe(false);
+  });
+
+  it('move the squad’s bodies whole, keeping every character’s health, mana and cooldowns (S3b)', () => {
+    const state = createGame(1, EMPTY_SCENARIO);
+    unitOf(state, FIGHTER).health = 700;
+    unitOf(state, FIGHTER).spellTicks.cleave = 900;
+    unitOf(state, SNIPER).health = 300;
+    unitOf(state, SNIPER).spellTicks.volley = 800;
+    unitOf(state, HEALER).mana = 40;
+    unitOf(state, HEALER).spellTicks.revive = 1000;
+    // Keeps the Healer from healing anyone on the way, which would change their health.
+    unitOf(state, HEALER).attackTicks = 5000;
+    const start = state.tick;
+    enterCave(state);
+    expect(state.zoneId).toBe('lande-cave');
+    const passed = state.tick - start;
+    expect(unitOf(state, FIGHTER).health).toBe(700);
+    expect(unitOf(state, SNIPER).health).toBe(300);
+    expect(unitOf(state, FIGHTER).spellTicks.cleave).toBe(900 - passed);
+    expect(unitOf(state, SNIPER).spellTicks.volley).toBe(800 - passed);
+    expect(unitOf(state, HEALER).spellTicks.revive).toBe(1000 - passed);
+    expect(unitOf(state, HEALER).attackTicks).toBe(5000 - passed);
+    expect(unitOf(state, HEALER).mana).toBeCloseTo(40 + (passed * MANA.regenPerSecond) / TICK_RATE, 6);
+    expect(state.bodies.map(({ id }) => id)).toEqual(state.family.active);
   });
 
   it('do nothing for a unit pushed in, or one walking through on the way elsewhere', () => {

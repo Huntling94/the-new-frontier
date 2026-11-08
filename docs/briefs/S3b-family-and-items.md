@@ -106,3 +106,62 @@ The core still holds the squad test's shape. `createGame` builds one character p
 - Any standing trigger in `CLAUDE.md` fires.
 
 ## Outcome (builder fills in)
+
+Built on 8 Nov 2026, from `f43a073`, in the two steps the brief set. The maintainer played it and approved the diff on 8 Nov 2026 (done means 9 and 11): "looks good". Two notes for later, now in `STATE.md`: the inventory should not pause the game, against decision 20, and its UX wants a pass of its own. CI on `master` is done means 10.
+
+**Asked and answered while building:**
+
+- **`Alt` + `E` (stop trigger, checked first).** The maintainer pressed `Alt` + `E` on a test page in Chrome and Edge on Windows: the page received it every time and the browser's own menu did not open. The screen uses it as D-040 says.
+- **The smith's spare.** One spare type per slot could not give the Fighter a sword and the Sniper a rifle, and building the 80% into a shared armour type's numbers rounds differently (a Sniper's spare chest would be 20 Def, not 21). The maintainer said upgrades should not work this way at all, and chose to keep today's rules exactly in S3b and give new upgrade rules their own brief later. So each item type names its spare (Plain Sword, Plain Rifle, Plain Staff, and Plain Armour, Gloves, Boots, Cap, Buckler and Necklace), and a spare carries a quality of 0.85 or 0.8, applied after the class's armour skill. Every spare number matches the squad test, which a test checks for every class and slot.
+
+**Done means:**
+
+| # | Result |
+|---|---|
+| 1 | `pnpm check` passes: 432 unit tests, lint, typecheck and the `legacy/` guard |
+| 2 | After step one, every tick's commands, events and character stats matched S3a across both replays and 20 seeds each of the careful bot, the sloppy bot and auto-combat: 62 runs, 244,343 ticks, no difference. Checked before step two began |
+| 3 | After step two, the same 62 runs matched again, with `weapon` mapped to `main-hand`: no difference. Hashes below |
+| 4 | `packages/core/test/family.test.ts` (three Fighters in three places, each with its own spells and cooldowns; class checks as data), `items.test.ts` (rule 1 across 400 random equips and unequips, two-handed weapons both ways, every refusal, the unarmed type, spares for every class and slot, the anvil over seven slots) and `zones.test.ts` (a gate keeps health, mana and cooldowns). The `strayEnemyReferences` test now reads the body's target, and passes |
+| 5 | `e2e/inventory.spec.ts`: `Alt` + `E` opens the screen without casting, the cap goes on the Fighter, the preview shows Def rising, the game stays paused, and closing resumes it. A second flow shows a refusal's reason and closes on `Esc`. All 23 browser tests pass |
+| 6 | See the report below |
+| 7 | `docs/DATA-MODEL.md` moves family, character, item type, item, category and store to Built, art to Partial, and adds the body. Rules 1 and 2 name their tests. `ARCHITECTURE.md` describes characters, bodies and items |
+| 8 | The changed files and the built site hold no local paths, personal details or secrets |
+
+**Replay hashes:**
+
+| Replay | S3a | After step one | After step two |
+|---|---|---|---|
+| Spell tour | `84876bf5` | `84673f56` | `0e276c1d` |
+| Squad tour | `ccb3ea79` | `4530abbc` | `be8c024b` |
+
+Both change at each step only because state's shape changed (the family and bodies, then items and the store); every event and stat matched. Against `master`, the hashes change once.
+
+**100-seed report (done means 6).** Both run on the same machine, the old code from `f43a073`:
+
+| | S3a | S3b |
+|---|---|---|
+| Careful bot | 100 of 100 finished, 0 stalled, 2.5 game minutes, 10.3 upgrades, 551.5 marks, 8.0 potions | the same |
+| Sloppy bot | 100 of 100, 0 stalled, 2.6 minutes, 10.3 upgrades, 478.6 marks, 7.8 potions | the same |
+| Auto-combat | clear 100 | clear 100 |
+| Run time | 83 s | 71 s |
+
+Nothing drifts, marks included: item IDs have their own counter and no random roll moved, so every coin and potion roll lands as before. Wipes, characters down, levels and refused orders do not change either. The final code was traced once more against S3a after the report: 62 runs, no difference.
+
+**Built:**
+
+- `state.family` (characters, active three, store, marks, potions), `state.bodies` and `state.nextItemId`. A character holds its name, class, level, XP, arts and seven slots; a body holds everything live. `GameView` changes with them, as decision 1 planned.
+- `STARTING_FAMILY` and `FORMATION` in `packages/core/data/squad.ts`. A scenario may pass any family. The names are placeholders: Aurelio, Inês and Mireille.
+- `packages/core/data/items.ts`: the seven slots, twelve categories, three arts, which spells need which weapon, 24 item types, the unarmed type and the starting store. `packages/core/src/items.ts`: equip, unequip, requirements, weapons in hand, and the rule 1 listing.
+- Two commands, `equip` and `unequip`, and two events, `equipped` and `unequipped`. Refusals: `unknown-item`, `wrong-slot`, `slot-empty`, `needs-level`, `needs-art`, `needs-weapon` and `in-fight`.
+- Reads for the screen: `itemInfo`, `previewChange` (plays the command on a copy and returns stats before and after, and what goes back to the store), `whyNotUse`, `fightOn` and `GEAR_SLOTS`.
+- Render: item and slot names and category colours, keyed by type ID. App: the inventory screen, the anvil over seven slots, and names on the HUD cards, anvil and log.
+
+**Found while building, for the maintainer to confirm:**
+
+- Which spells need a weapon: cleave needs a sword, and the Sniper's three shots a rifle. Taunt, guard and the healing spells need none.
+- The buckler is a shield, which the Fighter's art (Swordplay) permits, so only the Fighter can hold it. The necklace needs level 4, so a new family sees a level refusal. The cap fits anyone.
+- A fight is any enemy awake, not counting the training dummy.
+- The unarmed type hits for 20 at 2.5 units, once a second. Placeholder.
+- The 3D figures still hold their class's weapon whatever is equipped, and the anvil's Healer weapon is now "Staff", not "Lamp Staff", since items are named by category.
+- The anvil shows all seven slots for each character, so 21 rows; empty slots show with nothing to upgrade.
+- Spares carry a quality rather than having the share built into their numbers, to keep every number exact (see above).

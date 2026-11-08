@@ -2,7 +2,7 @@ import { MONSTERS, MONSTER_RULES, SLAMMER, SPITTER } from '../data/enemies';
 import { hurtUnit, wakePack } from './combat';
 import { STANDING, type Drive } from './enemies';
 import { randomBetween } from './random';
-import type { Enemy, GameEvent, GameState, MonsterData, MonsterKind, Unit } from './state';
+import type { Enemy, GameEvent, GameState, MonsterData, MonsterKind, Body } from './state';
 import { TICKS, secondsToTicks } from './time';
 
 function dataOf(enemy: Enemy): MonsterData {
@@ -10,11 +10,11 @@ function dataOf(enemy: Enemy): MonsterData {
 }
 
 /** Who an enemy goes for: its taunter, then whoever it prefers, then the nearest. */
-export function pickTarget(state: GameState, enemy: Enemy): Unit | null {
-  const living = state.units.filter((unit) => unit.alive);
-  const named = (id: number | null): Unit | undefined => living.find((unit) => unit.id === id);
+export function pickTarget(state: GameState, enemy: Enemy): Body | null {
+  const living = state.bodies.filter((unit) => unit.alive);
+  const named = (id: number | null): Body | undefined => living.find((unit) => unit.id === id);
   const taunter = enemy.tauntTicks > 0 ? named(enemy.tauntUnitId) : undefined;
-  const nearest = living.reduce<Unit | null>((best, unit) => {
+  const nearest = living.reduce<Body | null>((best, unit) => {
     const distance = Math.hypot(unit.x - enemy.x, unit.z - enemy.z);
     const bestDistance = best ? Math.hypot(best.x - enemy.x, best.z - enemy.z) : Infinity;
     return distance < bestDistance ? unit : best;
@@ -22,7 +22,7 @@ export function pickTarget(state: GameState, enemy: Enemy): Unit | null {
   return taunter ?? named(enemy.preferId) ?? nearest;
 }
 
-function spit(state: GameState, enemy: Enemy, target: Unit): void {
+function spit(state: GameState, enemy: Enemy, target: Body): void {
   const angle = Math.atan2(target.z - enemy.z, target.x - enemy.x);
   state.live.enemyShots.push({
     x: enemy.x,
@@ -40,7 +40,7 @@ function spit(state: GameState, enemy: Enemy, target: Unit): void {
 function strike(
   state: GameState,
   enemy: Enemy,
-  target: Unit,
+  target: Body,
   distance: number,
   events: GameEvent[],
 ): void {

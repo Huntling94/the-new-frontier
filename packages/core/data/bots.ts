@@ -23,14 +23,18 @@ export const BOTS = {
   /** Heals the lowest ally below this share of health. */
   mendBelow: 0.5,
   potionBelow: 0.3,
-  /** Gear is bought in this order, up to this level, so it is never at risk. */
+  /**
+   * Gear is bought in this order, by place in the three and slot, up to this level,
+   * so it is never at risk. With the starting family, place 0 is the Fighter, 1 the
+   * Sniper and 2 the Healer.
+   */
   upgradeBelow: 3,
   upgrades: [
-    { classId: 'sniper', slot: 'weapon' },
-    { classId: 'fighter', slot: 'weapon' },
-    { classId: 'fighter', slot: 'chest' },
-    { classId: 'healer', slot: 'chest' },
-    { classId: 'sniper', slot: 'chest' },
+    { place: 1, slot: 'main-hand' },
+    { place: 0, slot: 'main-hand' },
+    { place: 0, slot: 'chest' },
+    { place: 2, slot: 'chest' },
+    { place: 1, slot: 'chest' },
   ] as readonly BotUpgrade[],
   /** The careful bot dodges a telegraph once it is this far through, if it is small enough. */
   dodgeAfterShare: 0.4,

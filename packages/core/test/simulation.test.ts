@@ -126,7 +126,7 @@ describe('state hash', () => {
 
   it.each([NaN, Infinity, -Infinity])('rejects a number that is not finite: %s', (value) => {
     const state = game();
-    const [unit] = state.units;
+    const [unit] = state.bodies;
     if (!unit) throw new Error('No units.');
     unit.x = value;
     expect(() => hashState(state)).toThrow('not finite');
@@ -193,6 +193,6 @@ describe('read-only view', () => {
   it('stops outside code changing state through a GameView', () => {
     const view: GameView = createGame(1, EMPTY_SCENARIO);
     // @ts-expect-error A view is read-only.
-    expect(() => void (view.units[0].x = 1)).not.toThrow();
+    expect(() => void (view.bodies[0].x = 1)).not.toThrow();
   });
 });

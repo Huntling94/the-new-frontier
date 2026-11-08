@@ -1,50 +1,53 @@
 import { BOTS } from '../data/bots';
 import { SPELLS } from '../data/spells';
 import { centreIn, livingIn, lowestShare, moveAll, roam } from './auto';
-import type { BotKind, ClassId, Command, GameView, Point, SpellId } from './state';
+import { characterOf, classOf } from './family';
+import { spellsKnown } from './items';
+import type { BotKind, Command, GameView, Point, SpellId } from './state';
 import { TICKS } from './time';
 import { isNearAnvil, upgradeOffer } from './upgrades';
 import { zoneOf } from './world';
 
 type EnemyView = GameView['live']['enemies'][number];
 
-/** The living unit of a class, if its spell is ready. */
-function casterOf(view: GameView, classId: ClassId, spell: SpellId): number | null {
-  const unit = view.units.find((candidate) => candidate.classId === classId && candidate.alive);
-  const ready = unit && (unit.spellTicks[spell] ?? 0) === 0 && unit.mana >= SPELLS[spell].mana;
-  return ready ? unit.id : null;
+/** The first living character who knows the spell and has it ready (decision 5). */
+function casterOf(view: GameView, spell: SpellId): number | null {
+  const unit = view.bodies.find((candidate) => {
+    const knows = candidate.alive && spellsKnown(characterOf(view, candidate.id)).includes(spell);
+    return knows && (candidate.spellTicks[spell] ?? 0) === 0 && candidate.mana >= SPELLS[spell].mana;
+  });
+  return unit ? unit.id : null;
 }
 
 function cast(
   view: GameView,
-  classId: ClassId,
   spell: SpellId,
   aim: { readonly point?: Point; readonly enemyId?: number } = {},
 ): Command[] {
-  const unitId = casterOf(view, classId, spell);
+  const unitId = casterOf(view, spell);
   return unitId === null ? [] : [{ type: 'cast', unitId, spell, ...aim }];
 }
 
 /** Heals and revives, which both bots do at any time. */
 function sustain(view: GameView): Command[] {
   const low = lowestShare(livingIn(view));
-  const someoneDown = view.units.some((unit) => !unit.alive);
-  const canDrink = low < BOTS.potionBelow && view.potions > 0 && view.potionCooldownTicks === 0;
+  const someoneDown = view.bodies.some((unit) => !unit.alive);
+  const canDrink = low < BOTS.potionBelow && view.family.potions > 0 && view.potionCooldownTicks === 0;
   return [
-    ...(someoneDown ? cast(view, 'healer', 'revive') : []),
-    ...(low < BOTS.mendBelow ? cast(view, 'healer', 'mend') : []),
+    ...(someoneDown ? cast(view, 'revive') : []),
+    ...(low < BOTS.mendBelow ? cast(view, 'mend') : []),
     ...(canDrink ? [{ type: 'potion' } as const] : []),
   ];
 }
 
-/** The next upgrade on the list that the squad can afford. */
+/** The next upgrade on the list, by place in the three and slot, that the squad can afford. */
 function nextUpgrade(view: GameView): Command | null {
-  for (const { classId, slot } of BOTS.upgrades) {
-    const unit = view.units.find((candidate) => candidate.classId === classId);
-    const offer = unit ? upgradeOffer(view, unit.id, slot) : null;
-    const wanted = unit && unit.gear[slot].upgrade < BOTS.upgradeBelow;
-    if (unit && offer && wanted && view.marks >= offer.cost) {
-      return { type: 'upgrade', unitId: unit.id, slot };
+  for (const { place, slot } of BOTS.upgrades) {
+    const unitId = view.family.active[place];
+    const offer = unitId === undefined ? null : upgradeOffer(view, unitId, slot);
+    const wanted = unitId !== undefined && (characterOf(view, unitId).items[slot]?.upgrade ?? BOTS.upgradeBelow) < BOTS.upgradeBelow;
+    if (unitId !== undefined && offer && wanted && view.family.marks >= offer.cost) {
+      return { type: 'upgrade', unitId, slot };
     }
   }
   return null;
@@ -96,14 +99,14 @@ function dodge(view: GameView): Command[] {
   return settled && units.some((unit) => unit.hold) ? [{ type: 'regroup' }] : [];
 }
 
-/** The careful bot sends its fighters at any minion, which are after the Healer. */
+/** The careful bot sends all but its healers at any minion, which are after the healer. */
 function focusMinion(view: GameView): Command[] {
   const minion = view.live.enemies.find((enemy) => enemy.minion && enemy.alive);
   if (!minion) {
     return [];
   }
   const unitIds = livingIn(view)
-    .filter((unit) => unit.classId !== 'healer' && unit.targetId !== minion.id)
+    .filter((unit) => !classOf(view, unit.id).autoHeals && unit.targetId !== minion.id)
     .map((unit) => unit.id);
   return unitIds.length > 0 ? [{ type: 'target', unitIds, enemyId: minion.id }] : [];
 }
@@ -113,11 +116,11 @@ function carefulLayer(view: GameView, boss: EnemyView): Command[] {
   const aiming = boss.boss?.phase === 'aiming' && boss.boss.lastMove === 'charge';
   return [
     ...dodge(view),
-    ...(casting ? cast(view, 'sniper', 'crippling-shot', { enemyId: boss.id }) : []),
+    ...(casting ? cast(view, 'crippling-shot', { enemyId: boss.id }) : []),
     ...focusMinion(view),
-    ...(aiming ? cast(view, 'fighter', 'taunt') : []),
-    ...cast(view, 'fighter', 'cleave'),
-    ...cast(view, 'fighter', 'guard'),
+    ...(aiming ? cast(view, 'taunt') : []),
+    ...cast(view, 'cleave'),
+    ...cast(view, 'guard'),
   ];
 }
 
@@ -126,9 +129,9 @@ function bossLayer(view: GameView, kind: BotKind, boss: EnemyView): Command[] {
   return [
     ...(kind === 'careful' ? carefulLayer(view, boss) : []),
     ...sustain(view),
-    ...cast(view, 'sniper', 'aimed-shot', { enemyId: boss.id }),
-    ...cast(view, 'sniper', 'volley', { point: { x: boss.x, z: boss.z } }),
-    ...cast(view, 'healer', 'rally'),
+    ...cast(view, 'aimed-shot', { enemyId: boss.id }),
+    ...cast(view, 'volley', { point: { x: boss.x, z: boss.z } }),
+    ...cast(view, 'rally'),
   ];
 }
 

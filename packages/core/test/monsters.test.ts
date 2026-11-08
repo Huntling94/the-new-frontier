@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { LOOT, MONSTERS, MONSTER_RULES, SLAMMER, SPITTER } from '../data/enemies';
 import { EMPTY_SCENARIO, ISLAND_SCENARIO } from '../data/scenarios';
+import { characterOf } from '../src/family';
 import { damageToEnemy, hitEnemy, hurtUnit } from '../src/combat';
 import { createGame, step } from '../src/game';
 import { dropLoot } from '../src/loot';
@@ -139,7 +140,7 @@ describe('monster behaviour', () => {
     const { state, enemy } = oneOf('brute');
     enemy.awake = true;
     enemy.strikeTicks = 0;
-    for (const unit of state.units) {
+    for (const unit of state.bodies) {
       place(unit, enemy.x + 4, enemy.z + unit.id - 2);
       unit.attackTicks = 100000;
     }
@@ -312,8 +313,8 @@ describe('kills and loot', () => {
     const { state, enemy } = oneOf('runner');
     unitOf(state, HEALER).alive = false;
     kill(state, enemy);
-    expect(unitOf(state, FIGHTER).xp).toBe(Math.round(enemy.xp / 2));
-    expect(unitOf(state, HEALER).xp).toBe(0);
+    expect(characterOf(state, FIGHTER).xp).toBe(Math.round(enemy.xp / 2));
+    expect(characterOf(state, HEALER).xp).toBe(0);
     run(state, 2000);
     expect(state.live.enemies).toEqual([]);
   });
@@ -328,10 +329,10 @@ describe('kills and loot', () => {
 
   it('collects a drop once it lands, and only from nearby', () => {
     const { state, enemy } = oneOf('runner');
-    const before = state.marks;
+    const before = state.family.marks;
     kill(state, enemy);
     run(state, 60);
-    expect(state.marks).toBe(before);
+    expect(state.family.marks).toBe(before);
     const drops = state.live.drops.length;
     expect(drops).toBeGreaterThan(0);
 
@@ -339,16 +340,16 @@ describe('kills and loot', () => {
     const events = run(state, 60);
     expect(state.live.drops).toEqual([]);
     expect(ofType(events, 'loot')).toHaveLength(drops);
-    expect(state.marks).toBeGreaterThan(before);
+    expect(state.family.marks).toBeGreaterThan(before);
   });
 
   it('cannot be collected in the air', () => {
     const { state, enemy } = oneOf('runner');
     place(unitOf(state, SNIPER), enemy.x, enemy.z);
     kill(state, enemy);
-    const before = state.marks;
+    const before = state.family.marks;
     run(state, 5);
-    expect(state.marks).toBe(before);
+    expect(state.family.marks).toBe(before);
   });
 
   it('leaves a potion about one kill in twenty', () => {
@@ -376,8 +377,8 @@ describe('kills and loot', () => {
       flightTicks: 0,
       ageTicks: 0,
     });
-    const before = state.potions;
+    const before = state.family.potions;
     run(state, 1);
-    expect(state.potions).toBe(before + 1);
+    expect(state.family.potions).toBe(before + 1);
   });
 });

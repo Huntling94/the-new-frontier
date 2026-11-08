@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { ARTS } from '../data/items';
 import { SPELLS } from '../data/spells';
 import { EMPTY_SCENARIO } from '../data/scenarios';
 import { CLASSES } from '../data/squad';
@@ -38,7 +39,7 @@ function nearDummy(unitId: number, distance = 2): GameState {
 
 describe('all nine spells', () => {
   it('are shared out three to a class, each with its own data', () => {
-    const spells = Object.values(CLASSES).flatMap((data) => data.spells);
+    const spells = Object.values(CLASSES).flatMap((data) => data.arts.flatMap((art) => ARTS[art].spells));
     expect(spells).toHaveLength(9);
     expect(new Set(spells).size).toBe(9);
     expect(Object.keys(SPELLS).sort()).toEqual([...spells].sort());
@@ -247,7 +248,7 @@ describe('Rally', () => {
     const state = dummyGame();
     unitOf(state, SNIPER).alive = false;
     applyCommands(state, [cast(HEALER, 'rally')]);
-    expect(state.units.map((unit) => unit.rallyTicks)).toEqual([240, 0, 240]);
+    expect(state.bodies.map((unit) => unit.rallyTicks)).toEqual([240, 0, 240]);
   });
 });
 

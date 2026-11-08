@@ -1,21 +1,22 @@
 import { AUTO_HEAL, COMBAT, MANA } from '../data/combat';
 import { MOVEMENT, ROUTE, SCATTER } from '../data/movement';
-import { CLASSES } from '../data/squad';
 import { aliveEnemy, healUnit, hitEnemy, nearestEnemy } from './combat';
+import { characterOf, classOf, placeOf } from './family';
+import { spellsKnown, weaponOf } from './items';
 import { centreOf, livingUnits, triangleSlot } from './formation';
 import { fireShot } from './shots';
-import type { Enemy, GameEvent, GameState, Point, Unit } from './state';
+import type { Enemy, GameEvent, GameState, Point, Body } from './state';
 import { TICKS, perTick, secondsToTicks } from './time';
 import { canReach, clearAlong, findRoute, isOpen, lineClear } from './grid';
 import { gridOf, pushOutOfObstacles } from './world';
 
 /** A step is allowed onto open ground, and always off closed ground, so nobody is trapped. */
-function canStep(state: GameState, unit: Unit, x: number, z: number): boolean {
+function canStep(state: GameState, unit: Body, x: number, z: number): boolean {
   const grid = gridOf(state);
   return isOpen(grid, x, z) || !isOpen(grid, unit.x, unit.z);
 }
 
-function dash(state: GameState, unit: Unit): void {
+function dash(state: GameState, unit: Body): void {
   if (unit.dashTicks === 0) {
     return;
   }
@@ -29,7 +30,7 @@ function dash(state: GameState, unit: Unit): void {
   }
 }
 
-export function clearOrder(unit: Unit): void {
+export function clearOrder(unit: Body): void {
   unit.dest = null;
   unit.attackMove = false;
   unit.bestDistance = null;
@@ -41,7 +42,7 @@ function near(a: Point, b: Point, within: number): boolean {
 }
 
 /** How far the unit has left to walk to a point: along its route if it is routing there. */
-function walkLeft(unit: Unit, goal: Point): number {
+function walkLeft(unit: Body, goal: Point): number {
   const { route, routeGoal } = unit;
   if (!routeGoal || route.length === 0 || !near(routeGoal, goal, ROUTE.goalDrift)) {
     return Math.hypot(goal.x - unit.x, goal.z - unit.z);
@@ -56,7 +57,7 @@ function walkLeft(unit: Unit, goal: Point): number {
 }
 
 /** Where the unit's order sends it, if it still has one. */
-function orderTarget(state: GameState, unit: Unit, events: GameEvent[]): Point | null {
+function orderTarget(state: GameState, unit: Body, events: GameEvent[]): Point | null {
   const { dest } = unit;
   if (!dest) {
     return null;
@@ -82,11 +83,11 @@ function orderTarget(state: GameState, unit: Unit, events: GameEvent[]): Point |
 }
 
 /** With nothing to do, a unit drifts back to its place in the triangle, short of any wall. */
-function slotTarget(state: GameState, unit: Unit): Point | null {
+function slotTarget(state: GameState, unit: Body): Point | null {
   const slot = clearAlong(
     gridOf(state),
     state.anchor,
-    triangleSlot(unit.classId, state.anchor, state.heading),
+    triangleSlot(placeOf(state, unit.id), state.anchor, state.heading),
   );
   const far = Math.hypot(slot.x - unit.x, slot.z - unit.z) > MOVEMENT.slotReturnDistance;
   return far ? slot : null;
@@ -97,7 +98,7 @@ function slotTarget(state: GameState, unit: Unit): Point | null {
  * A unit walks straight when the line is clear, and asks A* only when it is not.
  * A route is kept while its goal stays put, and corners are dropped as they pass.
  */
-function steer(state: GameState, unit: Unit, goal: Point): Point | null {
+function steer(state: GameState, unit: Body, goal: Point): Point | null {
   const grid = gridOf(state);
   if (lineClear(grid, unit, goal)) {
     unit.route = [];
@@ -128,7 +129,7 @@ function steer(state: GameState, unit: Unit, goal: Point): Point | null {
 }
 
 /** Steps towards the target along its route, or along whichever axis is still walkable. */
-function walk(state: GameState, unit: Unit, goal: Point): void {
+function walk(state: GameState, unit: Body, goal: Point): void {
   const target = steer(state, unit, goal);
   if (!target) {
     return;
@@ -136,7 +137,7 @@ function walk(state: GameState, unit: Unit, goal: Point): void {
   const dx = target.x - unit.x;
   const dz = target.z - unit.z;
   const distance = Math.hypot(dx, dz) || MOVEMENT.zeroDistance;
-  const stride = Math.min(perTick(CLASSES[unit.classId].speed), distance);
+  const stride = Math.min(perTick(classOf(state, unit.id).speed), distance);
   const x = unit.x + (dx / distance) * stride;
   const z = unit.z + (dz / distance) * stride;
   if (canStep(state, unit, x, z)) {
@@ -149,8 +150,8 @@ function walk(state: GameState, unit: Unit, goal: Point): void {
   }
 }
 
-function pushApart(state: GameState, unit: Unit): void {
-  for (const other of state.units) {
+function pushApart(state: GameState, unit: Body): void {
+  for (const other of state.bodies) {
     if (other === unit || !other.alive) {
       continue;
     }
@@ -165,24 +166,24 @@ function pushApart(state: GameState, unit: Unit): void {
   }
 }
 
-function countDownTimers(unit: Unit): void {
+function countDownTimers(state: GameState, unit: Body): void {
   unit.invulnerableTicks = Math.max(0, unit.invulnerableTicks - 1);
   unit.attackTicks = Math.max(0, unit.attackTicks - 1);
   unit.guardTicks = Math.max(0, unit.guardTicks - 1);
   unit.rallyTicks = Math.max(0, unit.rallyTicks - 1);
-  const { spells, mana } = CLASSES[unit.classId];
-  for (const spell of spells) {
+  const { mana } = classOf(state, unit.id);
+  for (const spell of spellsKnown(characterOf(state, unit.id))) {
     unit.spellTicks[spell] = Math.max(0, (unit.spellTicks[spell] ?? 0) - 1);
   }
   unit.mana = Math.min(mana, unit.mana + perTick(MANA.regenPerSecond));
 }
 
 /** Heals the lowest ally in range, one at a time (D-008). */
-function autoHeal(state: GameState, unit: Unit, events: GameEvent[]): void {
+function autoHeal(state: GameState, unit: Body, events: GameEvent[]): void {
   if (unit.attackTicks > 0 || unit.mana < AUTO_HEAL.manaCost) {
     return;
   }
-  let patient: Unit | null = null;
+  let patient: Body | null = null;
   let lowest = AUTO_HEAL.belowShare;
   for (const ally of livingUnits(state)) {
     const share = ally.health / ally.maxHealth;
@@ -199,11 +200,11 @@ function autoHeal(state: GameState, unit: Unit, events: GameEvent[]): void {
   }
 }
 
-function attack(state: GameState, unit: Unit, enemy: Enemy, events: GameEvent[]): void {
+function attack(state: GameState, unit: Body, enemy: Enemy, events: GameEvent[]): void {
   if (unit.attackTicks > 0) {
     return;
   }
-  const { attackSeconds, melee, knockback } = CLASSES[unit.classId];
+  const { attackSeconds, melee, knockback } = weaponOf(characterOf(state, unit.id)).weapon;
   unit.attackTicks = secondsToTicks(attackSeconds);
   if (melee) {
     const direction = Math.atan2(enemy.z - unit.z, enemy.x - unit.x);
@@ -214,8 +215,9 @@ function attack(state: GameState, unit: Unit, enemy: Enemy, events: GameEvent[])
 }
 
 /** Fights its target or the nearest enemy. Returns where the unit should walk. */
-function fight(state: GameState, unit: Unit, goal: Point | null, events: GameEvent[]): Point | null {
-  const { aggroRange, range } = CLASSES[unit.classId];
+function fight(state: GameState, unit: Body, goal: Point | null, events: GameEvent[]): Point | null {
+  const { aggroRange } = classOf(state, unit.id);
+  const { range } = weaponOf(characterOf(state, unit.id)).weapon;
   const enemy =
     aliveEnemy(state, unit.targetId) ??
     nearestEnemy(state, unit, aggroRange, ({ awake }) => awake);
@@ -231,7 +233,7 @@ function fight(state: GameState, unit: Unit, goal: Point | null, events: GameEve
 }
 
 /** With an enemy about, the Healer stays near the others. Alone, it stays put. */
-function stayWithSquad(state: GameState, unit: Unit): Point | null {
+function stayWithSquad(state: GameState, unit: Body): Point | null {
   const others = livingUnits(state).filter((other) => other !== unit);
   if (others.length === 0) {
     return null;
@@ -242,8 +244,8 @@ function stayWithSquad(state: GameState, unit: Unit): Point | null {
 }
 
 /** Where a unit with no order and no fight goes. */
-function idleGoal(state: GameState, unit: Unit): Point | null {
-  const { aggroRange, autoHeals } = CLASSES[unit.classId];
+function idleGoal(state: GameState, unit: Body): Point | null {
+  const { aggroRange, autoHeals } = classOf(state, unit.id);
   if (unit.dest || unit.hold || unit.targetId !== null) {
     return null;
   }
@@ -254,8 +256,8 @@ function idleGoal(state: GameState, unit: Unit): Point | null {
 }
 
 /** Decides what the unit does this tick, and returns where it walks. */
-function decide(state: GameState, unit: Unit, events: GameEvent[]): Point | null {
-  const { autoHeals, attackMoveRange } = CLASSES[unit.classId];
+function decide(state: GameState, unit: Body, events: GameEvent[]): Point | null {
+  const { autoHeals, attackMoveRange } = classOf(state, unit.id);
   if (autoHeals) {
     autoHeal(state, unit, events);
   }
@@ -280,8 +282,8 @@ function decide(state: GameState, unit: Unit, events: GameEvent[]): Point | null
 }
 
 /** One tick of one unit. */
-export function updateUnit(state: GameState, unit: Unit, events: GameEvent[]): void {
-  countDownTimers(unit);
+export function updateUnit(state: GameState, unit: Body, events: GameEvent[]): void {
+  countDownTimers(state, unit);
   if (!unit.alive) {
     return;
   }

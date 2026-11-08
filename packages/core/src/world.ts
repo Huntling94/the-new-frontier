@@ -2,7 +2,7 @@ import { MOVEMENT } from '../data/movement';
 import { ZONES } from '../data/zones';
 import { buildGrid, isOpen, isOpenForEnemy, nearestOpen, type Box, type GroundShape, type Grid } from './grid';
 import type { IslandData } from './island';
-import type { GameState, GameView, Obstacle, Point, ZoneContents } from './state';
+import type { GameState, GameView, Obstacle, Point, Requirement, ZoneContents } from './state';
 
 export type ZoneKind = 'field' | 'dungeon' | 'town';
 
@@ -15,14 +15,8 @@ export type Ground =
       readonly level: number;
     });
 
-/**
- * What it takes to use something, in the one shape shared by item types, spells,
- * gates and quests (`docs/DATA-MODEL.md`). Nothing checks these yet.
- */
-export type Requirement =
-  | { readonly kind: 'level'; readonly level: number }
-  | { readonly kind: 'art'; readonly art: string }
-  | { readonly kind: 'quest'; readonly quest: string };
+/** Gates hold requirements in the shared shape, which nothing checks for gates yet. */
+export type { Requirement };
 
 export interface Cost {
   readonly kind: 'marks';

@@ -1,4 +1,5 @@
 import {
+  cardOf,
   ISLAND_SCENARIO,
   REPLAYS,
   RUNS,
@@ -121,6 +122,10 @@ function describe(event: GameEvent): string {
       return `${String(event.tick)} unit ${String(event.unitId)} ${event.slot} now +${String(event.level)}`;
     case 'item-destroyed':
       return `${String(event.tick)} unit ${String(event.unitId)} ${event.slot} +${String(event.level)} destroyed`;
+    case 'equipped':
+      return `${String(event.tick)} unit ${String(event.unitId)} equips item ${String(event.itemId)} in ${event.slot}`;
+    case 'unequipped':
+      return `${String(event.tick)} unit ${String(event.unitId)} sends item ${String(event.itemId)} from ${event.slot} to the store`;
     case 'squad-down':
       return `${String(event.tick)} squad down`;
     case 'squad-returned':
@@ -138,7 +143,7 @@ function describe(event: GameEvent): string {
 
 /** Whoever has this ID, for placing a number on the map. */
 function placeOf(id: number): { x: number; z: number } | undefined {
-  return game.units.find((unit) => unit.id === id) ?? game.live.enemies.find((enemy) => enemy.id === id);
+  return game.bodies.find((unit) => unit.id === id) ?? game.live.enemies.find((enemy) => enemy.id === id);
 }
 
 function addMark(event: GameEvent): void {
@@ -180,13 +185,14 @@ function runOneTick(): void {
 function showStatus(view: GameView): void {
   element('tick').textContent = `${String(view.tick)} of ${String(run.ticks)}`;
   element('hash').textContent = hashState(view);
-  element('squad').textContent = view.units
+  element('squad').textContent = view.bodies
     .map((unit) => {
-      const mana = unit.classId === 'healer' ? `, mana ${String(Math.round(unit.mana))}` : '';
-      return `${unit.classId} L${String(unit.level)}: ${String(Math.round(unit.health))} of ${String(unit.maxHealth)}${mana}`;
+      const card = cardOf(view, unit.id);
+      const mana = card && card.maxMana > 0 ? `, mana ${String(Math.round(unit.mana))}` : '';
+      return `${card?.name ?? '?'} (${card?.classId ?? '?'}) L${String(card?.level ?? 0)}: ${String(Math.round(unit.health))} of ${String(unit.maxHealth)}${mana}`;
     })
     .join('\n');
-  element('stock').textContent = `${String(view.marks)} marks, ${String(view.potions)} potions`;
+  element('stock').textContent = `${String(view.family.marks)} marks, ${String(view.family.potions)} potions`;
   const boss = view.live.enemies.find((enemy) => enemy.boss);
   const cast = boss?.boss && boss.boss.castTicks > 0 ? ', casting' : '';
   const state = view.victory ? 'down' : boss?.awake ? `awake${cast}` : 'asleep';

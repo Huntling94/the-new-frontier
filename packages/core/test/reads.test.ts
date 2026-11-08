@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest';
+import { ARTS } from '../data/items';
 import { ISLAND_SCENARIO } from '../data/scenarios';
 import { CLASSES } from '../data/squad';
 import { ZONES } from '../data/zones';
+import { characterOf } from '../src/family';
 import { createGame } from '../src/game';
 import { SPELLS } from '../data/spells';
 import { cardOf, currentZone, spellInfo, spellsOf } from '../src/reads';
@@ -24,16 +26,17 @@ describe('reads for the screen', () => {
 
   it('gives each character its spells in data order, by ID', () => {
     const state = createGame(7, ISLAND_SCENARIO);
-    for (const unit of state.units) {
-      expect(spellsOf(state, unit.id)).toEqual(CLASSES[unit.classId].spells);
+    for (const unit of state.bodies) {
+      expect(spellsOf(state, unit.id)).toEqual(CLASSES[characterOf(state, unit.id).classId].arts.flatMap((art) => ARTS[art].spells));
     }
     expect(spellsOf(state, 999)).toEqual([]);
   });
 
   it('gives each card its maximum mana and the XP to the next level', () => {
     const state = createGame(7, ISLAND_SCENARIO);
-    for (const unit of state.units) {
-      expect(cardOf(state, unit.id)).toEqual({ maxMana: CLASSES[unit.classId].mana, xpToNext: xpToNextLevel(unit.level) });
+    for (const unit of state.bodies) {
+      const { name, classId, level, xp } = characterOf(state, unit.id);
+      expect(cardOf(state, unit.id)).toEqual({ name, classId, level, xp, maxMana: CLASSES[classId].mana, xpToNext: xpToNextLevel(level) });
     }
     expect(cardOf(state, 999)).toBeNull();
   });

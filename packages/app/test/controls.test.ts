@@ -3,11 +3,10 @@ import { describe, expect, it } from 'vitest';
 import { castFor, characterAt, followPoint, orderedIds, pressAction, SPELL_ROWS, spellKey, squadCentre } from '../src/controls';
 import { Session } from '../src/session';
 
-/** A family of three Fighters (D-025). The core cannot build one until S3, so the test does. */
+/** A family of three Fighters (D-025), built by the core from the scenario's family. */
 function threeFighters(): GameState {
-  const state = createGame(3, ISLAND_SCENARIO);
-  state.units = state.units.map((unit) => ({ ...unit, classId: 'fighter' as const }));
-  return state;
+  const fighter = { classId: 'fighter', name: 'Fighter' } as const;
+  return createGame(3, { ...ISLAND_SCENARIO, family: [fighter, fighter, fighter] });
 }
 
 describe('keys (D-031)', () => {
@@ -51,7 +50,7 @@ describe('a family of three Fighters', () => {
   it('gives each its own row of spell keys, by place and not class', () => {
     const state = threeFighters();
     const casts = SPELL_ROWS.map((_, place) => castFor(state, place, 0, null));
-    expect(casts.map((cast) => cast?.type === 'cast' && cast.unitId)).toEqual(state.units.map(({ id }) => id));
+    expect(casts.map((cast) => cast?.type === 'cast' && cast.unitId)).toEqual(state.bodies.map(({ id }) => id));
     expect(casts.every((cast) => cast?.type === 'cast' && cast.spell === 'taunt')).toBe(true);
   });
 
@@ -60,13 +59,13 @@ describe('a family of three Fighters', () => {
     const casts = SPELL_ROWS.map((_, place) => castFor(state, place, 1, null)).filter((cast) => cast !== null);
     const events = step(state, casts);
     const cast = events.filter((event) => event.type === 'spell-cast');
-    expect(cast.map((event) => event.type === 'spell-cast' && event.unitId)).toEqual(state.units.map(({ id }) => id));
+    expect(cast.map((event) => event.type === 'spell-cast' && event.unitId)).toEqual(state.bodies.map(({ id }) => id));
   });
 
   it('selects each one alone by its place', () => {
     const state = threeFighters();
     const session = new Session(3, null);
-    Object.assign(session.state, { units: state.units });
+    Object.assign(session.state, { units: state.bodies });
     for (let place = 0; place < 3; place += 1) {
       session.act({ kind: 'select', place }, null);
       expect([...session.selected]).toEqual([characterAt(state, place)]);
@@ -89,7 +88,7 @@ describe('orders', () => {
   it('orders the selected who are up, or everyone up if none are', () => {
     const state = createGame(1, ISLAND_SCENARIO);
     expect(orderedIds(state, new Set([2]))).toEqual([2]);
-    const two = state.units[1];
+    const two = state.bodies[1];
     if (two) two.alive = false;
     expect(orderedIds(state, new Set([2]))).toEqual([1, 3]);
   });
@@ -126,7 +125,7 @@ describe('orders', () => {
     let moved: number[] = [];
     for (let tick = 0; tick < 30 && moved.length === 0; tick += 1) {
       session.tick();
-      moved = session.state.units.filter((unit) => unit.dest !== null).map(({ id }) => id);
+      moved = session.state.bodies.filter((unit) => unit.dest !== null).map(({ id }) => id);
     }
     expect(moved).toEqual([2]);
   });
@@ -135,7 +134,7 @@ describe('orders', () => {
 describe('what the camera follows (D-037)', () => {
   it('follows one selected character on their own, and the squad otherwise', () => {
     const state = createGame(3, ISLAND_SCENARIO);
-    const [first, second] = state.units;
+    const [first, second] = state.bodies;
     if (!first || !second) throw new Error('No units.');
     expect(followPoint(state, new Set([first.id]))).toEqual({ x: first.x, z: first.z });
     expect(followPoint(state, new Set([first.id, second.id]))).toEqual(squadCentre(state));

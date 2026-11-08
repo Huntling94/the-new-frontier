@@ -1,6 +1,8 @@
 import { ANVIL, UPGRADES } from '../data/gear';
 import { nextRandom } from './random';
-import { createItem, recalculate } from './stats';
+import { characterOf } from './family';
+import { createItem, itemType } from './items';
+import { recalculate } from './stats';
 import { zoneOf } from './world';
 import type {
   GameEvent,
@@ -25,17 +27,18 @@ export function upgradeChance(level: number): number {
 }
 
 export function upgradeCost(level: number, slot: GearSlot): number {
-  const share = slot === 'weapon' ? UPGRADES.weaponCostShare : 1;
+  const share = slot === 'main-hand' ? UPGRADES.weaponCostShare : 1;
   return Math.round(UPGRADES.costBase * Math.pow(level + 1, UPGRADES.costPower) * share);
 }
 
 /** The odds and cost of an upgrade, or null if there is nothing to offer. */
 export function upgradeOffer(state: GameView, unitId: number, slot: GearSlot): UpgradeOffer | null {
-  const unit = state.units.find((candidate) => candidate.id === unitId);
-  if (!unit || unit.gear[slot].upgrade >= UPGRADES.maxLevel) {
+  const unit = state.bodies.find((candidate) => candidate.id === unitId);
+  const item = unit ? characterOf(state, unit.id).items[slot] : null;
+  if (!item || item.upgrade >= UPGRADES.maxLevel) {
     return null;
   }
-  const level = unit.gear[slot].upgrade;
+  const level = item.upgrade;
   return { chance: upgradeChance(level), cost: upgradeCost(level, slot) };
 }
 
@@ -44,7 +47,7 @@ export function isNearAnvil(state: GameView): boolean {
   const { anvil } = zoneOf(state);
   return (
     anvil !== null &&
-    state.units.some((unit) => {
+    state.bodies.some((unit) => {
       return unit.alive && Math.hypot(unit.x - anvil.x, unit.z - anvil.z) < ANVIL.reach;
     })
   );
@@ -56,9 +59,12 @@ export function applyUpgrade(
   events: GameEvent[],
 ): RefusalReason | null {
   const { unitId, slot } = command;
-  const unit = state.units.find((candidate) => candidate.id === unitId);
+  const unit = state.bodies.find((candidate) => candidate.id === unitId);
   if (!unit) {
     return 'unknown-unit';
+  }
+  if (!characterOf(state, unit.id).items[slot]) {
+    return 'slot-empty';
   }
   if (!isNearAnvil(state)) {
     return 'not-near-anvil';
@@ -67,19 +73,24 @@ export function applyUpgrade(
   if (!offer) {
     return 'already-max';
   }
-  if (state.marks < offer.cost) {
+  if (state.family.marks < offer.cost) {
     return 'no-marks';
   }
-  state.marks -= offer.cost;
+  state.family.marks -= offer.cost;
   const { tick } = state;
-  const item = unit.gear[slot];
+  const character = characterOf(state, unit.id);
+  const item = character.items[slot];
+  if (!item) {
+    return 'slot-empty';
+  }
   if (nextRandom(state) < offer.chance) {
     item.upgrade += 1;
     events.push({ type: 'upgraded', tick, unitId, slot, level: item.upgrade });
   } else {
-    unit.gear[slot] = createItem(unit.classId, slot, true);
+    // The item is gone, and the smith hands over its type's spare (D-005, decision 13).
+    character.items[slot] = createItem(state, itemType(item.typeId).spare);
     events.push({ type: 'item-destroyed', tick, unitId, slot, level: item.upgrade });
   }
-  recalculate(unit);
+  recalculate(character, unit);
   return null;
 }

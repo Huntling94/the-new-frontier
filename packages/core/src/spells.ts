@@ -1,6 +1,5 @@
 import { AIM } from '../data/combat';
 import { SPELLS } from '../data/spells';
-import { CLASSES } from '../data/squad';
 import {
   aliveEnemy,
   healUnit,
@@ -9,6 +8,8 @@ import {
   nearestEnemy,
   wakePack,
 } from './combat';
+import { characterOf } from './family';
+import { hasSpellWeapon, spellsKnown } from './items';
 import { livingUnits } from './formation';
 import { fireShot } from './shots';
 import type {
@@ -18,12 +19,12 @@ import type {
   GameState,
   Point,
   RefusalReason,
-  Unit,
+  Body,
 } from './state';
 import { TICKS, secondsToTicks } from './time';
 
 /** The enemy named, then near the point, then the shared target, the unit's own, and the nearest. */
-function aimEnemy(state: GameState, unit: Unit, command: CastCommand): Enemy | null {
+function aimEnemy(state: GameState, unit: Body, command: CastCommand): Enemy | null {
   return (
     aliveEnemy(state, command.enemyId) ??
     (command.point ? nearestEnemy(state, command.point, AIM.pointRadius) : null) ??
@@ -33,7 +34,7 @@ function aimEnemy(state: GameState, unit: Unit, command: CastCommand): Enemy | n
   );
 }
 
-function taunt(state: GameState, unit: Unit): Point {
+function taunt(state: GameState, unit: Body): Point {
   const { radius, bossRadius } = SPELLS.taunt;
   for (const enemy of state.live.enemies) {
     const reach = enemy.boss ? bossRadius : radius;
@@ -46,7 +47,7 @@ function taunt(state: GameState, unit: Unit): Point {
   return unit;
 }
 
-function cleave(state: GameState, unit: Unit, events: GameEvent[]): Point {
+function cleave(state: GameState, unit: Body, events: GameEvent[]): Point {
   const { radius, sizeShare, multiplier, knockback } = SPELLS.cleave;
   for (const enemy of state.live.enemies) {
     const reach = radius + enemy.size * sizeShare;
@@ -58,14 +59,14 @@ function cleave(state: GameState, unit: Unit, events: GameEvent[]): Point {
   return unit;
 }
 
-function guard(unit: Unit): Point {
+function guard(unit: Body): Point {
   unit.guardTicks = TICKS.guard;
   return unit;
 }
 
 function singleShot(
   state: GameState,
-  unit: Unit,
+  unit: Body,
   command: CastCommand,
   multiplier: number,
   crippling: boolean,
@@ -78,7 +79,7 @@ function singleShot(
   return enemy;
 }
 
-function volley(state: GameState, unit: Unit, command: CastCommand): Point {
+function volley(state: GameState, unit: Body, command: CastCommand): Point {
   const { x, z } = command.point ?? unit;
   for (const seconds of SPELLS.volley.strikeSeconds) {
     state.live.scheduled.push({
@@ -92,8 +93,8 @@ function volley(state: GameState, unit: Unit, command: CastCommand): Point {
   return { x, z };
 }
 
-function woundedNear(state: GameState, point: Point): Unit | null {
-  let best: Unit | null = null;
+function woundedNear(state: GameState, point: Point): Body | null {
+  let best: Body | null = null;
   let bestDistance = SPELLS.mend.pointRadius;
   for (const ally of livingUnits(state)) {
     const distance = Math.hypot(ally.x - point.x, ally.z - point.z);
@@ -107,7 +108,7 @@ function woundedNear(state: GameState, point: Point): Unit | null {
 
 function mend(
   state: GameState,
-  unit: Unit,
+  unit: Body,
   command: CastCommand,
   events: GameEvent[],
 ): Point | RefusalReason {
@@ -121,7 +122,7 @@ function mend(
   return ally;
 }
 
-function rally(state: GameState, unit: Unit): Point {
+function rally(state: GameState, unit: Body): Point {
   for (const ally of livingUnits(state)) {
     ally.rallyTicks = TICKS.rally;
   }
@@ -129,10 +130,10 @@ function rally(state: GameState, unit: Unit): Point {
 }
 
 /** Brings back the fallen ally nearest the caster, at any distance, as in the squad test. */
-function revive(state: GameState, unit: Unit, events: GameEvent[]): Point | RefusalReason {
-  let nearest: Unit | null = null;
+function revive(state: GameState, unit: Body, events: GameEvent[]): Point | RefusalReason {
+  let nearest: Body | null = null;
   let nearestDistance = Infinity;
-  for (const ally of state.units) {
+  for (const ally of state.bodies) {
     const distance = Math.hypot(ally.x - unit.x, ally.z - unit.z);
     if (!ally.alive && distance < nearestDistance) {
       nearest = ally;
@@ -152,7 +153,7 @@ function revive(state: GameState, unit: Unit, events: GameEvent[]): Point | Refu
 /** Runs a spell's effect. Returns where it landed, or why it cannot happen. */
 function resolve(
   state: GameState,
-  unit: Unit,
+  unit: Body,
   command: CastCommand,
   events: GameEvent[],
 ): Point | RefusalReason {
@@ -187,12 +188,17 @@ export function castSpell(
   if (point && (!Number.isFinite(point.x) || !Number.isFinite(point.z))) {
     return 'bad-point';
   }
-  const unit = state.units.find((candidate) => candidate.id === unitId);
+  const unit = state.bodies.find((candidate) => candidate.id === unitId);
   if (!unit) {
     return 'unknown-unit';
   }
-  if (!CLASSES[unit.classId].spells.includes(spell)) {
+  const character = characterOf(state, unit.id);
+  // A spell needs its art, and a matching weapon in hand unless it names none (D-027).
+  if (!spellsKnown(character).includes(spell)) {
     return 'not-your-spell';
+  }
+  if (!hasSpellWeapon(character, spell)) {
+    return 'needs-weapon';
   }
   if ((unit.spellTicks[spell] ?? 0) > 0) {
     return 'on-cooldown';

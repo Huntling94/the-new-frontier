@@ -30,7 +30,8 @@ test.describe('the interface (S2.3b)', () => {
     await ticksPass(page, 5);
     expect(await page.evaluate(() => [window.__tnf.mode, window.__tnf.audio])).toEqual(['play', true]);
     await expect(page.locator('.card')).toHaveCount(3);
-    await expect(page.locator('.card').first()).toContainText('F1 Fighter');
+    await expect(page.locator('.card').first()).toContainText('F1 Aurelio');
+    await expect(page.locator('.card').first()).toContainText('Fighter');
     await expect(page.locator('#log')).toContainText('Squad ready');
   });
 
@@ -45,7 +46,7 @@ test.describe('the interface (S2.3b)', () => {
       window.__tnf.events.filter((event) => event.type === 'spell-cast').map(({ unitId, spell }) => ({ unitId, spell })),
     );
     expect(casts).toEqual([{ unitId: 1, spell: 'cleave' }]);
-    expect(await page.evaluate(() => window.__tnf.view.units[0]?.spellTicks.cleave)).toBeGreaterThan(0);
+    expect(await page.evaluate(() => window.__tnf.view.bodies[0]?.spellTicks.cleave)).toBeGreaterThan(0);
     // The shade over the button shows the cooldown, and shrinks as it runs.
     await expect.poll(() => shadeOf(button)).toBeGreaterThan(0.5);
     const first = await shadeOf(button);
@@ -59,17 +60,17 @@ test.describe('the interface (S2.3b)', () => {
     await expect(page.locator('#forge')).toBeVisible();
     expect(await page.evaluate(() => window.__tnf.paused)).toBe(true);
     const tick = await page.evaluate(() => window.__tnf.view.tick);
-    const marks = await page.evaluate(() => window.__tnf.view.marks);
+    const marks = await page.evaluate(() => window.__tnf.view.family.marks);
     await page.waitForTimeout(500);
     expect(await page.evaluate(() => window.__tnf.view.tick)).toBe(tick);
 
-    // Every slot the gear holds gets a row: four for each of the three today.
+    // All seven slots get a row for each of the three (S3b decision 19).
     await expect(page.locator('#forge .ucols > div')).toHaveCount(3);
-    await expect(page.locator('#forge .urow')).toHaveCount(12);
-    await page.locator('#forge .urow[data-unit="1"][data-slot="weapon"]').click();
-    await expect(page.locator('#forge .resbox')).toContainText("Fighter's Sword is now +1.");
-    expect(await page.evaluate(() => window.__tnf.view.units[0]?.gear.weapon?.upgrade)).toBe(1);
-    expect(await page.evaluate(() => window.__tnf.view.marks)).toBeLessThan(marks);
+    await expect(page.locator('#forge .urow')).toHaveCount(21);
+    await page.locator('#forge .urow[data-unit="1"][data-slot="main-hand"]').click();
+    await expect(page.locator('#forge .resbox')).toContainText("Aurelio's Sword is now +1.");
+    expect(await page.evaluate(() => window.__tnf.view.family.characters[0]?.items['main-hand']?.upgrade)).toBe(1);
+    expect(await page.evaluate(() => window.__tnf.view.family.marks)).toBeLessThan(marks);
     // Still paused after buying: the command landed with no tick.
     expect(await page.evaluate(() => window.__tnf.view.tick)).toBe(tick);
     expect(await page.evaluate(() => window.__tnf.events.some((event) => event.type === 'upgraded'))).toBe(true);
@@ -125,7 +126,7 @@ test.describe('the interface (S2.3b)', () => {
     // well clear of the middle the camera followed before.
     const offCentre = (): Promise<number> =>
       page.evaluate(() => {
-        const { units } = window.__tnf.view;
+        const units = window.__tnf.view.bodies;
         const sniper = units[1];
         const { x, z } = window.__tnf.camera;
         if (!sniper) return -Infinity;

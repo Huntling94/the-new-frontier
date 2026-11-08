@@ -13,7 +13,6 @@ import {
   type GameView,
   type Point,
 } from '@new-frontier/core';
-import { characterLook } from '@new-frontier/render';
 import { castFor, characterAt, orderedIds, type KeyAction } from './controls';
 import type { LogLine } from './reactions';
 
@@ -43,7 +42,7 @@ export class Session {
   constructor(seed: number, bot: BotKind | null) {
     this.state = createGame(seed, ISLAND_SCENARIO);
     this.bot = bot;
-    for (const unit of this.state.units) this.selected.add(unit.id);
+    for (const unit of this.state.bodies) this.selected.add(unit.id);
   }
 
   get view(): GameView {
@@ -66,7 +65,7 @@ export class Session {
     if (this.bot) {
       commands = [...commands, ...botCommands(this.state, this.bot)];
     } else if (this.auto) {
-      const whole = this.autoIds.size === this.state.units.length;
+      const whole = this.autoIds.size === this.state.bodies.length;
       const auto = autoCommands(this.state, whole ? undefined : [...this.autoIds]);
       if (auto.stop) {
         this.autoIds.clear();
@@ -99,8 +98,8 @@ export class Session {
     mine.forEach((command, index) => {
       const answer = answers[index];
       if (answer?.type !== 'order-refused' || command.type !== 'cast') return;
-      const unit = this.state.units.find(({ id }) => id === command.unitId);
-      const name = unit ? characterLook(unit.classId).name : 'Someone';
+      const character = this.state.family.characters.find(({ id }) => id === command.unitId);
+      const name = character ? character.name : 'Someone';
       if (answer.reason === 'no-mana') this.notes.push({ text: `${name}: not enough mana`, tone: 'bad' });
       if (command.spell === 'revive' && answer.reason === 'no-target') this.notes.push({ text: 'Nobody needs reviving', tone: 'blue' });
     });
@@ -127,7 +126,7 @@ export class Session {
   }
 
   selectAll(): void {
-    for (const unit of this.state.units) this.selected.add(unit.id);
+    for (const unit of this.state.bodies) this.selected.add(unit.id);
   }
 
   /** A key press (D-031). Camera keys are handled by the page. */

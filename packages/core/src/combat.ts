@@ -1,9 +1,10 @@
 import { COMBAT } from '../data/combat';
+import { characterOf } from './family';
 import { livingUnits } from './formation';
 import { dropLoot } from './loot';
 import { nextRandom } from './random';
 import { recalculate, xpToNextLevel } from './stats';
-import type { Enemy, GameEvent, GameState, Point, Unit } from './state';
+import type { Enemy, GameEvent, GameState, Point, Body } from './state';
 import { TICKS } from './time';
 import { noteKill } from './zones';
 
@@ -22,7 +23,7 @@ export function defenceMultiplier(defence: number): number {
 
 /** Damage a unit does to an enemy, carrying every term. */
 export function damageToEnemy(
-  unit: Unit,
+  unit: Body,
   enemy: Enemy,
   multiplier: number,
   crit: boolean,
@@ -39,7 +40,7 @@ export function damageToEnemy(
   return Math.max(COMBAT.minDamage, Math.round(damage));
 }
 
-export function damageToUnit(unit: Unit, raw: number, sourceAr: number): number {
+export function damageToUnit(unit: Body, raw: number, sourceAr: number): number {
   const damage =
     raw *
     accuracyMultiplier(sourceAr, unit.dr) *
@@ -56,13 +57,14 @@ export function shareXp(state: GameState, xp: number, events: GameEvent[]): void
   }
   const each = Math.round(xp / living.length);
   for (const unit of living) {
-    unit.xp += each;
-    while (unit.xp >= xpToNextLevel(unit.level)) {
-      unit.xp -= xpToNextLevel(unit.level);
-      unit.level += 1;
-      recalculate(unit);
+    const character = characterOf(state, unit.id);
+    character.xp += each;
+    while (character.xp >= xpToNextLevel(character.level)) {
+      character.xp -= xpToNextLevel(character.level);
+      character.level += 1;
+      recalculate(character, unit);
       unit.health = unit.maxHealth;
-      events.push({ type: 'level-up', tick: state.tick, unitId: unit.id, level: unit.level });
+      events.push({ type: 'level-up', tick: state.tick, unitId: unit.id, level: character.level });
     }
   }
 }
@@ -110,7 +112,7 @@ export function wakeBoss(state: GameState, enemy: Enemy, events: GameEvent[]): v
 /** One unit hits one enemy. `direction` is where any knockback sends it, in radians. */
 export function hitEnemy(
   state: GameState,
-  unit: Unit,
+  unit: Body,
   enemy: Enemy,
   multiplier: number,
   events: GameEvent[],
@@ -140,7 +142,7 @@ export function hitEnemy(
   }
 }
 
-function unitDown(state: GameState, unit: Unit, events: GameEvent[]): void {
+function unitDown(state: GameState, unit: Body, events: GameEvent[]): void {
   unit.health = 0;
   unit.alive = false;
   unit.dest = null;
@@ -156,7 +158,7 @@ function unitDown(state: GameState, unit: Unit, events: GameEvent[]): void {
 /** An enemy hits a unit. Invulnerable units take nothing. */
 export function hurtUnit(
   state: GameState,
-  unit: Unit,
+  unit: Body,
   raw: number,
   source: { readonly id: number; readonly ar: number },
   events: GameEvent[],
@@ -180,7 +182,7 @@ export function hurtUnit(
   }
 }
 
-export function healUnit(state: GameState, unit: Unit, amount: number, events: GameEvent[]): void {
+export function healUnit(state: GameState, unit: Body, amount: number, events: GameEvent[]): void {
   const healed = Math.min(unit.maxHealth - unit.health, amount);
   unit.health += healed;
   events.push({ type: 'healed', tick: state.tick, unitId: unit.id, amount: healed });
@@ -210,8 +212,8 @@ export function nearestEnemy(
 }
 
 /** The living unit with the lowest share of health. Earlier IDs win ties. */
-export function lowestHealthUnit(state: GameState): Unit | null {
-  let lowest: Unit | null = null;
+export function lowestHealthUnit(state: GameState): Body | null {
+  let lowest: Body | null = null;
   for (const unit of livingUnits(state)) {
     if (!lowest || unit.health / unit.maxHealth < lowest.health / lowest.maxHealth) {
       lowest = unit;

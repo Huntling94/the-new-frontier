@@ -1,4 +1,4 @@
-import { botCommands, createGame, ISLAND_SCENARIO, step, TICK_RATE, type GameEvent, type GameState } from '@new-frontier/core';
+import { botCommands, characterOf, createGame, ISLAND_SCENARIO, step, TICK_RATE, type GameEvent, type GameState } from '@new-frontier/core';
 import { describe, expect, it } from 'vitest';
 import { addShake, createCamera, poseOf, shakePose } from '../src/camera';
 import { Clock } from '../src/clock';
@@ -67,7 +67,7 @@ describe('reactions turn events into feel', () => {
     const state = game();
     const reactions = new Reactions();
     reactions.remember(state);
-    const [unit] = state.units;
+    const [unit] = state.bodies;
     if (!unit) throw new Error('No unit.');
     const enemy = enemyId(state);
     const events: GameEvent[] = [
@@ -101,7 +101,7 @@ describe('reactions turn events into feel', () => {
     const state = game();
     const reactions = new Reactions();
     reactions.remember(state);
-    const [unit] = state.units;
+    const [unit] = state.bodies;
     if (!unit) throw new Error('No unit.');
     const enemy = enemyId(state);
     const reaction = reactions.react(state, [
@@ -109,7 +109,7 @@ describe('reactions turn events into feel', () => {
       { type: 'unit-down', tick: 0, unitId: unit.id },
       { type: 'squad-down', tick: 0 },
     ]);
-    expect(reaction.log.map(({ text }) => text)).toContain('Fighter is down. No XP while down.');
+    expect(reaction.log.map(({ text }) => text)).toContain('Aurelio is down. No XP while down.');
     expect(reaction.log.at(-1)?.text).toMatch(/^You died to a .+ \(lvl \d+\)\. You are being teleported back to: camp$/);
     expect(reaction.banner?.title).toBe('Squad down');
     expect(reactions.tally).toMatchObject({ wipes: 1, downs: 1 });
@@ -142,22 +142,22 @@ describe('the session notes the player’s own orders', () => {
     session.act({ kind: 'auto' }, null);
     expect(session.notes.map(({ text }) => text)).toEqual(['Auto-combat on', 'Auto-combat off']);
     session.notes.length = 0;
-    const healer = session.state.units.find(({ classId }) => classId === 'healer');
+    const healer = session.state.bodies.find(({ id }) => characterOf(session.state, id).classId === 'healer');
     if (!healer) throw new Error('No Healer.');
     healer.mana = 0;
-    session.act({ kind: 'spell', place: session.state.units.indexOf(healer), slot: 1 }, null);
+    session.act({ kind: 'spell', place: session.state.bodies.indexOf(healer), slot: 1 }, null);
     session.tick();
-    expect(session.notes.map(({ text }) => text)).toEqual(['Healer: not enough mana']);
+    expect(session.notes.map(({ text }) => text)).toEqual([`${characterOf(session.state, healer.id).name}: not enough mana`]);
   });
 
   it('applies an anvil upgrade at once, with no tick passing (decision 4)', () => {
     const session = new Session(1, null);
-    const [unit] = session.state.units;
+    const [unit] = session.state.bodies;
     if (!unit) throw new Error('No unit.');
     const tick = session.state.tick;
-    const events = session.applyNow([{ type: 'upgrade', unitId: unit.id, slot: 'weapon' }]);
+    const events = session.applyNow([{ type: 'upgrade', unitId: unit.id, slot: 'main-hand' }]);
     expect(events.map(({ type }) => type)).toEqual(['order-accepted', 'upgraded']);
     expect(session.state.tick).toBe(tick);
-    expect(unit.gear.weapon.upgrade).toBe(1);
+    expect(characterOf(session.state, unit.id).items['main-hand']?.upgrade).toBe(1);
   });
 });

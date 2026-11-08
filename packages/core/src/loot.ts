@@ -1,7 +1,7 @@
 import { LOOT, MONSTERS } from '../data/enemies';
 import { TAU } from './island';
 import { nextRandom, randomBetween } from './random';
-import type { Drop, Enemy, GameEvent, GameState, Unit } from './state';
+import type { Drop, Enemy, GameEvent, GameState, Body } from './state';
 import { TICKS, perTick } from './time';
 
 function dropAt(state: GameState, enemy: Enemy, kind: Drop['kind'], value: number): void {
@@ -38,9 +38,9 @@ export function dropLoot(state: GameState, enemy: Enemy): void {
   }
 }
 
-function nearestUnit(state: GameState, drop: Drop): { unit: Unit; distance: number } | null {
-  let best: { unit: Unit; distance: number } | null = null;
-  for (const unit of state.units) {
+function nearestUnit(state: GameState, drop: Drop): { unit: Body; distance: number } | null {
+  let best: { unit: Body; distance: number } | null = null;
+  for (const unit of state.bodies) {
     const distance = Math.hypot(unit.x - drop.x, unit.z - drop.z);
     if (unit.alive && distance < (best?.distance ?? LOOT.pullRange)) {
       best = { unit, distance };
@@ -65,9 +65,9 @@ function updateDrop(state: GameState, drop: Drop, events: GameEvent[]): boolean 
   const { unit, distance } = near;
   if (distance < LOOT.collectRange) {
     if (drop.kind === 'marks') {
-      state.marks += drop.value;
+      state.family.marks += drop.value;
     } else {
-      state.potions += drop.value;
+      state.family.potions += drop.value;
     }
     const { tick } = state;
     events.push({ type: 'loot', tick, unitId: unit.id, kind: drop.kind, value: drop.value });

@@ -196,7 +196,7 @@ export function createWorldView(canvas: HTMLCanvasElement, overlay: HTMLCanvasEl
       }
       loaded.entities.draw(current, alpha, dt, screen);
       loaded.effects.update(dt);
-      const living = current.units.filter(({ alive }) => alive);
+      const living = current.bodies.filter(({ alive }) => alive);
       const squad = living.length > 0
         ? { x: living.reduce((sum, u) => sum + u.x, 0) / living.length, z: living.reduce((sum, u) => sum + u.z, 0) / living.length }
         : current.anchor;

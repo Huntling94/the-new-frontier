@@ -4,12 +4,11 @@
 
 ## Now
 
-Stage S2, Foundation, is done: the game plays from a public URL, with tests and the bot in CI. S1 to S2.3b are closed. S3a, zones, gates and routes, is built and waits for the maintainer's play and approval: the island is now Lande de Montclaire, a lavender heath with baked standing stones, and a gate leads to a small walled cave. Units find their way round walls by A\*, one zone runs at a time, and cleared packs come back on the game clock. The game plays in the browser from the start screen to victory, with the squad test's HUD, anvil, screens, synthesised sound, floating text, hit-stop and camera shake. Auto-combat fights bosses (D-036), and the camera follows a character selected alone (D-037). Bots play the whole game headless through `pnpm sim`, and in the real page with `?bot=careful`. The dev-only viewer is at `/viewer.html`. The README now links to the public page.
+Stage S2, Foundation, is done: the game plays from a public URL, with tests and the bot in CI. S1 to S3b are closed. The family is on state: each character has a name, a class, a level, an art and seven slots, and a live body in the field that a gate moves whole. Items are instances of item types with their own IDs, sit in exactly one place (the store or a slot), and are moved on the inventory screen (`Alt` + `E`). The anvil upgrades all seven slots. Every tick of 62 runs is unchanged from S3a. The island is Lande de Montclaire, a lavender heath with baked standing stones, and a gate leads to a small walled cave. Units find their way round walls by A\*, one zone runs at a time, and cleared packs come back on the game clock. The game plays in the browser from the start screen to victory, with the squad test's HUD, anvil, screens, synthesised sound, floating text, hit-stop and camera shake. Auto-combat fights bosses (D-036), and the camera follows a character selected alone (D-037). Bots play the whole game headless through `pnpm sim`, and in the real page with `?bot=careful`. The dev-only viewer is at `/viewer.html`. The README now links to the public page.
 
 ## Next
 
-1. The maintainer plays S3a (its done means 13), approves the diff, and it lands on `master`.
-2. S3b, the family and items (drafted, not agreed), then S3c, saves (drafted).
+1. S3c, saves (drafted), whose first format holds S3b's family and items.
 
 ## Open
 
@@ -25,7 +24,12 @@ Stage S2, Foundation, is done: the game plays from a public URL, with tests and 
 - The cave's name waits for the starting region's naming (D-038).
 - How consumables are used (D-025).
 - Graphics keep the squad test's level of 3D until S5 (D-030). D-019 keeps the renderer replaceable.
-- The core still assumes one character per class: `createGame` builds one of each, and the triangle slot comes from the class. S3 fixes both (D-025).
+- The maintainer wants upgrades to work differently from D-005 (8 Nov 2026). S3b keeps today's rules and spares exactly; the new rules need their own brief and a decision replacing D-005.
+- Character names are placeholders until names are chosen (S3b decision 3). Items are named by category until a naming session (D-038).
+- The inventory should not pause the game (maintainer, 8 Nov 2026). S3b decision 20 made it pause like the anvil; changing it needs a brief, including what equipping mid-fight then means while `in-fight` refuses it.
+- The inventory's UX wants its own pass later (maintainer, 8 Nov 2026).
+- The 3D figures still hold their class's weapon, whatever is in the main hand.
+- The unarmed type, and the cap, buckler and necklace numbers, are placeholders until balance. Which spells need which weapon (cleave a sword, the Sniper's three a rifle) was set in S3b for the maintainer to confirm.
 - Firefox and WebKit are not tested yet. The code avoids engine-only features (S2.3a).
 - Replays match in Node only. Browsers round `sin`, `cos` and `atan2` slightly differently, so a replay recorded in a browser will not reproduce exactly in Node. Decision 13 of S2.2a allows this. It matters if a later brief wants browser runs checked on CI.
 

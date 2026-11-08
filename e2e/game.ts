@@ -8,8 +8,14 @@ export interface Hook {
     tick: number;
     anchor: { x: number; z: number };
     victory: boolean;
-    marks: number;
-    units: {
+    family: {
+      marks: number;
+      potions: number;
+      active: number[];
+      characters: { id: number; name: string; classId: string; level: number; items: Record<string, { id: number; typeId: string; upgrade: number } | null> }[];
+      store: { id: number; typeId: string; upgrade: number }[];
+    };
+    bodies: {
       id: number;
       x: number;
       z: number;
@@ -17,7 +23,6 @@ export interface Hook {
       hold: boolean;
       dest: unknown;
       spellTicks: Record<string, number>;
-      gear: Record<string, { upgrade: number }>;
     }[];
     zoneId: string;
     live: { enemies: { id: number; kind: string; alive: boolean; awake: boolean }[] };

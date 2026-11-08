@@ -11,50 +11,161 @@ export type ClassId = 'fighter' | 'sniper' | 'healer';
 
 export type SpellId = keyof typeof SPELLS;
 
-export type GearSlot = 'weapon' | 'chest' | 'gloves' | 'boots';
+/** The seven gear slots (D-028). Their order is `SLOTS` in `data/items.ts`. */
+export type GearSlot = 'main-hand' | 'off-hand' | 'head' | 'chest' | 'gloves' | 'boots' | 'necklace';
 
-export interface ClassData {
-  /** World units per second. */
-  readonly speed: number;
-  /** Where the unit starts, from the scenario's starting point. */
-  readonly startOffset: Point;
-  /** The unit's place in the triangle, from its centre, facing the heading. */
-  readonly slot: { readonly forward: number; readonly side: number };
-  readonly health: number;
-  readonly mana: number;
+/** Every item type has one, from the genre's usual set (decision 9). */
+export type CategoryId =
+  | 'sword'
+  | 'great-sword'
+  | 'dagger'
+  | 'spear'
+  | 'pistol'
+  | 'rifle'
+  | 'staff'
+  | 'shield'
+  | 'leather'
+  | 'metal'
+  | 'coat'
+  | 'jewellery';
+
+/** A body of learning that unlocks spells and weapon categories (D-027). */
+export type ArtId = 'swordplay' | 'marksmanship' | 'mending';
+
+/**
+ * What it takes to use something, in the one shape shared by item types, spells,
+ * gates and quests (`docs/DATA-MODEL.md`).
+ */
+export type Requirement =
+  | { readonly kind: 'level'; readonly level: number }
+  | { readonly kind: 'art'; readonly art: ArtId }
+  | { readonly kind: 'quest'; readonly quest: string };
+
+export interface ArtData {
+  readonly spells: readonly SpellId[];
+  /** Weapon categories it permits. One category may belong to several arts. */
+  readonly categories: readonly CategoryId[];
+}
+
+export interface CategoryData {
+  readonly kind: 'weapon' | 'armour';
+}
+
+/** What a weapon sets (D-028). Times are seconds. */
+export interface WeaponData {
+  readonly range: number;
+  readonly attackSeconds: number;
+  readonly knockback: number;
+  readonly melee: boolean;
+  /** Which attack stat it uses. One attack stat serves all three until D-026's stats arrive. */
+  readonly attackStat: 'melee' | 'ranged' | 'magic';
+}
+
+/** An item type's numbers. Def is before the class's armour scale (decision 11). */
+export interface ItemStats {
   readonly attack: number;
   /** Accuracy, which is set against the target's DR. */
   readonly ar: number;
   /** Chance of a crit, as a percentage. */
   readonly crit: number;
-  readonly range: number;
-  readonly attackSeconds: number;
-  /** Multiplies the Def of armour. */
+  readonly defence: number;
+  readonly dr: number;
+}
+
+/** The definition of a piece of gear (D-028, D-029). */
+export interface ItemTypeData {
+  readonly category: CategoryId;
+  /** Slots it may go in. */
+  readonly fits: readonly GearSlot[];
+  /** Other slots it fills, which must then be empty, as a two-handed weapon fills the off hand. */
+  readonly fills: readonly GearSlot[];
+  readonly stats: ItemStats;
+  /** Only main-hand weapons have this. */
+  readonly weapon: WeaponData | null;
+  readonly requires: readonly Requirement[];
+  /** In marks. Nothing sells yet (D-012). */
+  readonly price: number;
+  /**
+   * 1, or the share of the stats a smith's spare keeps (D-005). It applies after the
+   * class's armour scale, so spares keep today's numbers exactly.
+   */
+  readonly quality: number;
+  /** What the smith hands over if it breaks at the anvil (decision 13). */
+  readonly spare: string;
+}
+
+export interface ClassData {
+  /** World units per second. */
+  readonly speed: number;
+  readonly health: number;
+  readonly mana: number;
+  /** Multiplies the Def of armour: the class's armour skill (decision 11). */
   readonly armourScale: number;
-  readonly melee: boolean;
-  readonly knockback: number;
   readonly autoHeals: boolean;
   /** How near an enemy must be for the unit to start fighting it. */
   readonly aggroRange: number;
   /** How near an enemy must be to stop an attack-move. */
   readonly attackMoveRange: number;
-  readonly spells: readonly SpellId[];
+  /** Known from the start (decision 15). Its first art's spells are its three keys. */
+  readonly arts: readonly ArtId[];
+  /** What a new character of the class wears, by slot (decision 9). */
+  readonly startingItems: Partial<Readonly<Record<GearSlot, string>>>;
 }
 
-export interface GearItem {
-  upgrade: number;
-  /** A basic replacement from the smith (D-005). */
-  readonly spare: boolean;
-  readonly attack: number;
-  readonly ar: number;
-  readonly crit: number;
-  readonly defence: number;
-  readonly dr: number;
-}
-
-export interface Unit {
+/** One piece of gear: its type plus its upgrade, with its own ID (decision 7). */
+export interface Item {
   readonly id: number;
+  readonly typeId: string;
+  upgrade: number;
+}
+
+/** One of the three places in the triangle (D-025). */
+export interface FormationPlace {
+  /** Where the body starts, from the scenario's starting point. */
+  readonly startOffset: Point;
+  /** Its place in the triangle, from the centre, facing the heading. */
+  readonly slot: { readonly forward: number; readonly side: number };
+}
+
+/** A character as a family starts with it (decision 2). */
+export interface CharacterStart {
   readonly classId: ClassId;
+  /** A placeholder until names are chosen (decision 3). */
+  readonly name: string;
+}
+
+/** One member of the family. It lasts, so a save keeps it (D-025). */
+export interface Character {
+  /** Shared with its body, and with enemies' IDs in events. */
+  readonly id: number;
+  readonly name: string;
+  readonly classId: ClassId;
+  level: number;
+  xp: number;
+  arts: ArtId[];
+  /** Every slot, empty or not. A two-handed main hand leaves the off hand empty. */
+  items: Record<GearSlot, Item | null>;
+}
+
+/** Everything the player owns (D-025, D-029). */
+export interface Family {
+  characters: Character[];
+  /** The IDs of the three in the field. Order sets each one's place in the triangle. */
+  active: number[];
+  /** Every item not equipped. An item is in exactly one place (rule 1). */
+  store: Item[];
+  marks: number;
+  /** A shared count until a second consumable is needed (D-025). */
+  potions: number;
+}
+
+/**
+ * A character's live body in the field. It belongs to the squad, not the zone's
+ * live group, so a gate moves it whole (decision 1).
+ */
+export interface Body {
+  /** Its character's ID. */
+  readonly id: number;
   alive: boolean;
   x: number;
   z: number;
@@ -76,12 +187,9 @@ export interface Unit {
   dashX: number;
   dashZ: number;
   invulnerableTicks: number;
-  level: number;
-  xp: number;
   health: number;
   mana: number;
-  gear: Record<GearSlot, GearItem>;
-  /** This stat and the five after it come from level and gear, through `recalculate`. */
+  /** This stat and the five after it come from level and gear, through `recalculate`. Never saved. */
   maxHealth: number;
   attack: number;
   ar: number;
@@ -373,7 +481,11 @@ export interface GameState {
   /** The generator's whole state. */
   rng: number;
   nextId: number;
-  units: Unit[];
+  /** Items count separately, so unit and enemy IDs do not move (decision 7). */
+  nextItemId: number;
+  family: Family;
+  /** The active three's bodies, in the family's active order. */
+  bodies: Body[];
   /** The zone that runs. Only one runs at a time (D-021). */
   zoneId: string;
   /** One for each zone in the world, in data order. */
@@ -386,8 +498,6 @@ export interface GameState {
   scatterCooldownTicks: number;
   /** The enemy the squad was last told to attack. */
   sharedTargetId: number | null;
-  marks: number;
-  potions: number;
   potionCooldownTicks: number;
   /** All three are down. Only the tick moves until they return to the zone's camp. */
   squadDown: boolean;
@@ -412,6 +522,8 @@ export interface Scenario {
   readonly zone: string;
   readonly squadStart: Point;
   readonly squadHeading: number;
+  /** Replaces the starting family, for tests, such as three Fighters. */
+  readonly family?: readonly CharacterStart[];
   /** Replaces the starting zone's contents, for tests. */
   readonly contents?: ZoneContents;
 }
@@ -443,6 +555,21 @@ export interface PotionCommand {
   readonly unitId?: number;
 }
 
+/** Moves an item from the store into a slot (decision 17). */
+export interface EquipCommand {
+  readonly type: 'equip';
+  readonly unitId: number;
+  readonly itemId: number;
+  readonly slot: GearSlot;
+}
+
+/** Sends an equipped item back to the store. */
+export interface UnequipCommand {
+  readonly type: 'unequip';
+  readonly unitId: number;
+  readonly slot: GearSlot;
+}
+
 export interface UpgradeCommand {
   readonly type: 'upgrade';
   readonly unitId: number;
@@ -455,6 +582,8 @@ export type Command =
   | CastCommand
   | PotionCommand
   | UpgradeCommand
+  | EquipCommand
+  | UnequipCommand
   | { readonly type: 'regroup' }
   | { readonly type: 'scatter' };
 
@@ -472,6 +601,13 @@ export type RefusalReason =
   | 'no-marks'
   | 'not-near-anvil'
   | 'already-max'
+  | 'unknown-item'
+  | 'wrong-slot'
+  | 'slot-empty'
+  | 'needs-level'
+  | 'needs-art'
+  | 'needs-weapon'
+  | 'in-fight'
   | 'run-over';
 
 export type GameEvent =
@@ -487,7 +623,7 @@ export type GameEvent =
   | {
       readonly type: 'hit';
       readonly tick: number;
-      /** Units and enemies share one run of IDs. */
+      /** Characters and enemies share one run of IDs. */
       readonly sourceId: number;
       readonly targetId: number;
       readonly amount: number;
@@ -531,6 +667,13 @@ export type GameEvent =
       readonly slot: GearSlot;
       readonly level: number;
     }
+  | {
+      readonly type: 'equipped' | 'unequipped';
+      readonly tick: number;
+      readonly unitId: number;
+      readonly itemId: number;
+      readonly slot: GearSlot;
+    }
   | { readonly type: 'squad-down'; readonly tick: number }
   | { readonly type: 'squad-returned'; readonly tick: number }
   | { readonly type: 'boss-woken'; readonly tick: number; readonly enemyId: number }
@@ -562,7 +705,8 @@ export type BotKind = 'careful' | 'sloppy';
 
 /** One item on a bot's shopping list. */
 export interface BotUpgrade {
-  readonly classId: ClassId;
+  /** Place in the active three. */
+  readonly place: number;
   readonly slot: GearSlot;
 }
 

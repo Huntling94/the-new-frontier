@@ -1,7 +1,7 @@
 import type { Point } from '@new-frontier/core';
 import type { Box, WorldView } from '@new-frontier/render';
 import { orbit, resetView, snapTo, zoomBy, type Camera } from './camera';
-import { CLAIMED, followPoint, pressAction, type KeyAction } from './controls';
+import { altAction, CLAIMED, followPoint, pressAction, type KeyAction } from './controls';
 import { FEEL } from './feel';
 import { pickInBox, pickNearest } from './picking';
 import type { Session } from './session';
@@ -15,13 +15,13 @@ const RIGHT = 2;
 export interface InputGate {
   /** The squad can be commanded: a run has started, and nothing is paused. */
   playing(): boolean;
-  /** The anvil, close, help and mute keys, which work outside play too. */
+  /** The anvil, inventory, close, help and mute keys, which work outside play too. */
   menu(action: KeyAction): void;
   /** A click sound, played on the press (S2.3b decision 3). */
   cue(): void;
 }
 
-const MENU_KEYS = new Set<KeyAction['kind']>(['anvil', 'close', 'help', 'mute']);
+const MENU_KEYS = new Set<KeyAction['kind']>(['anvil', 'inventory', 'close', 'help', 'mute']);
 
 /** Mouse and keyboard, from D-003, D-013, D-031, D-034 and D-035. */
 export class Input {
@@ -94,6 +94,13 @@ export class Input {
 
   private keyDown(event: KeyboardEvent): void {
     if (CLAIMED.has(event.code)) event.preventDefault();
+    const alt = event.altKey && !event.ctrlKey && !event.metaKey ? altAction(event.code) : null;
+    if (alt) {
+      // The browser's own menu would take `Alt` + `E` otherwise (D-040).
+      event.preventDefault();
+      if (!event.repeat) this.gate.menu(alt);
+      return;
+    }
     if (event.repeat || event.ctrlKey || event.metaKey || event.altKey) return;
     this.keys.add(event.code);
     const action = pressAction(event.code);

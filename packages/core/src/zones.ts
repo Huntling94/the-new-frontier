@@ -1,7 +1,8 @@
 import { createBoss, createDummy, createPack } from './enemies';
+import { placeOf } from './family';
 import { triangleSlot } from './formation';
 import { clearAlong } from './grid';
-import type { Enemy, GameEvent, GameState, LiveGroup, Point, Scenario, Unit, ZoneRecord } from './state';
+import type { Enemy, GameEvent, GameState, LiveGroup, Point, Scenario, Body, ZoneRecord } from './state';
 import { secondsToTicks } from './time';
 import { ZONES } from '../data/zones';
 import { contentsOf, gridOf, zoneOf, type GateData } from './world';
@@ -91,8 +92,8 @@ export function noteKill(state: GameState, enemy: Enemy): void {
 }
 
 /** Puts each unit at its place in the triangle, pulled in short of any wall. */
-export function standInTriangle(state: GameState, unit: Unit, centre: Point, heading: number): Point {
-  return clearAlong(gridOf(state), centre, triangleSlot(unit.classId, centre, heading));
+export function standInTriangle(state: GameState, unit: Body, centre: Point, heading: number): Point {
+  return clearAlong(gridOf(state), centre, triangleSlot(placeOf(state, unit.id), centre, heading));
 }
 
 /** A character arrived on an order inside a gate's area, so the whole squad goes through (D-021). */
@@ -102,7 +103,7 @@ export function crossGate(state: GameState, gate: GateData, events: GameEvent[])
   state.anchor = gate.arrival;
   state.heading = gate.heading;
   state.sharedTargetId = null;
-  for (const unit of state.units) {
+  for (const unit of state.bodies) {
     const { x, z } = standInTriangle(state, unit, gate.arrival, gate.heading);
     Object.assign(unit, {
       x,

@@ -15,6 +15,7 @@ export type KeyAction =
   | { readonly kind: 'snap' }
   | { readonly kind: 'reset-view' }
   | { readonly kind: 'anvil' }
+  | { readonly kind: 'inventory' }
   | { readonly kind: 'close' }
   | { readonly kind: 'help' }
   | { readonly kind: 'mute' };
@@ -52,6 +53,14 @@ export function pressAction(code: string): KeyAction | null {
   return PRESSES[code] ?? null;
 }
 
+/**
+ * Keys pressed with `Alt` (D-040). `Alt` + `E` opens the inventory anywhere, and
+ * holding `Alt` keeps `E` from casting. Read by position, so it works on any layout.
+ */
+export function altAction(code: string): KeyAction | null {
+  return code === 'KeyE' ? { kind: 'inventory' } : null;
+}
+
 /** What a key is called on screen: `KeyQ` is Q. */
 export function keyLabel(code: string): string {
   return code.replace(/^Key|^Digit/, '');
@@ -83,7 +92,7 @@ export const CLAIMED = new Set([
 
 /** The character in a place in the active three, by its place, never its class (D-025). */
 export function characterAt(view: GameView, place: number): number | null {
-  return view.units[place]?.id ?? null;
+  return view.bodies[place]?.id ?? null;
 }
 
 /**
@@ -100,14 +109,14 @@ export function castFor(view: GameView, place: number, slot: number, cursor: Poi
 
 /** Orders go to the selected characters who are up, or to everyone up if none are. */
 export function orderedIds(view: GameView, selected: ReadonlySet<number>): number[] {
-  const living = view.units.filter(({ alive }) => alive);
+  const living = view.bodies.filter(({ alive }) => alive);
   const chosen = living.filter(({ id }) => selected.has(id));
   return (chosen.length > 0 ? chosen : living).map(({ id }) => id);
 }
 
 /** The middle of everyone up, which the camera follows. */
 export function squadCentre(view: GameView): Point {
-  const living = view.units.filter(({ alive }) => alive);
+  const living = view.bodies.filter(({ alive }) => alive);
   if (living.length === 0) return view.anchor;
   return {
     x: living.reduce((sum, { x }) => sum + x, 0) / living.length,
@@ -121,7 +130,7 @@ export function squadCentre(view: GameView): Point {
  */
 export function followPoint(view: GameView, selected: ReadonlySet<number>): Point {
   if (selected.size === 1) {
-    const unit = view.units.find(({ id, alive }) => alive && selected.has(id));
+    const unit = view.bodies.find(({ id, alive }) => alive && selected.has(id));
     if (unit) return { x: unit.x, z: unit.z };
   }
   return squadCentre(view);

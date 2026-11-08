@@ -1,6 +1,7 @@
 import { BOSS } from '../data/enemies';
 import { hurtUnit, wakeBoss } from './combat';
 import { STANDING, createMonster, type Drive } from './enemies';
+import { classOf } from './family';
 import { centreOf, livingUnits } from './formation';
 import { TAU } from './island';
 import { pickTarget } from './monsters';
@@ -12,7 +13,7 @@ import type {
   Enemy,
   GameEvent,
   GameState,
-  Unit,
+  Body,
 } from './state';
 import { TICKS, secondsToTicks } from './time';
 
@@ -57,13 +58,13 @@ function startSlam(state: GameState, enemy: Enemy, boss: BossState): void {
   setCooldown(enemy, slam.cooldownSeconds);
 }
 
-/** The boss turns on the Healer, unless it is taunted or the Healer is down. */
-function chargeTarget(state: GameState, enemy: Enemy, target: Unit): Unit {
-  const healer = state.units.find((unit) => unit.classId === 'healer' && unit.alive);
+/** The boss turns on a character whose class auto-heals, unless it is taunted or that one is down. */
+function chargeTarget(state: GameState, enemy: Enemy, target: Body): Body {
+  const healer = state.bodies.find((unit) => classOf(state, unit.id).autoHeals && unit.alive);
   return enemy.tauntTicks > 0 ? target : (healer ?? target);
 }
 
-function startChargeLine(state: GameState, enemy: Enemy, boss: BossState, target: Unit): void {
+function startChargeLine(state: GameState, enemy: Enemy, boss: BossState, target: Body): void {
   const { charge } = BOSS;
   const ticks = secondsToTicks(charge.telegraphSeconds);
   const aimAt = chargeTarget(state, enemy, target);
@@ -92,7 +93,7 @@ function startBlast(enemy: Enemy, boss: BossState): void {
 
 function summon(state: GameState, enemy: Enemy, boss: BossState): void {
   const { kind, level, health, calmCount, enragedCount, distance, turn } = BOSS.summon;
-  const healer = state.units.find((unit) => unit.classId === 'healer');
+  const healer = state.bodies.find((unit) => classOf(state, unit.id).autoHeals);
   const count = isEnraged(enemy) ? enragedCount : calmCount;
   for (let index = 0; index < count; index += 1) {
     const angle = (index / count) * TAU + randomBetween(state, 0, turn);
@@ -114,7 +115,7 @@ function summon(state: GameState, enemy: Enemy, boss: BossState): void {
   setCooldown(enemy, BOSS.summon.cooldownSeconds);
 }
 
-function startMove(state: GameState, enemy: Enemy, boss: BossState, target: Unit): void {
+function startMove(state: GameState, enemy: Enemy, boss: BossState, target: Body): void {
   const options = MOVES.filter((move) => move !== boss.lastMove);
   const move = options[Math.floor(nextRandom(state) * options.length)] as BossMove;
   boss.lastMove = move;
@@ -172,7 +173,7 @@ function updateFree(
   state: GameState,
   enemy: Enemy,
   boss: BossState,
-  target: Unit,
+  target: Body,
   events: GameEvent[],
 ): Drive {
   const dx = target.x - enemy.x;
@@ -200,7 +201,7 @@ export function updateBoss(state: GameState, enemy: Enemy, events: GameEvent[]):
   }
   boss.phaseTicks += 1;
   if (!enemy.awake) {
-    const isNear = (unit: Unit): boolean => {
+    const isNear = (unit: Body): boolean => {
       return Math.hypot(unit.x - enemy.x, unit.z - enemy.z) < BOSS.wakeRange;
     };
     if (livingUnits(state).some(isNear)) {

@@ -1,5 +1,6 @@
 import {
   cardOf,
+  characterOf,
   currentZone,
   isNearAnvil,
   spellInfo,
@@ -41,6 +42,7 @@ export const KEY_LIST: readonly (readonly [string, string])[] = [
   ['5', 'Potion'],
   ['Home', 'Snap camera to squad'],
   ['Y', 'Use the anvil'],
+  ['Alt + E', 'Inventory'],
   ['H / N', 'Hide help / sound'],
 ];
 /** Help shows the first of these during play, as the squad test did. */
@@ -191,14 +193,15 @@ export class Hud {
 
   /** One card per character in its place in the three, never one per class (S2.3b decision 6). */
   private buildCards(view: GameView): void {
-    this.cards = view.units.map((unit, place) => {
-      const look = characterLook(unit.classId);
+    this.cards = view.bodies.map((unit, place) => {
+      const { name, classId } = characterOf(view, unit.id);
+      const look = characterLook(classId);
       const root = make('div', 'card');
       root.dataset.id = String(unit.id);
       const head = make('div', 'chead');
       const level = make('small');
       const auto = make('span', 'auto', 'AUTO');
-      head.append(make('b', '', `F${place + 1} ${look.name}`), auto, level);
+      head.append(make('b', '', `F${place + 1} ${name}`), make('span', 'cls', look.name), auto, level);
       const health = bar('hpf');
       const card = cardOf(view, unit.id);
       const mana = card && card.maxMana > 0 ? bar('mpf', true) : null;
@@ -222,23 +225,23 @@ export class Hud {
   }
 
   update(view: GameView, input: HudInput): void {
-    const key = view.units.map(({ id }) => id).join();
+    const key = view.bodies.map(({ id }) => id).join();
     if (key !== this.cardKey) {
       this.cardKey = key;
       this.buildCards(view);
     }
     for (const card of this.cards) {
-      const unit = view.units.find(({ id }) => id === card.id);
+      const unit = view.bodies.find(({ id }) => id === card.id);
       if (!unit) continue;
       const info = cardOf(view, unit.id);
       card.root.classList.toggle('sel', input.selected.has(unit.id));
       card.root.classList.toggle('dead', !unit.alive);
       setHidden(card.auto, !input.autoIds.has(unit.id));
       card.root.classList.toggle('on-auto', input.autoIds.has(unit.id));
-      setText(card.level, unit.alive ? `LV ${unit.level}` : 'DOWN');
+      setText(card.level, unit.alive && info ? `LV ${info.level}` : 'DOWN');
       width(card.health, unit.maxHealth > 0 ? unit.health / unit.maxHealth : 0);
       if (card.mana && info) width(card.mana, unit.mana / info.maxMana);
-      if (info) width(card.xp, unit.xp / info.xpToNext);
+      if (info) width(card.xp, info.xp / info.xpToNext);
       for (const { button, shade, spell } of card.spells) {
         const { cooldownTicks, mana } = spellInfo(spell);
         const left = unit.spellTicks[spell] ?? 0;
@@ -273,8 +276,8 @@ export class Hud {
       this.objective.dataset.text = title + goal;
       this.objective.replaceChildren(make('b', '', title), document.createTextNode(goal));
     }
-    setText(this.marks, `${Math.round(view.marks).toLocaleString('en-AU')} marks`);
-    setText(this.stock, `${view.potions} potions`);
+    setText(this.marks, `${Math.round(view.family.marks).toLocaleString('en-AU')} marks`);
+    setText(this.stock, `${view.family.potions} potions`);
     setText(this.focus, `slow ${input.slowMeter.toFixed(1)}s`);
     const seconds = Math.floor(view.tick / TICK_RATE);
     setText(this.clock, `${Math.floor(seconds / SECONDS_IN_MINUTE)}:${String(seconds % SECONDS_IN_MINUTE).padStart(2, '0')}`);
@@ -284,7 +287,7 @@ export class Hud {
 
   /** Names the spell that interrupts, with its key, for whoever in the three has it. */
   private interruptHint(view: GameView): string {
-    for (const [place, unit] of view.units.entries()) {
+    for (const [place, unit] of view.bodies.entries()) {
       const slot = spellsOf(view, unit.id).indexOf(INTERRUPTER);
       if (slot >= 0) return `interrupt with ${spellName(INTERRUPTER)} (${spellKey(place, slot) ?? '?'})`;
     }

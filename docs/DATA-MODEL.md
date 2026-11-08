@@ -36,7 +36,8 @@ This is the same split as code and data (D-018), and it decides what a save hold
 |---|---|
 | Art | A body of learning that unlocks spells and weapon categories |
 | Attribute | One of a character's five core abilities: STR, RAN, MAG, VIG or NIM. Attributes feed stats |
-| Character | One member of the family, such as a particular Fighter |
+| Body | A character's live presence in the field: position, orders, route, health, mana, target, timers and calculated stats. It belongs to the squad, not the live group, so a gate moves it whole |
+| Character | One member of the family, such as a particular Fighter. What lasts: name, class, level, XP, arts and equipped items |
 | Class | The type of a character: Fighter, Sniper or Healer (D-020). Wizard and Elementalist are working names, still to be designed |
 | Definition | Fixed game data, never saved |
 | Family | Everything the player owns: characters, the store, marks and progress |
@@ -45,14 +46,17 @@ This is the same split as code and data (D-018), and it decides what a save hold
 | Gate | A one-way link out of a zone into another. A two-way link is two gates |
 | Grid | A zone's walkable ground, as square cells one world unit across. Built from the zone's data, never saved |
 | Instance | Something that changes in play, and points at a definition |
-| Item | One specific piece of gear, with its own upgrade level |
-| Item type | The definition of a piece of gear, such as a level 20 pistol |
+| Item | One specific piece of gear: its type plus its upgrade, with its own ID |
+| Item type | The definition of a piece of gear, such as a level 20 pistol: its category, the slots it fits and fills, stats, requirements and price |
 | Land | A named group of zones |
 | Live group | Everything that exists only while a zone runs: enemies, shots, drops and scheduled effects |
 | Marks | The family's money |
 | Route | The corners a character walks through to reach a point, found on the grid by A\* |
+| Slot | One of seven places a character wears an item: main hand, off hand, head, chest, gloves, boots and necklace |
+| Spare | The basic item the smith hands over when an upgrade destroys one (D-005). Each item type names its spare |
 | Stat | One named number on a character or enemy |
-| Store | The family's shared items |
+| Store | The family's shared items: every item not equipped |
+| Unarmed | What an empty main hand fights with. A type in data, not an item |
 | Town | A zone of kind `town`: safe, with NPCs. The vision's cities are towns |
 | Zone | One playable space with its own ground, coordinates and monsters. Its ground is an island with a coast or a rectangle with walls |
 | Zone record | What lasts about a zone: bosses dead, chests opened, when cleared packs come back |
@@ -76,11 +80,12 @@ erDiagram
   WeaponCategory |o--o{ ItemType : groups
   ItemType ||--o{ Item : "is the type of"
   Character |o--o{ Item : wears
-  Character ||--o{ Effect : "is under"
+  Character ||--o| Body : "takes the field as"
+  Body ||--o{ Effect : "is under"
   EffectType ||--o{ Effect : "is the type of"
 ```
 
-An item is either in the store or on one character, never both.
+An item is either in the store or on one character, never both. A character in the active three has a body in the field; the body points at its character by ID.
 
 ### World, monsters and NPCs
 
@@ -112,14 +117,16 @@ Only one zone runs at a time, so there is at most one live group (D-021). The li
 
 | Entity | Kind | Saved | Status | Notes |
 |---|---|---|---|---|
-| Family | Instance | Yes | Partial | Today `marks` and `potions` sit directly on `GameState` |
-| Character | Instance | Yes | Partial | Today `Unit` also holds the live body and calculated stats. These split in S3 |
-| Class | Definition | No | Built | `CLASSES`. Weapon-like values move to item types in S3 |
-| Art | Definition | No | Planned | Each class starts with one, covering its three spells |
-| Spell | Definition | No | Built | `SPELLS`. Today spells belong to a class directly |
-| Weapon category | Definition | No | Planned | Rifle, pistol, spear and so on |
-| Item type | Definition | No | Partial | Will hold slots, stats, requirements and price. Today only `ARMOUR`, a shared table by slot |
-| Item | Instance | Yes | Partial | Today `GearItem` takes weapon stats from the class, and armour stats from `ARMOUR` |
+| Family | Instance | Yes | Built | `state.family`: the characters, the active three in order, the store, marks and potions (S3b) |
+| Character | Instance | Yes | Built | ID, name, class, level, XP, arts known and seven slots. Names are placeholders until names are chosen (S3b) |
+| Body | Instance | Open (S3c) | Built | `state.bodies`, one per character in the active three, in that order. Holds position, orders, route, health, mana, target, timers and calculated stats. Whether a loaded save rebuilds bodies whole at camp is left to S3c |
+| Class | Definition | No | Built | `CLASSES`: speed, health, mana, armour skill, auto-heal, ranges, arts and starting items. Weapon values moved to item types in S3b |
+| Art | Definition | No | Partial | `ARTS`: one per class, known from the start, unlocking its three spells and its weapon categories. Trainers, and arts gained later, come with the town |
+| Spell | Definition | No | Built | `SPELLS`. Each belongs to an art, and `SPELL_WEAPONS` names the weapon it needs in hand, if any |
+| Category | Definition | No | Built | `CATEGORIES`: sword, great sword, dagger, spear, pistol, rifle, staff and shield are weapons; leather, metal, coat and jewellery are armour. More can be added as data |
+| Item type | Definition | No | Built | `ITEM_TYPES`: category, slots it fits and fills, stats, weapon values, requirements, price, quality and spare. Item boosts come later (D-028) |
+| Item | Instance | Yes | Built | Type ID, upgrade and an ID from `nextItemId`, a counter of its own |
+| Store | Instance | Yes | Built | `state.family.store`: every item not equipped. A new family starts with a cap, a buckler and a necklace |
 | Effect type | Definition | No | Planned | Says how repeats stack |
 | Effect | Instance | Live only | Partial | Today separate timers, such as `guardTicks`, `rallyTicks` and `slowTicks` |
 | Consumable | Open | Open | Partial | Today a shared count, `potions`. The design is open |
@@ -149,8 +156,8 @@ Only one zone runs at a time, so there is at most one live group (D-021). The li
 
 Each rule should have a test or a validator check once it is built. The world's checks are in `packages/core/src/checks.ts`, and each is also tested against a deliberately broken zone.
 
-1. A gear item is in exactly one place: the store, or one character's slot.
-2. A two-handed weapon in the main hand means an empty off hand.
+1. A gear item is in exactly one place: the store, or one character's slot. Tested across random equips and unequips in `packages/core/test/items.test.ts`.
+2. A two-handed weapon in the main hand means an empty off hand. Tested in the same file: equipping either one sends the other to the store.
 3. Final stats are calculated, never saved.
 4. Definitions never change during play.
 5. Nothing outside the live group refers to an enemy once its zone has closed. Checked after every crossing in tests.
@@ -169,6 +176,8 @@ stats      = worked out from attributes
 total      = stats + each item's stats × its upgrade
 final      = total × effects, then any cap
 ```
+
+Until attributes arrive, level still scales attack and health directly (S3b decision 14). Today's sum, in `packages/core/src/stats.ts`: attack from the weapon in hand, or the unarmed type, raised by its upgrade and by level; AR and crit from every item; Def from every other item, scaled by the class's armour skill and then by the item's quality; DR from every other item plus a point every four levels. Upgrades past +4 add AR on a weapon and DR on anything else. A spare's quality is 0.85 for a weapon and 0.8 for armour, applied after the armour skill, so spares keep the squad test's numbers exactly (D-005).
 
 ### Attributes
 
@@ -209,9 +218,9 @@ A single function resolves every hit, in this order:
 
 ## What can be used
 
-A character may equip an item if every requirement on its item type is met. Requirements are one shape, used by item types, spells, gates and quests: an art known, a level reached, a quest finished.
+A character may equip an item if every requirement on its item type is met, and, for a weapon category, if an art it knows permits that category. Any class may wear any armour, and its armour skill scales it. Requirements are one shape, used by item types, spells, gates and quests: an art known, a level reached, a quest finished. Items check them from S3b; gates do not yet. Equipping and unequipping are refused while any enemy is awake.
 
-A spell needs its art, and a matching weapon in hand unless it names none. Healing arts name none.
+A spell needs its art, and a matching weapon in hand unless it names none. Healing arts name none. An empty main hand fights with the unarmed type, so a character never stands idle.
 
 ## Data structures
 
@@ -219,7 +228,7 @@ A structure enters only when a real need demands it, and the brief that adds it 
 
 | Structure | Used for | Why this one | Status |
 |---|---|---|---|
-| Hash map keyed by ID | All definitions | Direct lookup by ID. Today `CLASSES`, `SPELLS` and `MONSTERS` | Partial |
+| Hash map keyed by ID | All definitions | Direct lookup by ID. Today `CLASSES`, `SPELLS`, `MONSTERS`, `ARTS`, `CATEGORIES` and `ITEM_TYPES` | Partial |
 | Seeded generator (mulberry32) | Crits, loot, upgrades | Small state that saves as one number, and repeats exactly | Built |
 | FNV-1a hash | Proving a replay matches | Fast, with no dependencies, and good enough to spot change | Built |
 | Tree | Lands contain zones | Each zone has exactly one parent | Planned |

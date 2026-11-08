@@ -3,11 +3,12 @@ import { TEST_ISLAND } from '../data/island';
 import { MOVEMENT, SCATTER } from '../data/movement';
 import { EMPTY_SCENARIO } from '../data/scenarios';
 import { CLASSES } from '../data/squad';
+import { placeOf } from '../src/family';
 import { triangleSlot } from '../src/formation';
 import { advance, createGame, step } from '../src/game';
 import { coastDistanceAt } from '../src/island';
 import { applyCommands } from '../src/orders';
-import type { Command, GameEvent, GameState, Obstacle, Point, Unit } from '../src/state';
+import type { Command, GameEvent, GameState, Obstacle, Point, Body } from '../src/state';
 import { isWalkable, obstaclesOf, pullOntoLand } from '../src/world';
 
 const ALL = [1, 2, 3];
@@ -21,8 +22,8 @@ function openGame(obstacles: readonly Obstacle[] = []): GameState {
   return createGame(1, { ...EMPTY_SCENARIO, contents: { dummy: null, packs: [], boss: null, obstacles } });
 }
 
-function unit(game: GameState, id: number): Unit {
-  const found = game.units.find((candidate) => candidate.id === id);
+function unit(game: GameState, id: number): Body {
+  const found = game.bodies.find((candidate) => candidate.id === id);
   if (!found) throw new Error(`No unit ${String(id)}.`);
   return found;
 }
@@ -38,7 +39,9 @@ function distance(a: Point, b: Point): number {
 describe('starting state', () => {
   it('places the squad at the squad test positions, in ID order', () => {
     const game = createGame(1, EMPTY_SCENARIO);
-    expect(game.units.map(({ id, classId, x, z }) => ({ id, classId, x, z }))).toEqual([
+    const classIds = game.family.characters.map(({ classId }) => classId);
+    expect(classIds).toEqual(['fighter', 'sniper', 'healer']);
+    expect(game.bodies.map(({ id, x, z }, place) => ({ id, classId: classIds[place], x, z }))).toEqual([
       { id: 1, classId: 'fighter', x: 0, z: 62 },
       { id: 2, classId: 'sniper', x: -4.4, z: 66.2 },
       { id: 3, classId: 'healer', x: 4.4, z: 66.2 },
@@ -76,10 +79,10 @@ describe('obstacles', () => {
 
 describe('triangle formation', () => {
   it('turns the triangle to face the way the squad travels', () => {
-    // Travelling along +x, the Fighter leads and the others trail either side.
-    expect(triangleSlot('fighter', { x: 10, z: 20 }, 0)).toEqual({ x: 12.4, z: 20 });
-    expect(triangleSlot('sniper', { x: 10, z: 20 }, 0)).toEqual({ x: 7.4, z: 15.4 });
-    const turned = triangleSlot('fighter', { x: 0, z: 0 }, Math.PI / 2);
+    // Travelling along +x, the first place leads and the others trail either side.
+    expect(triangleSlot(0, { x: 10, z: 20 }, 0)).toEqual({ x: 12.4, z: 20 });
+    expect(triangleSlot(1, { x: 10, z: 20 }, 0)).toEqual({ x: 7.4, z: 15.4 });
+    const turned = triangleSlot(0, { x: 0, z: 0 }, Math.PI / 2);
     expect(turned.x).toBeCloseTo(0, 9);
     expect(turned.z).toBeCloseTo(2.4, 9);
   });
@@ -92,8 +95,8 @@ describe('triangle formation', () => {
     events.push(...run(game, 150));
     expect(events.filter((event) => event.type === 'unit-arrived')).toHaveLength(3);
     expect(events.some((event) => event.type === 'unit-gave-up')).toBe(false);
-    for (const member of game.units) {
-      const slot = triangleSlot(member.classId, game.anchor, game.heading);
+    for (const member of game.bodies) {
+      const slot = triangleSlot(placeOf(game, member.id), game.anchor, game.heading);
       expect(distance(member, slot)).toBeLessThan(MOVEMENT.slotReturnDistance);
       expect(member.hold).toBe(false);
     }
@@ -111,8 +114,8 @@ describe('triangle formation', () => {
     const game = openGame();
     const { heading } = game;
     const centre = {
-      x: game.units.reduce((sum, member) => sum + member.x, 0) / 3,
-      z: game.units.reduce((sum, member) => sum + member.z, 0) / 3,
+      x: game.bodies.reduce((sum, member) => sum + member.x, 0) / 3,
+      z: game.bodies.reduce((sum, member) => sum + member.z, 0) / 3,
     };
     step(game, [move(ALL, centre.x + 0.5, centre.z)]);
     expect(game.heading).toBe(heading);
@@ -125,8 +128,8 @@ describe('triangle formation', () => {
     step(attack, [move(ALL, 20, 30, true)]);
     expect(unit(attack, 1).attackMove).toBe(true);
     expect(unit(walk, 1).attackMove).toBe(false);
-    expect(attack.units.map(({ x, z }) => ({ x, z }))).toEqual(
-      walk.units.map(({ x, z }) => ({ x, z })),
+    expect(attack.bodies.map(({ x, z }) => ({ x, z }))).toEqual(
+      walk.bodies.map(({ x, z }) => ({ x, z })),
     );
   });
 });
@@ -170,7 +173,7 @@ describe('line and hold', () => {
     const fighter = unit(game, 1);
     fighter.x -= 10;
     run(game, 60);
-    const slot = triangleSlot('fighter', game.anchor, game.heading);
+    const slot = triangleSlot(0, game.anchor, game.heading);
     expect(distance(fighter, slot)).toBeLessThanOrEqual(MOVEMENT.slotReturnDistance);
   });
 });
@@ -181,17 +184,17 @@ describe('regroup', () => {
     step(game, [move([2], -20, 40)]);
     run(game, 200);
     const centre = {
-      x: game.units.reduce((sum, member) => sum + member.x, 0) / 3,
-      z: game.units.reduce((sum, member) => sum + member.z, 0) / 3,
+      x: game.bodies.reduce((sum, member) => sum + member.x, 0) / 3,
+      z: game.bodies.reduce((sum, member) => sum + member.z, 0) / 3,
     };
     const events = step(game, [{ type: 'regroup' }]);
     expect(events[0]).toMatchObject({ type: 'order-accepted', order: 'regroup' });
     expect(game.anchor.x).toBeCloseTo(centre.x, 9);
     expect(game.anchor.z).toBeCloseTo(centre.z, 9);
-    expect(game.units.every((member) => !member.hold)).toBe(true);
+    expect(game.bodies.every((member) => !member.hold)).toBe(true);
     run(game, 150);
-    for (const member of game.units) {
-      const slot = triangleSlot(member.classId, game.anchor, game.heading);
+    for (const member of game.bodies) {
+      const slot = triangleSlot(placeOf(game, member.id), game.anchor, game.heading);
       expect(distance(member, slot)).toBeLessThan(MOVEMENT.slotReturnDistance);
     }
   });
@@ -208,11 +211,11 @@ describe('regroup', () => {
 describe('scatter', () => {
   it('dashes each unit away from the centre, then holds', () => {
     const game = openGame();
-    const before = game.units.map(({ x, z }) => ({ x, z }));
+    const before = game.bodies.map(({ x, z }) => ({ x, z }));
     step(game, [{ type: 'scatter' }]);
     run(game, 40);
     const centre = { x: 0, z: (62 + 66.2 * 2) / 3 };
-    game.units.forEach((member, index) => {
+    game.bodies.forEach((member, index) => {
       const start = before[index];
       if (!start) throw new Error('No start.');
       expect(distance(member, centre)).toBeGreaterThan(distance(start, centre) + 9);
@@ -232,12 +235,12 @@ describe('scatter', () => {
 
   it('gives units with no direction of their own a spread of directions', () => {
     const game = openGame();
-    for (const member of game.units) {
+    for (const member of game.bodies) {
       member.x = 10;
       member.z = 30;
     }
     step(game, [{ type: 'scatter' }]);
-    const directions = game.units.map((member) => `${String(member.dashX)},${String(member.dashZ)}`);
+    const directions = game.bodies.map((member) => `${String(member.dashX)},${String(member.dashZ)}`);
     expect(new Set(directions).size).toBe(3);
   });
 
@@ -268,8 +271,8 @@ describe('scatter', () => {
     run(game, 60);
     step(game, [{ type: 'regroup' }]);
     run(game, 150);
-    for (const member of game.units) {
-      const slot = triangleSlot(member.classId, game.anchor, game.heading);
+    for (const member of game.bodies) {
+      const slot = triangleSlot(placeOf(game, member.id), game.anchor, game.heading);
       expect(distance(member, slot)).toBeLessThan(MOVEMENT.slotReturnDistance);
     }
   });
@@ -295,7 +298,7 @@ describe('off-land points', () => {
     expect(events[0]).toMatchObject({ type: 'order-accepted' });
     expect(game.anchor).toEqual(pullOntoLand(game, 0, 500));
     run(game, 200);
-    for (const member of game.units) {
+    for (const member of game.bodies) {
       // Cells are a unit across, so a unit may stand a little past the 0.9 line.
       expect(coastDistanceAt(TEST_ISLAND, member.x, member.z)).toBeLessThan(0.92);
     }
@@ -383,7 +386,7 @@ describe('obstacles and other units', () => {
 
   it('push units apart when they overlap', () => {
     const game = openGame();
-    const [first, second] = game.units;
+    const [first, second] = game.bodies;
     if (!first || !second) throw new Error('No units.');
     Object.assign(first, { x: 0, z: 30, hold: true });
     Object.assign(second, { x: 1, z: 30, hold: true });
@@ -407,7 +410,7 @@ describe('refused orders', () => {
 
   it('refuses orders when nobody is left', () => {
     const game = openGame();
-    for (const member of game.units) {
+    for (const member of game.bodies) {
       member.alive = false;
     }
     const events = applyCommands(game, [{ type: 'regroup' }, { type: 'scatter' }]);
@@ -436,7 +439,7 @@ describe('order of play', () => {
 
   it('updates units in ID order, so an earlier unit moves first', () => {
     const game = openGame();
-    const [first, second] = game.units;
+    const [first, second] = game.bodies;
     if (!first || !second) throw new Error('No units.');
     Object.assign(first, { x: 0, z: 30, hold: true });
     Object.assign(second, { x: 1, z: 30, hold: true });

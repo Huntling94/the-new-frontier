@@ -14,10 +14,10 @@ function build(state: GameState): { scene: ZoneScene; effects: Effects; entities
   return { scene, effects, entities: new EntityLayer(scene, effects) };
 }
 
-/** A family of three Fighters (D-025). The core cannot build one until S3, so the test does. */
+/** A family of three Fighters (D-025), which the core builds from the scenario's family. */
 function threeFighters(): GameState {
-  const state = createGame(3, ISLAND_SCENARIO);
-  return { ...state, units: state.units.map((unit) => ({ ...unit, classId: 'fighter' as const })) };
+  const fighter = { classId: 'fighter', name: 'Fighter' } as const;
+  return createGame(3, { ...ISLAND_SCENARIO, family: [fighter, fighter, fighter] });
 }
 
 describe('looks', () => {
@@ -37,7 +37,7 @@ describe('entities', () => {
   it('draws each character by ID, whatever its class: three Fighters each get a body and a ring', () => {
     const state = threeFighters();
     const { entities } = build(state);
-    const ids = state.units.map(({ id }) => id);
+    const ids = state.bodies.map(({ id }) => id);
     entities.draw(state, 1, 1 / 60, { selected: new Set(ids), move: null });
     expect(entities.counts().units).toBe(3);
     expect(entities.counts().rings).toBe(3);
@@ -59,7 +59,7 @@ describe('entities', () => {
   it('draws between ticks from positions copied before each tick (decision 2)', () => {
     const state = createGame(5, ISLAND_SCENARIO);
     const { entities } = build(state);
-    const unit = state.units[0];
+    const unit = state.bodies[0];
     if (!unit) throw new Error('No unit.');
     step(state, [{ type: 'move', unitIds: [unit.id], x: unit.x + 30, z: unit.z, attack: false }]);
     entities.snapshot(state);

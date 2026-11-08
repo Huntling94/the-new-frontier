@@ -13,7 +13,7 @@ import type {
   MonsterKind,
   PackData,
   Point,
-  Unit,
+  Body,
 } from './state';
 import { KNOCKBACK_LEFT_PER_TICK, TICKS, TURN_PER_TICK, perTick, secondsToTicks } from './time';
 import { isWalkableForEnemy, pushOutOfObstacles } from './world';
@@ -136,10 +136,10 @@ export function createPack(state: GameState, pack: PackData, packId: number): En
   });
 }
 
-function nearestInReach(state: GameState, enemy: Enemy): Unit | null {
-  let best: Unit | null = null;
+function nearestInReach(state: GameState, enemy: Enemy): Body | null {
+  let best: Body | null = null;
   let bestDistance = enemy.reach;
-  for (const unit of state.units) {
+  for (const unit of state.bodies) {
     const distance = Math.hypot(unit.x - enemy.x, unit.z - enemy.z);
     if (unit.alive && distance < bestDistance) {
       best = unit;

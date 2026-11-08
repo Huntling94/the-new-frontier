@@ -1,11 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { ARMOUR, UPGRADES } from '../data/gear';
+import { UPGRADES } from '../data/gear';
 import { CLASSES } from '../data/squad';
 import { applyCommands } from '../src/orders';
 import { nextRandom } from '../src/random';
 import type { GameState, GearSlot } from '../src/state';
 import { isNearAnvil, upgradeChance, upgradeCost, upgradeOffer } from '../src/upgrades';
-import { FIGHTER, SNIPER, HEALER, dummyGame, ofType, place, sendAway, unitOf } from './helpers';
+import { FIGHTER, SNIPER, HEALER, dummyGame, ofType, place, sendAway, itemAt, unitOf } from './helpers';
 
 function upgrade(state: GameState, unitId: number, slot: GearSlot) {
   return applyCommands(state, [{ type: 'upgrade', unitId, slot }]);
@@ -39,13 +39,13 @@ describe('ge.c bugs that must not come back', () => {
       let losses = 0;
       for (let seed = 1; seed <= 300; seed += 1) {
         const state = dummyGame(seed);
-        state.marks = 1000000;
+        state.family.marks = 1000000;
         const unit = unitOf(state, SNIPER);
-        unit.gear.weapon.upgrade = level;
-        const offer = upgradeOffer(state, SNIPER, 'weapon');
+        itemAt(state, unit.id, 'main-hand').upgrade = level;
+        const offer = upgradeOffer(state, SNIPER, 'main-hand');
         if (!offer) throw new Error('No offer.');
         const roll = nextRandom({ rng: state.rng });
-        const events = upgrade(state, SNIPER, 'weapon');
+        const events = upgrade(state, SNIPER, 'main-hand');
         const won = ofType(events, 'upgraded').length === 1;
         expect(won).toBe(roll < offer.chance);
         expect(ofType(events, 'item-destroyed').length).toBe(won ? 0 : 1);
@@ -63,16 +63,16 @@ describe('ge.c bugs that must not come back', () => {
     const state = dummyGame();
     const offer = upgradeOffer(state, FIGHTER, 'chest');
     upgrade(state, FIGHTER, 'chest');
-    expect(state.marks).toBe(450 - (offer?.cost ?? 0));
+    expect(state.family.marks).toBe(450 - (offer?.cost ?? 0));
 
     let losses = 0;
     for (let seed = 1; seed <= 100; seed += 1) {
       const risky = dummyGame(seed);
-      risky.marks = 5000;
-      unitOf(risky, FIGHTER).gear.chest.upgrade = 7;
+      risky.family.marks = 5000;
+      itemAt(risky, FIGHTER, 'chest').upgrade = 7;
       const cost = upgradeOffer(risky, FIGHTER, 'chest')?.cost ?? 0;
       losses += ofType(upgrade(risky, FIGHTER, 'chest'), 'item-destroyed').length;
-      expect(risky.marks).toBe(5000 - cost);
+      expect(risky.family.marks).toBe(5000 - cost);
     }
     expect(losses).toBeGreaterThan(0);
   });
@@ -81,7 +81,7 @@ describe('ge.c bugs that must not come back', () => {
 describe('cost', () => {
   it('follows the squad test, and weapons cost more', () => {
     expect(upgradeCost(0, 'chest')).toBe(70);
-    expect(upgradeCost(0, 'weapon')).toBe(91);
+    expect(upgradeCost(0, 'main-hand')).toBe(91);
     expect(upgradeCost(1, 'boots')).toBe(205);
   });
 
@@ -95,7 +95,7 @@ describe('upgrade offers', () => {
   it('shows the next step, and nothing past +10 or for an unknown unit', () => {
     const state = dummyGame();
     expect(upgradeOffer(state, FIGHTER, 'gloves')).toEqual({ chance: 1, cost: 70 });
-    unitOf(state, FIGHTER).gear.gloves.upgrade = UPGRADES.maxLevel;
+    itemAt(state, FIGHTER, 'gloves').upgrade = UPGRADES.maxLevel;
     expect(upgradeOffer(state, FIGHTER, 'gloves')).toBeNull();
     expect(upgradeOffer(state, 99, 'gloves')).toBeNull();
   });
@@ -106,9 +106,9 @@ describe('upgrades', () => {
     const state = dummyGame();
     const unit = unitOf(state, FIGHTER);
     const { attack, defence } = unit;
-    const events = upgrade(state, FIGHTER, 'weapon');
+    const events = upgrade(state, FIGHTER, 'main-hand');
     expect(ofType(events, 'upgraded')).toEqual([
-      { type: 'upgraded', tick: 0, unitId: FIGHTER, slot: 'weapon', level: 1 },
+      { type: 'upgraded', tick: 0, unitId: FIGHTER, slot: 'main-hand', level: 1 },
     ]);
     expect(unit.attack).toBeCloseTo(attack * 1.1, 8);
     upgrade(state, FIGHTER, 'boots');
@@ -118,13 +118,13 @@ describe('upgrades', () => {
   it('adds AR and DR only past +4', () => {
     const state = dummyGame();
     const unit = unitOf(state, FIGHTER);
-    state.marks = 1000000;
-    unit.gear.weapon.upgrade = 4;
+    state.family.marks = 1000000;
+    itemAt(state, unit.id, 'main-hand').upgrade = 4;
     upgrade(state, FIGHTER, 'chest');
     const { ar, dr } = unit;
-    unit.gear.chest.upgrade = 5;
-    unit.gear.weapon.upgrade = 6;
-    unit.gear.boots.upgrade = 3;
+    itemAt(state, unit.id, 'chest').upgrade = 5;
+    itemAt(state, unit.id, 'main-hand').upgrade = 6;
+    itemAt(state, unit.id, 'boots').upgrade = 3;
     upgrade(state, FIGHTER, 'gloves');
     expect(unit.ar).toBe(ar + 2);
     expect(unit.dr).toBe(dr + 1);
@@ -133,50 +133,46 @@ describe('upgrades', () => {
   it('a miss destroys the item, and the smith hands over a basic spare (D-005)', () => {
     const state = dummyGame();
     const unit = unitOf(state, FIGHTER);
-    state.marks = 1000000;
-    unit.gear.weapon.upgrade = 9;
-    unit.gear.chest.upgrade = 9;
+    state.family.marks = 1000000;
+    itemAt(state, unit.id, 'main-hand').upgrade = 9;
+    itemAt(state, unit.id, 'chest').upgrade = 9;
     state.rng = 0;
     let weaponGone = false;
     let chestGone = false;
     for (let tries = 0; tries < 50 && !(weaponGone && chestGone); tries += 1) {
       if (!weaponGone) {
-        weaponGone = ofType(upgrade(state, FIGHTER, 'weapon'), 'item-destroyed').length === 1;
-        if (!weaponGone) unit.gear.weapon.upgrade = 9;
+        weaponGone = ofType(upgrade(state, FIGHTER, 'main-hand'), 'item-destroyed').length === 1;
+        if (!weaponGone) itemAt(state, unit.id, 'main-hand').upgrade = 9;
       }
       if (!chestGone) {
         chestGone = ofType(upgrade(state, FIGHTER, 'chest'), 'item-destroyed').length === 1;
-        if (!chestGone) unit.gear.chest.upgrade = 9;
+        if (!chestGone) itemAt(state, unit.id, 'chest').upgrade = 9;
       }
     }
     expect(weaponGone && chestGone).toBe(true);
-    const { armourScale, attack } = CLASSES.fighter;
-    expect(unit.gear.weapon).toMatchObject({
-      upgrade: 0,
-      spare: true,
-      attack: Math.round(attack * 0.85),
-    });
-    expect(unit.gear.chest).toMatchObject({
-      upgrade: 0,
-      spare: true,
-      defence: Math.round(Math.round(ARMOUR.chest.defence * armourScale) * 0.8),
-    });
+    expect(itemAt(state, unit.id, 'main-hand')).toMatchObject({ upgrade: 0, typeId: 'plain-sword' });
+    expect(itemAt(state, unit.id, 'chest')).toMatchObject({ upgrade: 0, typeId: 'plain-chest' });
+    // Today's spare numbers: 85% of the sword's attack, and 80% of the scaled chest's Def.
+    const { armourScale } = CLASSES.fighter;
+    const fresh = dummyGame();
+    const def = (fresh.bodies[0]?.defence ?? 0) - Math.round(34 * armourScale) + Math.round(Math.round(34 * armourScale) * 0.8);
+    expect(unit.defence).toBe(def);
     expect(unit.attack).toBeCloseTo(53 * 1.14, 8);
   });
 
   it('is refused without the marks, with nothing taken', () => {
     const state = dummyGame();
-    state.marks = 69;
+    state.family.marks = 69;
     expect(refusal(state, FIGHTER, 'chest')).toBe('no-marks');
-    expect(state.marks).toBe(69);
-    expect(unitOf(state, FIGHTER).gear.chest.upgrade).toBe(0);
+    expect(state.family.marks).toBe(69);
+    expect(itemAt(state, FIGHTER, 'chest').upgrade).toBe(0);
   });
 
   it('is refused at +10', () => {
     const state = dummyGame();
-    unitOf(state, FIGHTER).gear.boots.upgrade = 10;
+    itemAt(state, FIGHTER, 'boots').upgrade = 10;
     expect(refusal(state, FIGHTER, 'boots')).toBe('already-max');
-    expect(state.marks).toBe(450);
+    expect(state.family.marks).toBe(450);
   });
 
   it('is refused for an unknown unit', () => {
@@ -194,7 +190,7 @@ describe('the anvil', () => {
     sendAway(state);
     expect(isNearAnvil(state)).toBe(false);
     expect(refusal(state, FIGHTER, 'chest')).toBe('not-near-anvil');
-    expect(state.marks).toBe(450);
+    expect(state.family.marks).toBe(450);
   });
 
   it('any living character near it opens every slot, a downed character included', () => {
@@ -204,7 +200,7 @@ describe('the anvil', () => {
     unitOf(state, FIGHTER).alive = false;
     expect(isNearAnvil(state)).toBe(true);
     expect(refusal(state, FIGHTER, 'chest')).toBeUndefined();
-    expect(unitOf(state, FIGHTER).gear.chest.upgrade).toBe(1);
+    expect(itemAt(state, FIGHTER, 'chest').upgrade).toBe(1);
   });
 
   it('a downed character beside it does not count', () => {

@@ -226,6 +226,11 @@
         overflow: hidden;
         text-overflow: ellipsis;
       }
+      .chead .cls {
+        font: 400 13px var(--mono);
+        color: var(--dim);
+        white-space: nowrap;
+      }
       .chead small {
         font: 400 15px var(--mono);
         color: var(--lamp);
@@ -443,6 +448,121 @@
         margin-top: 8px;
         min-height: 44px;
       }
+      /* The inventory (S3b decision 20): the store on the left, the three on the right. */
+      .mbox.wide {
+        width: min(1080px, 100%);
+      }
+      .mbox .warn {
+        color: var(--coral);
+      }
+      .ibody {
+        display: grid;
+        grid-template-columns: minmax(170px, 1fr) minmax(0, 3fr);
+        gap: 14px;
+        margin-top: 10px;
+      }
+      .ibody h4 {
+        margin: 0 0 4px;
+        font: 400 15px var(--body);
+        letter-spacing: 0.09em;
+        text-transform: uppercase;
+        color: var(--dim);
+      }
+      .icols {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 10px;
+      }
+      .icols > div > small {
+        display: block;
+        margin-bottom: 6px;
+      }
+      .itile {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        background: #0b171d;
+        border: 1px solid var(--line);
+        padding: 4px 6px;
+        margin-bottom: 4px;
+        font-size: 14px;
+        cursor: pointer;
+        min-width: 0;
+      }
+      .itile b {
+        font-weight: 500;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .itile small {
+        margin-left: auto;
+        color: var(--dim);
+        font-size: 12px;
+        white-space: nowrap;
+      }
+      .itile .cat {
+        font: 400 13px var(--mono);
+        font-style: normal;
+        border: 1px solid;
+        padding: 0 3px;
+        white-space: nowrap;
+      }
+      .itile.held {
+        border-color: var(--lamp);
+        background: #1c3540;
+      }
+      .islot {
+        display: grid;
+        grid-template-columns: 74px minmax(0, 1fr);
+        align-items: center;
+        gap: 6px;
+        border: 1px solid transparent;
+        padding: 1px 3px;
+        cursor: pointer;
+      }
+      .islot .itile {
+        margin: 0;
+      }
+      .islot .sname {
+        color: var(--dim);
+        font-size: 13px;
+      }
+      .islot .empty {
+        color: var(--dim);
+        font-size: 13px;
+        font-style: italic;
+        padding: 5px 0;
+      }
+      .islot:hover {
+        border-color: var(--line);
+      }
+      .islot.fits {
+        border-color: var(--foam);
+      }
+      .islot.fits.blocked {
+        border-color: var(--coral);
+      }
+      .ipreview {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 4px 14px;
+        min-height: 24px;
+        margin-top: 10px;
+        font: 400 17px var(--mono);
+      }
+      .ipreview .up {
+        color: var(--term);
+      }
+      .ipreview .down {
+        color: var(--coral);
+      }
+      .ipreview .same {
+        color: var(--dim);
+      }
+      .imsg:empty {
+        display: none;
+      }
       /* Crossing a gate fades to black and back (D-021). */
       #fade {
         position: fixed;
@@ -461,6 +581,8 @@
           display: none;
         }
         .ucols,
+        .icols,
+        .ibody,
         .keys,
         .top {
           grid-template-columns: minmax(0, 1fr);
@@ -516,6 +638,7 @@
       </div>
     </div>
     <div class="modal" id="forge" hidden><div class="mbox" id="forgeBox"></div></div>
+    <div class="modal" id="inventory" hidden><div class="mbox wide" id="inventoryBox"></div></div>
     <div class="modal" id="end" hidden><div class="mbox" id="endBox"></div></div>
     <p id="fatal" hidden>
       The New Frontier needs WebGL, and this browser refused it. Try a current desktop browser with hardware

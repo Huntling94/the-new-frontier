@@ -1,14 +1,17 @@
 import { LEVELS, POTIONS } from '../data/combat';
 import { MARKS } from '../data/gear';
-import { CLASSES, SQUAD } from '../data/squad';
+import { STARTING_STORE } from '../data/items';
+import { CLASSES, FORMATION, STARTING_FAMILY } from '../data/squad';
 import { removeMinions, resetBoss } from './boss';
 import { updateEnemy } from './enemies';
 import { updateDrops } from './loot';
 import { updateUnit } from './movement';
 import { applyCommands } from './orders';
 import { updateScheduled, updateShots } from './shots';
-import { createGear, recalculate } from './stats';
-import type { ClassId, Command, GameEvent, GameState, Scenario, Unit } from './state';
+import { createItem, startingItems } from './items';
+import { recalculate } from './stats';
+import { characterOf, classOf } from './family';
+import type { Body, Character, CharacterStart, Command, GameEvent, GameState, Scenario } from './state';
 import { gateAt, zoneOf } from './world';
 import {
   createRecords,
@@ -19,13 +22,26 @@ import {
   updateReturns,
 } from './zones';
 
-function createUnit(state: GameState, classId: ClassId, scenario: Scenario): Unit {
-  const { startOffset, mana } = CLASSES[classId];
+/** A character from the starting family, with the next ID (decision 2). */
+function createCharacter(state: GameState, start: CharacterStart): Character {
   const id = state.nextId;
   state.nextId += 1;
-  const unit: Unit = {
+  return {
     id,
-    classId,
+    name: start.name,
+    classId: start.classId,
+    level: LEVELS.start,
+    xp: 0,
+    arts: [...CLASSES[start.classId].arts],
+    items: startingItems(state, start.classId),
+  };
+}
+
+/** A character's body, standing at its place in the triangle. */
+function createBody(character: Character, place: number, scenario: Scenario): Body {
+  const { startOffset } = FORMATION[place] ?? { startOffset: { x: 0, z: 0 } };
+  const body: Body = {
+    id: character.id,
     alive: true,
     x: scenario.squadStart.x + startOffset.x,
     z: scenario.squadStart.z + startOffset.z,
@@ -40,11 +56,8 @@ function createUnit(state: GameState, classId: ClassId, scenario: Scenario): Uni
     dashX: 0,
     dashZ: 0,
     invulnerableTicks: 0,
-    level: LEVELS.start,
-    xp: 0,
     health: 0,
-    mana,
-    gear: createGear(classId),
+    mana: CLASSES[character.classId].mana,
     maxHealth: 0,
     attack: 0,
     ar: 0,
@@ -58,8 +71,8 @@ function createUnit(state: GameState, classId: ClassId, scenario: Scenario): Uni
     guardTicks: 0,
     rallyTicks: 0,
   };
-  recalculate(unit);
-  return unit;
+  recalculate(character, body);
+  return body;
 }
 
 /** Builds the starting state. The same seed and scenario always build the same game. */
@@ -68,7 +81,9 @@ export function createGame(seed: number, scenario: Scenario): GameState {
     tick: 0,
     rng: seed >>> 0,
     nextId: 1,
-    units: [],
+    nextItemId: 1,
+    family: { characters: [], active: [], store: [], marks: MARKS.start, potions: POTIONS.start },
+    bodies: [],
     zoneId: scenario.zone,
     records: createRecords(scenario),
     live: emptyLive(),
@@ -76,14 +91,16 @@ export function createGame(seed: number, scenario: Scenario): GameState {
     heading: scenario.squadHeading,
     scatterCooldownTicks: 0,
     sharedTargetId: null,
-    marks: MARKS.start,
-    potions: POTIONS.start,
     potionCooldownTicks: 0,
     squadDown: false,
     wipeTicks: 0,
     victory: false,
   };
-  state.units = SQUAD.map((classId) => createUnit(state, classId, scenario));
+  const characters = (scenario.family ?? STARTING_FAMILY).map((start) => createCharacter(state, start));
+  state.family.characters = characters;
+  state.family.store = STARTING_STORE.map((typeId) => createItem(state, typeId));
+  state.family.active = characters.slice(0, FORMATION.length).map(({ id }) => id);
+  state.bodies = state.family.active.map((id, place) => createBody(characterOf(state, id), place, scenario));
   enterZone(state, scenario.zone);
   return state;
 }
@@ -91,7 +108,7 @@ export function createGame(seed: number, scenario: Scenario): GameState {
 /** The first character this tick to arrive on an order inside a gate's area, and that gate. */
 function arrivedAtGate(state: GameState, events: readonly GameEvent[]): ReturnType<typeof gateAt> {
   for (const event of events) {
-    const unit = event.type === 'unit-arrived' ? state.units.find(({ id }) => id === event.unitId) : null;
+    const unit = event.type === 'unit-arrived' ? state.bodies.find(({ id }) => id === event.unitId) : null;
     const gate = unit?.alive ? gateAt(state, unit) : null;
     if (gate) {
       return gate;
@@ -105,7 +122,7 @@ function runRules(state: GameState, events: GameEvent[]): void {
   state.potionCooldownTicks = Math.max(0, state.potionCooldownTicks - 1);
   updateReturns(state);
   const moved: GameEvent[] = [];
-  for (const unit of state.units) {
+  for (const unit of state.bodies) {
     updateUnit(state, unit, moved);
   }
   events.push(...moved);
@@ -135,7 +152,7 @@ function returnToCamp(state: GameState, events: GameEvent[]): void {
   state.live.shots = [];
   state.live.enemyShots = [];
   state.live.scheduled = [];
-  for (const unit of state.units) {
+  for (const unit of state.bodies) {
     const { x, z } = standInTriangle(state, unit, camp, camp.heading);
     Object.assign(unit, {
       alive: true,
@@ -151,7 +168,7 @@ function returnToCamp(state: GameState, events: GameEvent[]): void {
       dashTicks: 0,
       invulnerableTicks: 0,
       health: unit.maxHealth,
-      mana: CLASSES[unit.classId].mana,
+      mana: classOf(state, unit.id).mana,
       targetId: null,
       forced: false,
       attackTicks: 0,

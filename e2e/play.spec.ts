@@ -16,7 +16,7 @@ async function acceptedMoves(page: Page): Promise<number> {
 }
 
 async function unitsAt(page: Page): Promise<{ id: number; x: number; z: number }[]> {
-  return page.evaluate(() => window.__tnf.view.units.map(({ id, x, z }) => ({ id, x, z })));
+  return page.evaluate(() => window.__tnf.view.bodies.map(({ id, x, z }) => ({ id, x, z })));
 }
 
 async function camera(page: Page): Promise<Window['__tnf']['camera']> {
@@ -24,7 +24,7 @@ async function camera(page: Page): Promise<Window['__tnf']['camera']> {
 }
 
 async function allArrived(page: Page): Promise<void> {
-  await page.waitForFunction(() => window.__tnf.view.units.every((unit) => unit.dest === null), undefined, {
+  await page.waitForFunction(() => window.__tnf.view.bodies.every((unit) => unit.dest === null), undefined, {
     timeout: 15_000,
   });
 }
@@ -108,7 +108,7 @@ test.describe('commanding the squad', () => {
     await page.mouse.click(CENTRE.x + 80, CENTRE.y - 40);
     await page.keyboard.up('Control');
     await ticksPass(page, 2);
-    const attacking = await page.evaluate(() => window.__tnf.view.units.map((unit) => (unit as { attackMove?: boolean }).attackMove));
+    const attacking = await page.evaluate(() => window.__tnf.view.bodies.map((unit) => (unit as { attackMove?: boolean }).attackMove));
     expect(attacking).toEqual([true, true, true]);
     expect((await camera(page)).follow).toBe(true);
   });
@@ -145,12 +145,12 @@ test.describe('commanding the squad', () => {
     await stillCamera(page);
     await page.keyboard.press('F2');
     await rightClick(page, CENTRE.x - 120, CENTRE.y + 40);
-    await page.waitForFunction(() => window.__tnf.view.units[1]?.hold === true);
+    await page.waitForFunction(() => window.__tnf.view.bodies[1]?.hold === true);
     await ticksPass(page, 30);
     await page.keyboard.press('KeyG');
     await ticksPass(page, 2);
     expect((await page.evaluate(() => window.__tnf.selected)).sort()).toEqual([1, 2, 3]);
-    expect(await page.evaluate(() => window.__tnf.view.units.map(({ hold }) => hold))).toEqual([false, false, false]);
+    expect(await page.evaluate(() => window.__tnf.view.bodies.map(({ hold }) => hold))).toEqual([false, false, false]);
     await allArrived(page);
   });
 
@@ -168,7 +168,7 @@ test.describe('commanding the squad', () => {
       { unitId: 1, spell: 'taunt' },
       { unitId: 2, spell: 'volley' },
     ]);
-    expect(await page.evaluate(() => window.__tnf.view.units[0]?.spellTicks.taunt)).toBeGreaterThan(0);
+    expect(await page.evaluate(() => window.__tnf.view.bodies[0]?.spellTicks.taunt)).toBeGreaterThan(0);
   });
 
   test('the camera grips, rotates, tilts and zooms', async ({ page }) => {

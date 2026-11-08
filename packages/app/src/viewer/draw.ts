@@ -1,4 +1,4 @@
-import { currentZone, rimRadiusAt, zoneGrid, type GameView } from '@new-frontier/core';
+import { cardOf, characterOf, currentZone, rimRadiusAt, zoneGrid, type GameView } from '@new-frontier/core';
 
 /** Something brief to show on the map: a word or number, and perhaps a ring. */
 export interface Mark {
@@ -38,7 +38,6 @@ const DROP_RADIUS = 3;
 const DROP_COLOURS = { marks: '#ffcf6e', potion: '#ff9aa8' };
 
 /** The Healer's mana, for its bar. */
-const MAX_MANA = 400;
 
 const GROUND_COLOUR = '#6f6488';
 const WALL_COLOUR = '#3a3540';
@@ -193,9 +192,9 @@ function drawRoutes(context: CanvasRenderingContext2D, game: GameView, toX: (x: 
   context.save();
   context.setLineDash(ROUTE_DASH);
   context.lineWidth = 2;
-  for (const unit of game.units) {
+  for (const unit of game.bodies) {
     if (unit.route.length === 0) continue;
-    const colour = UNIT_LOOKS[unit.classId].colour;
+    const colour = UNIT_LOOKS[characterOf(game, unit.id).classId].colour;
     context.strokeStyle = colour;
     context.beginPath();
     context.moveTo(toX(unit.x), toY(unit.z));
@@ -283,10 +282,11 @@ export function drawGame(
     }
   }
 
-  for (const unit of game.units) {
+  for (const unit of game.bodies) {
     const x = toX(unit.x);
     const y = toY(unit.z);
-    const look = UNIT_LOOKS[unit.classId];
+    const look = UNIT_LOOKS[characterOf(game, unit.id).classId];
+    const maxMana = cardOf(game, unit.id)?.maxMana ?? 0;
     if (unit.dest) {
       context.strokeStyle = look.colour;
       context.lineWidth = 1;
@@ -316,8 +316,8 @@ export function drawGame(
     context.fillText(look.letter, x, y);
     const share = unit.health / unit.maxHealth;
     drawBar(context, x, y - UNIT_RADIUS * 2, share, healthColour(share));
-    if (unit.classId === 'healer') {
-      drawBar(context, x, y - UNIT_RADIUS * 2 + BAR_HEIGHT, unit.mana / MAX_MANA, MANA_COLOUR);
+    if (maxMana > 0) {
+      drawBar(context, x, y - UNIT_RADIUS * 2 + BAR_HEIGHT, unit.mana / maxMana, MANA_COLOUR);
     }
   }
 

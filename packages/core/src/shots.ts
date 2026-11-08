@@ -12,13 +12,13 @@ import type {
   ScheduledStrike,
   Shot,
   SlamTelegraph,
-  Unit,
+  Body,
 } from './state';
 import { TICKS, perTick } from './time';
 
 export function fireShot(
   state: GameState,
-  unit: Unit,
+  unit: Body,
   enemy: Enemy,
   multiplier: number,
   crippling: boolean,
@@ -34,8 +34,8 @@ export function fireShot(
   });
 }
 
-function unitById(state: GameState, id: number): Unit {
-  const unit = state.units.find((candidate) => candidate.id === id);
+function unitById(state: GameState, id: number): Body {
+  const unit = state.bodies.find((candidate) => candidate.id === id);
   if (!unit) {
     throw new Error(`No unit has ID ${String(id)}.`);
   }

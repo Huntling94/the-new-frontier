@@ -1,12 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import { BOTS } from '../data/bots';
 import { ISLAND_SCENARIO } from '../data/scenarios';
+import { characterOf } from '../src/family';
 import { autoCommands } from '../src/auto';
 import { botCommands } from '../src/bots';
 import { createGame, step } from '../src/game';
 import type { Command, GameState, MoveCommand } from '../src/state';
 import { TICKS } from '../src/time';
-import { FIGHTER, HEALER, SNIPER, unitOf } from './helpers';
+import { FIGHTER, HEALER, SNIPER, itemAt, unitOf } from './helpers';
 
 const ZONES_ANVIL = { x: 6, z: 66 };
 
@@ -104,7 +105,7 @@ describe('auto-combat', () => {
     const [monster] = state.live.enemies;
     if (!monster) throw new Error('No monster.');
     monster.awake = true;
-    for (const unit of state.units) {
+    for (const unit of state.bodies) {
       unit.x = -60;
       unit.z = 10 + unit.id;
     }
@@ -118,7 +119,7 @@ describe('auto-combat', () => {
     const state = thinking(island());
     clearMonsters(state);
     state.live.enemies.push({ ...bossOf(state), id: 900, boss: null, kind: 'runner', x: 0, z: -60 });
-    for (const unit of state.units) {
+    for (const unit of state.bodies) {
       unit.x = 0;
       unit.z = 60 + unit.id;
     }
@@ -138,7 +139,7 @@ describe('auto-combat', () => {
     boss.awake = true;
     const result = autoCommands(state);
     expect(result.stop).toBeNull();
-    expect(result.commands).toContainEqual({ type: 'target', unitIds: state.units.map(({ id }) => id), enemyId: boss.id });
+    expect(result.commands).toContainEqual({ type: 'target', unitIds: state.bodies.map(({ id }) => id), enemyId: boss.id });
 
     // Characters already fighting or walking are left alone.
     unitOf(state, FIGHTER).targetId = boss.id;
@@ -148,7 +149,7 @@ describe('auto-combat', () => {
 
   it('stops for a stated reason', () => {
     const danger = thinking(island());
-    danger.potions = 0;
+    danger.family.potions = 0;
     unitOf(danger, FIGHTER).health = 100;
     expect(autoCommands(danger).stop).toBe('danger');
 
@@ -167,7 +168,7 @@ describe('auto-combat', () => {
 
   it('does not reach for a potion it has not got', () => {
     const state = thinking(island());
-    state.potions = 0;
+    state.family.potions = 0;
     unitOf(state, FIGHTER).health = unitOf(state, FIGHTER).maxHealth * 0.3;
     expect(autoCommands(state).commands.map(({ type }) => type)).not.toContain('potion');
   });
@@ -199,11 +200,11 @@ describe('bots', () => {
   it('walk to the anvil with the island clear and marks to spend', () => {
     const state = thinking(island());
     clearMonsters(state);
-    for (const unit of state.units) {
+    for (const unit of state.bodies) {
       unit.x = -40;
       unit.z = 20 + unit.id;
     }
-    state.marks = 1000;
+    state.family.marks = 1000;
     const [move] = moves(botCommands(state, 'careful'));
     expect(move).toMatchObject(ZONES_ANVIL);
   });
@@ -212,26 +213,26 @@ describe('bots', () => {
     const state = thinking(island());
     clearMonsters(state);
     const [first] = botCommands(state, 'careful');
-    expect(first).toEqual({ type: 'upgrade', unitId: SNIPER, slot: 'weapon' });
-    expect(state.units[0]?.gear.weapon.upgrade).toBe(0);
+    expect(first).toEqual({ type: 'upgrade', unitId: SNIPER, slot: 'main-hand' });
+    expect(itemAt(state, FIGHTER, 'main-hand').upgrade).toBe(0);
   });
 
   it('stop buying at the safe level', () => {
     const state = thinking(island());
     clearMonsters(state);
-    for (const unit of state.units) {
-      for (const item of Object.values(unit.gear)) {
-        item.upgrade = BOTS.upgradeBelow;
+    for (const unit of state.bodies) {
+      for (const item of Object.values(characterOf(state, unit.id).items)) {
+        if (item) item.upgrade = BOTS.upgradeBelow;
       }
     }
-    state.marks = 100000;
+    state.family.marks = 100000;
     expect(botCommands(state, 'careful').map(({ type }) => type)).not.toContain('upgrade');
   });
 
   it('go to the boss with the marks spent', () => {
     const state = thinking(island());
     clearMonsters(state);
-    state.marks = 0;
+    state.family.marks = 0;
     const [move] = moves(botCommands(state, 'sloppy'));
     expect(move).toMatchObject(BOTS.bossStart);
   });
@@ -239,8 +240,8 @@ describe('bots', () => {
   it('come back to the camp side first, if they are beyond the beacon', () => {
     const state = thinking(island());
     clearMonsters(state);
-    state.marks = 0;
-    for (const unit of state.units) {
+    state.family.marks = 0;
+    for (const unit of state.bodies) {
       unit.x = 50;
       unit.z = -30 + unit.id;
     }
@@ -252,7 +253,7 @@ describe('bots', () => {
       const state = thinking(island());
       clearMonsters(state);
       bossOf(state).awake = true;
-      for (const unit of state.units) {
+      for (const unit of state.bodies) {
         unit.x = bossOf(state).x + 8;
         unit.z = bossOf(state).z + unit.id * 3;
       }
@@ -274,7 +275,7 @@ describe('bots', () => {
 
     it('the careful bot scatters from a slam, and regroups after', () => {
       const state = fight();
-      state.units.forEach((unit) => {
+      state.bodies.forEach((unit) => {
         unit.x = 30;
         unit.z = 30;
       });
@@ -284,7 +285,7 @@ describe('bots', () => {
       expect(botCommands(state, 'sloppy').map(({ type }) => type)).not.toContain('scatter');
 
       state.live.scheduled.length = 0;
-      state.units.forEach((unit) => (unit.hold = true));
+      state.bodies.forEach((unit) => (unit.hold = true));
       state.scatterCooldownTicks = TICKS.scatterCooldown - TICKS.scatterRegroup;
       expect(botCommands(state, 'careful').map(({ type }) => type)).toContain('regroup');
     });

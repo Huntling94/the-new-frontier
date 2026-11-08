@@ -3,7 +3,7 @@ import '@fontsource/alegreya-sans/latin-500.css';
 import '@fontsource/alegreya-sans/latin-700.css';
 import '@fontsource/im-fell-english-sc/latin-400.css';
 import '@fontsource/vt323/latin-400.css';
-import { currentZone, isNearAnvil, upgradeOffer, type BotKind, type GameEvent, type GearSlot } from '@new-frontier/core';
+import { characterOf, currentZone, isNearAnvil, upgradeOffer, type BotKind, type GameEvent, type GearSlot } from '@new-frontier/core';
 import { createWorldView, zoneLook, type CameraPose, type WorldView } from '@new-frontier/render';
 import {
   addShake,
@@ -23,6 +23,7 @@ import { FEEL } from './feel';
 import { Hud, HUD_SECONDS } from './hud';
 import { Input } from './input';
 import { Reactions, type Reaction } from './reactions';
+import { Inventory } from './inventory';
 import { Anvil, showStart, showVictory, upgradeResult } from './screens';
 import { Session } from './session';
 import { Sound } from './sound';
@@ -96,6 +97,7 @@ function start(world: WorldView): void {
   const anvil = new Anvil(
     (unitId, slot: GearSlot) => {
       const offer = upgradeOffer(session.view, unitId, slot);
+      const before = characterOf(session.view, unitId).items[slot]?.typeId ?? null;
       const events = session.applyNow([{ type: 'upgrade', unitId, slot }]);
       recent.push(...events);
       for (const event of events) {
@@ -108,28 +110,52 @@ function start(world: WorldView): void {
           sound.play('fail');
         }
       }
-      return upgradeResult(session.view, unitId, slot, offer?.chance ?? 0, events);
+      return upgradeResult(session.view, unitId, slot, offer?.chance ?? 0, events, before);
     },
     () => anvil.hide(),
   );
 
+  // The inventory pauses the game like the anvil, and its commands land at once (S3b decision 20).
+  const inventory = new Inventory(
+    (commands) => {
+      const events = session.applyNow(commands);
+      recent.push(...events);
+      sound.play(events.some((event) => event.type === 'order-refused') ? 'fail' : 'click');
+      return events;
+    },
+    () => inventory.hide(),
+  );
+  /** A screen that pauses the game is open. */
+  const screenOpen = (): boolean => anvil.open || inventory.open;
+
   const hud = new Hud(
     (id) => {
-      if (mode !== 'play' || anvil.open) return;
+      if (mode !== 'play' || screenOpen()) return;
       session.selectOnly([id]);
       camera.follow = true;
       sound.play('click');
     },
     (place, slot) => {
-      if (mode !== 'play' || anvil.open) return;
+      if (mode !== 'play' || screenOpen()) return;
       session.act({ kind: 'spell', place, slot }, null);
     },
   );
 
   const input = new Input(canvas, session, world, camera, {
-    playing: () => mode === 'play' && !anvil.open,
+    playing: () => mode === 'play' && !screenOpen(),
     menu: (action: KeyAction) => {
       if (mode !== 'play') return;
+      if (inventory.open) {
+        if (action.kind === 'inventory' || action.kind === 'close') inventory.hide();
+        return;
+      }
+      if (action.kind === 'inventory' && !anvil.open && fade === null) {
+        // Anywhere, in fields and dungeons too (D-040).
+        input.letGo();
+        inventory.show(session.view);
+        sound.play('click');
+        return;
+      }
       if (anvil.open) {
         // Only closing works while the anvil is open, as in the squad test.
         if (action.kind === 'anvil' || action.kind === 'close') anvil.hide();
@@ -147,7 +173,7 @@ function start(world: WorldView): void {
   });
 
   const hook = params.has('test')
-    ? exposeHook(world, camera, recent, () => ({ mode, paused: anvil.open, sound, help: hud.helpShown, fading: fade !== null }))
+    ? exposeHook(world, camera, recent, () => ({ mode, paused: screenOpen(), sound, help: hud.helpShown, fading: fade !== null }))
     : null;
 
   const fit = (): void => {
@@ -227,8 +253,8 @@ function start(world: WorldView): void {
       camera.z = centre.z;
     }
     if (fade?.phase === 'in' && fade.seconds >= FADE.inSeconds) fade = null;
-    // The anvil pauses the game: no ticks run while it is open (decision 4), nor while fading out.
-    const running = mode !== 'start' && !anvil.open && fade?.phase !== 'out';
+    // The anvil and inventory pause the game: no ticks run while one is open (decision 4), nor while fading out.
+    const running = mode !== 'start' && !screenOpen() && fade?.phase !== 'out';
     const ticks = running ? clock.advance(real, input.wantsSlow) : 0;
     for (let index = 0; index < ticks; index += 1) {
       reactions.remember(session.view);
@@ -265,7 +291,7 @@ function start(world: WorldView): void {
         autoIds: session.autoIds,
         slowMeter: clock.meter,
         slowed: running && clock.slowed,
-        paused: anvil.open,
+        paused: screenOpen(),
       });
     }
     if (mode === 'won' && victoryIn > 0) {

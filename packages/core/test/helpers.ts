@@ -1,6 +1,6 @@
 import { DUMMY_SCENARIO } from '../data/scenarios';
 import { createGame, step } from '../src/game';
-import type { Enemy, GameEvent, GameState, Unit } from '../src/state';
+import type { Body, Enemy, GameEvent, GameState, GearSlot, Item } from '../src/state';
 
 export const FIGHTER = 1;
 export const SNIPER = 2;
@@ -11,8 +11,8 @@ export function dummyGame(seed = 1): GameState {
   return createGame(seed, DUMMY_SCENARIO);
 }
 
-export function unitOf(state: GameState, id: number): Unit {
-  const unit = state.units.find((candidate) => candidate.id === id);
+export function unitOf(state: GameState, id: number): Body {
+  const unit = state.bodies.find((candidate) => candidate.id === id);
   if (!unit) throw new Error(`No unit ${String(id)}.`);
   return unit;
 }
@@ -24,7 +24,7 @@ export function dummyOf(state: GameState): Enemy {
 }
 
 /** Puts a unit somewhere, with no order to walk off. */
-export function place(unit: Unit, x: number, z: number): void {
+export function place(unit: Body, x: number, z: number): void {
   unit.x = x;
   unit.z = z;
   unit.dest = null;
@@ -51,4 +51,11 @@ export function ofType<T extends GameEvent['type']>(
   type: T,
 ): Extract<GameEvent, { type: T }>[] {
   return events.filter((event): event is Extract<GameEvent, { type: T }> => event.type === type);
+}
+
+/** The item a character holds in a slot, which must not be empty. */
+export function itemAt(state: GameState, id: number, slot: GearSlot): Item {
+  const item = state.family.characters.find((character) => character.id === id)?.items[slot];
+  if (!item) throw new Error(`Character ${String(id)} has nothing in ${slot}.`);
+  return item;
 }

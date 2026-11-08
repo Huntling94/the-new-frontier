@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { BOSS, MONSTER_RULES } from '../data/enemies';
 import { CLASSES } from '../data/squad';
 import { EMPTY_SCENARIO } from '../data/scenarios';
+import { characterOf } from '../src/family';
 import { hitEnemy } from '../src/combat';
 import { createGame, step } from '../src/game';
 import { nextRandom } from '../src/random';
@@ -33,7 +34,7 @@ function stateOf(boss: Enemy): NonNullable<Enemy['boss']> {
 
 /** Stops the squad doing anything of its own. */
 function pacify(state: GameState): void {
-  for (const unit of state.units) {
+  for (const unit of state.bodies) {
     unit.attackTicks = 100000;
     unit.mana = 0;
   }
@@ -112,7 +113,7 @@ describe('its four moves', () => {
     const seen: BossMove[] = [];
     let last: BossMove | null = null;
     for (let tick = 0; tick < 3000; tick += 1) {
-      for (const unit of state.units) {
+      for (const unit of state.bodies) {
         unit.health = unit.maxHealth;
       }
       step(state, []);
@@ -130,7 +131,7 @@ describe('its four moves', () => {
   it('marks a slam under the squad, which lands after its telegraph', () => {
     const { state, boss } = awakeBoss();
     pacify(state);
-    for (const unit of state.units) {
+    for (const unit of state.bodies) {
       place(unit, 30, 30 + unit.id * 2);
     }
     forceMove(state, boss, 'slam');
@@ -144,11 +145,11 @@ describe('its four moves', () => {
   it('misses with a slam if the squad has left', () => {
     const { state, boss } = awakeBoss();
     pacify(state);
-    for (const unit of state.units) {
+    for (const unit of state.bodies) {
       place(unit, 30, 30 + unit.id * 2);
     }
     forceMove(state, boss, 'slam');
-    for (const unit of state.units) {
+    for (const unit of state.bodies) {
       unit.x -= 50;
     }
     const slam = state.live.scheduled[0];
@@ -366,11 +367,11 @@ describe('victory', () => {
     expect(ofType(events, 'victory')).toHaveLength(1);
     expect(state.victory).toBe(true);
     const tick = state.tick;
-    const positions = JSON.stringify(state.units);
+    const positions = JSON.stringify(state.bodies);
     unitOf(state, FIGHTER).dest = { x: 0, z: 0 };
     const after = step(state, [{ type: 'regroup' }]);
     expect(state.tick).toBe(tick + 1);
-    expect(JSON.stringify({ ...state.units, 0: null })).toBe(
+    expect(JSON.stringify({ ...state.bodies, 0: null })).toBe(
       JSON.stringify({ ...(JSON.parse(positions) as unknown[]), 0: null }),
     );
     expect(unitOf(state, FIGHTER).dest).toEqual({ x: 0, z: 0 });
@@ -382,7 +383,7 @@ describe('victory', () => {
     const { state, boss } = awakeBoss();
     boss.health = 1;
     hitEnemy(state, unitOf(state, SNIPER), boss, 1, []);
-    expect(state.units.every(({ xp }) => xp === Math.round(BOSS.xp / 3))).toBe(true);
+    expect(state.family.characters.every(({ xp }) => xp === Math.round(BOSS.xp / 3))).toBe(true);
   });
 });
 
@@ -400,13 +401,13 @@ describe('wipes', () => {
     boss.health = 100;
     monster.health = 50;
     monster.awake = true;
-    state.marks = 1234;
+    state.family.marks = 1234;
     state.anchor = { x: 1, z: 1 };
-    state.potions = 2;
-    unitOf(state, FIGHTER).xp = 77;
+    state.family.potions = 2;
+    characterOf(state, FIGHTER).xp = 77;
     unitOf(state, SNIPER).spellTicks.volley = 300;
     state.live.scheduled.push({ kind: 'slam', ticks: 500, totalTicks: 500, enemyId: boss.id, x: 0, z: 0, radius: 1, hitRadius: 1, damage: 1 });
-    for (const unit of state.units) {
+    for (const unit of state.bodies) {
       unit.health = 0;
       unit.alive = false;
     }
@@ -427,10 +428,10 @@ describe('wipes', () => {
     expect(ofType(run(state, TICKS.wipe - 1), 'squad-returned')).toEqual([]);
     expect(ofType(run(state, 1), 'squad-returned')).toHaveLength(1);
     expect(state.squadDown).toBe(false);
-    for (const unit of state.units) {
+    for (const unit of state.bodies) {
       expect(unit.alive).toBe(true);
       expect(unit.health).toBe(unit.maxHealth);
-      expect(unit.mana).toBe(CLASSES[unit.classId].mana);
+      expect(unit.mana).toBe(CLASSES[characterOf(state, unit.id).classId].mana);
       expect(unit.spellTicks).toEqual({});
       expect(Math.hypot(unit.x - zoneOf(state).camp.x, unit.z - zoneOf(state).camp.z)).toBeLessThan(6);
     }
@@ -451,9 +452,9 @@ describe('wipes', () => {
   it('keeps marks, potions, XP and hurt monsters', () => {
     const { state, monster } = wiped();
     run(state, TICKS.wipe);
-    expect(state.marks).toBe(1234);
-    expect(state.potions).toBe(2);
-    expect(unitOf(state, FIGHTER).xp).toBe(77);
+    expect(state.family.marks).toBe(1234);
+    expect(state.family.potions).toBe(2);
+    expect(characterOf(state, FIGHTER).xp).toBe(77);
     expect(monster.health).toBe(50);
     expect(monster.awake).toBe(true);
   });

@@ -27,5 +27,5 @@ export const SQUAD_TOUR: Replay = {
     { tick: 1050, commands: [{ type: 'scatter' }] },
     { tick: 1140, commands: [{ type: 'regroup' }] },
   ],
-  expectedHash: 'ccb3ea79',
+  expectedHash: 'be8c024b',
 };

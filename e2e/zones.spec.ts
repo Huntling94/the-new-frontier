@@ -74,11 +74,11 @@ test('the squad walks into the cave, round its wall with one right click, and ba
   const target = await rightClickGround(page, BEHIND_WALL);
   // The order lands on the next tick, and then everyone walks until they arrive.
   await page.waitForFunction((count) => window.__tnf.events.slice(count).some(({ order }) => order === 'move'), from);
-  await page.waitForFunction(() => window.__tnf.view.units.every((unit) => unit.dest === null), undefined, { timeout: 30_000 });
+  await page.waitForFunction(() => window.__tnf.view.bodies.every((unit) => unit.dest === null), undefined, { timeout: 30_000 });
   const since = await page.evaluate((count) => window.__tnf.events.slice(count).map(({ type }) => type), from);
   expect(since).not.toContain('unit-gave-up');
   expect(since.filter((type) => type === 'unit-arrived')).toHaveLength(3);
-  const fighter = await page.evaluate(() => window.__tnf.view.units[0]);
+  const fighter = await page.evaluate(() => window.__tnf.view.bodies[0]);
   expect(Math.hypot((fighter?.x ?? 0) - target.x, (fighter?.z ?? 0) - target.z)).toBeLessThan(6);
 
   await zoomOut(page);

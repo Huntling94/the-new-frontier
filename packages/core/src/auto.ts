@@ -1,12 +1,12 @@
 import { AUTO } from '../data/bots';
-import { CLASSES } from '../data/squad';
+import { classOf } from './family';
 import type { AutoResult, AutoStop, Command, GameView, Point } from './state';
 import { TICKS } from './time';
 
-type LivingUnits = GameView['units'][number][];
+type LivingUnits = GameView['bodies'][number][];
 
 export function livingIn(view: GameView): LivingUnits {
-  return view.units.filter((unit) => unit.alive);
+  return view.bodies.filter((unit) => unit.alive);
 }
 
 export function centreIn(units: LivingUnits): Point {
@@ -73,8 +73,8 @@ export function roam(view: GameView): Point | 'busy' | null {
   const units = livingIn(view);
   const centre = centreIn(units);
   const monsters = view.live.enemies.filter((enemy) => enemy.alive && !enemy.boss);
-  const fighting = units.some(({ classId, x, z }) => {
-    const { autoHeals, aggroRange } = CLASSES[classId];
+  const fighting = units.some(({ id, x, z }) => {
+    const { autoHeals, aggroRange } = classOf(view, id);
     return (
       !autoHeals &&
       monsters.some((enemy) => {
@@ -100,7 +100,7 @@ function autoStop(view: GameView): AutoStop | null {
   if (view.squadDown) {
     return 'squad-down';
   }
-  if (lowestShare(livingIn(view)) < AUTO.dangerBelow && view.potions === 0) {
+  if (lowestShare(livingIn(view)) < AUTO.dangerBelow && view.family.potions === 0) {
     return 'danger';
   }
   return null;
@@ -118,7 +118,7 @@ function fightBoss(view: GameView, bossId: number): Command | null {
 function drink(view: GameView, named: boolean): Command[] {
   const units = livingIn(view);
   const low = lowestShare(units) < AUTO.potionBelow;
-  if (!low || view.potions === 0 || view.potionCooldownTicks > 0) {
+  if (!low || view.family.potions === 0 || view.potionCooldownTicks > 0) {
     return [];
   }
   const lowest = units.reduce((a, b) => (b.health / b.maxHealth < a.health / a.maxHealth ? b : a));
@@ -131,7 +131,7 @@ function drink(view: GameView, named: boolean): Command[] {
  * and the rest stay the player's (D-035).
  */
 export function autoCommands(whole: GameView, unitIds?: readonly number[]): AutoResult {
-  const view = unitIds ? { ...whole, units: whole.units.filter(({ id }) => unitIds.includes(id)) } : whole;
+  const view = unitIds ? { ...whole, bodies: whole.bodies.filter(({ id }) => unitIds.includes(id)) } : whole;
   if (livingIn(view).length === 0) {
     return { commands: [], stop: 'squad-down' };
   }
