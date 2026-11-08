@@ -97,7 +97,7 @@ describe('reactions turn events into feel', () => {
     expect(reactions.react(state, []).shake).toBe(0);
   });
 
-  it('names who killed the squad, and counts wipes for the victory screen', () => {
+  it('names who killed the squad', () => {
     const state = game();
     const reactions = new Reactions();
     reactions.remember(state);
@@ -112,26 +112,21 @@ describe('reactions turn events into feel', () => {
     expect(reaction.log.map(({ text }) => text)).toContain('Aurelio is down. No XP while down.');
     expect(reaction.log.at(-1)?.text).toMatch(/^You died to a .+ \(lvl \d+\)\. You are being teleported back to: camp$/);
     expect(reaction.banner?.title).toBe('Squad down');
-    expect(reactions.tally).toMatchObject({ wipes: 1, downs: 1 });
   });
 
-  it('follows a whole bot run to victory, shaking for slams, blasts and the boss', () => {
+  it('follows a bot on the Lande, shaking for slams, with no ending', () => {
     const state = game();
     const reactions = new Reactions();
     const shakes = new Set<number>();
-    let victory = false;
     let banners = 0;
-    for (let tick = 0; tick < TICK_RATE * 60 * 30 && !victory; tick += 1) {
+    for (let tick = 0; tick < TICK_RATE * 60 * 3; tick += 1) {
       reactions.remember(state);
       const reaction = reactions.react(state, step(state, botCommands(state, 'careful')));
       if (reaction.shake > 0) shakes.add(reaction.shake);
       if (reaction.banner) banners += 1;
-      victory = reaction.victory;
     }
-    expect(victory).toBe(true);
-    expect(shakes).toContain(FEEL.shake.boss);
     expect(shakes).toContain(FEEL.shake.slam);
-    expect(banners).toBeGreaterThanOrEqual(2);
+    expect(banners).toBeGreaterThanOrEqual(1);
   });
 });
 

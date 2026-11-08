@@ -204,8 +204,8 @@ function attack(state: GameState, unit: Body, enemy: Enemy, events: GameEvent[])
   if (unit.attackTicks > 0) {
     return;
   }
-  const { attackSeconds, melee, knockback } = weaponOf(characterOf(state, unit.id)).weapon;
-  unit.attackTicks = secondsToTicks(attackSeconds);
+  const { melee, knockback } = weaponOf(characterOf(state, unit.id)).weapon;
+  unit.attackTicks = secondsToTicks(unit.attackSeconds);
   if (melee) {
     const direction = Math.atan2(enemy.z - unit.z, enemy.x - unit.x);
     hitEnemy(state, unit, enemy, 1, events, knockback, direction);

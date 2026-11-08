@@ -1,4 +1,4 @@
-import { ISLAND_SCENARIO, RUNS, botCommands, createGame, hashState, step } from '@new-frontier/core';
+import { ISLAND_SCENARIO, RUNS, ZONES, botCommands, createGame, hashState, step } from '@new-frontier/core';
 import type { BotKind, GameState } from '@new-frontier/core';
 import { describe, expect, it } from 'vitest';
 import { play, runAuto, runBot } from '../src/run';
@@ -20,9 +20,40 @@ describe('full runs', () => {
     SLOW,
   );
 
+  it('finishes once every pack has been cleared at least once, even though they have come back', () => {
+    const packs = ZONES.find(({ id }) => id === 'lande')?.contents.packs.length ?? 0;
+    const result = play(
+      1,
+      (state) => {
+        const record = state.records.find(({ id }) => id === 'lande');
+        if (state.tick < packs) record?.returns.push({ packId: state.tick, tick: state.tick + 1 });
+        return [];
+      },
+      { doneOnceCleared: () => true },
+    );
+    expect(result).toMatchObject({ finished: true, stalled: false, ticks: packs });
+  });
+
+  it('does not finish on a pack short of all of them', () => {
+    const result = play(
+      1,
+      (state) => {
+        state.records.find(({ id }) => id === 'lande')?.returns.push({ packId: 0, tick: state.tick + 1 });
+        return [];
+      },
+      { doneOnceCleared: () => true, tickLimit: 120 },
+    );
+    expect(result).toMatchObject({ finished: false, stalled: true, ticks: 120 });
+  });
+
+  it('stops a run that cannot finish at the time limit, and calls it stalled', () => {
+    const result = runBot(1, 'careful', { tickLimit: 300 });
+    expect(result).toMatchObject({ finished: false, stalled: true, ticks: 300 });
+  });
+
   describe.each(BOTS)('the %s bot', (kind) => {
     it.each(FIVE_SEEDS)(
-      'kills the boss on seed %s, inside the limit, with no refused orders',
+      'finishes on seed %s, inside the limit, with no refused orders',
       (seed) => {
         const result = runBot(seed, kind);
         expect(result.finished).toBe(true);
@@ -50,19 +81,9 @@ describe('full runs', () => {
   });
 
   it(
-    'differs by seed and by bot',
+    'differs by seed',
     () => {
       expect(runBot(1, 'careful').hash).not.toBe(runBot(2, 'careful').hash);
-      expect(runBot(1, 'careful').hash).not.toBe(runBot(1, 'sloppy').hash);
-    },
-    SLOW,
-  );
-
-  it(
-    'interrupts only with the careful bot',
-    () => {
-      expect(runBot(1, 'careful').interrupts).toBeGreaterThan(0);
-      expect(runBot(1, 'sloppy').interrupts).toBe(0);
     },
     SLOW,
   );
@@ -79,20 +100,19 @@ describe('full runs', () => {
 
   it.each([
     ['a telegraph on the ground', (state: GameState) => state.live.scheduled.length > 0],
-    ['a minion about', (state: GameState) => state.live.enemies.some(({ minion }) => minion)],
     ['a monster shot and a drop', (state: GameState) => state.live.enemyShots.length * state.live.drops.length > 0],
   ])(
     'plays on identically from a save with %s',
     (_, busy) => {
       const game = createGame(1, ISLAND_SCENARIO);
-      while (!busy(game) && !game.victory) {
+      while (!busy(game)) {
         step(game, botCommands(game, 'careful'));
       }
       expect(busy(game)).toBe(true);
       const saved = JSON.stringify(game);
       const loaded = JSON.parse(saved) as GameState;
       expect(JSON.stringify(loaded)).toBe(saved);
-      for (let tick = 0; tick < 1200 && !game.victory; tick += 1) {
+      for (let tick = 0; tick < 1200; tick += 1) {
         step(game, botCommands(game, 'careful'));
         step(loaded, botCommands(loaded, 'careful'));
       }

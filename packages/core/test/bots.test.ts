@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { BOTS } from '../data/bots';
+import { PACKS } from '../data/enemies';
 import { ISLAND_SCENARIO, TOWN_SCENARIO } from '../data/scenarios';
 import { ZONES } from '../data/zones';
 import { characterOf } from '../src/family';
@@ -13,8 +14,11 @@ import { FIGHTER, HEALER, SNIPER, itemAt, unitOf } from './helpers';
 
 const INTO_TOWN = { x: 16, z: 72 };
 
+/** The Warden is off the Lande (D-052), and its dormant code is still tested here. */
+const WITH_BOSS = { ...ISLAND_SCENARIO, contents: { dummy: null, packs: PACKS, boss: { x: 0, z: 16 } } };
+
 function island(seed = 1): GameState {
-  return createGame(seed, ISLAND_SCENARIO);
+  return createGame(seed, WITH_BOSS);
 }
 
 /** Brings the game to a tick on which the bots think. */
@@ -120,7 +124,7 @@ describe('auto-combat', () => {
   it('swings round the arena rather than through it', () => {
     const state = thinking(island());
     clearMonsters(state);
-    state.live.enemies.push({ ...bossOf(state), id: 900, boss: null, kind: 'runner', x: 0, z: -60 });
+    state.live.enemies.push({ ...bossOf(state), id: 900, boss: null, kind: 'rooster', x: 0, z: -60 });
     for (const unit of state.bodies) {
       unit.x = 0;
       unit.z = 60 + unit.id;
@@ -163,9 +167,6 @@ describe('auto-combat', () => {
     down.squadDown = true;
     expect(autoCommands(down).stop).toBe('squad-down');
 
-    const won = thinking(island());
-    won.victory = true;
-    expect(autoCommands(won).stop).toBe('victory');
   });
 
   it('does not reach for a potion it has not got', () => {
@@ -177,6 +178,29 @@ describe('auto-combat', () => {
 
   it('carries on through healthy play', () => {
     expect(autoCommands(thinking(island())).stop).toBeNull();
+  });
+});
+
+describe('bots on the Lande with no boss (D-052)', () => {
+  function lande(): GameState {
+    return thinking(createGame(1, ISLAND_SCENARIO));
+  }
+
+  it('roam to the nearest monster on attack-move', () => {
+    expect(moves(botCommands(lande(), 'careful'))[0]?.attack).toBe(true);
+  });
+
+  it('head for town with money and a clear zone', () => {
+    const state = lande();
+    state.live.enemies = [];
+    expect(moves(botCommands(state, 'careful'))[0]).toMatchObject(INTO_TOWN);
+  });
+
+  it('stand and wait with the marks spent and a clear zone', () => {
+    const state = lande();
+    state.live.enemies = [];
+    state.family.marks = 0;
+    expect(moves(botCommands(state, 'careful'))).toEqual([]);
   });
 });
 

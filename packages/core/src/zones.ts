@@ -1,3 +1,4 @@
+import { MONSTER_RULES } from '../data/enemies';
 import { createBoss, createDummy, createPack } from './enemies';
 import { placeOf } from './family';
 import { triangleSlot } from './formation';
@@ -5,7 +6,7 @@ import { clearAlong } from './grid';
 import type { Enemy, GameEvent, GameState, LiveGroup, Point, Scenario, Body, ZoneRecord } from './state';
 import { secondsToTicks } from './time';
 import { ZONES } from '../data/zones';
-import { contentsOf, gridOf, zoneOf, type GateData } from './world';
+import { contentsOf, gridOf, isWalkableForEnemy, zoneOf, type GateData } from './world';
 
 /** One record per zone, in data order. A scenario may replace its starting zone's contents. */
 export function createRecords(scenario: Scenario): ZoneRecord[] {
@@ -29,7 +30,34 @@ export function emptyLive(): LiveGroup {
   return { enemies: [], shots: [], enemyShots: [], scheduled: [], drops: [] };
 }
 
-/** Packs whose return is due come back at home, and leave the record. */
+/** A point a monster may land on: walkable, and clear of every character. */
+function isClearToLand(state: GameState, { x, z }: Point): boolean {
+  const clear = state.bodies.every((unit) => Math.hypot(unit.x - x, unit.z - z) >= MONSTER_RULES.respawnClearance);
+  return clear && isWalkableForEnemy(state, x, z);
+}
+
+/** The point itself if a monster may land there, or else the nearest that it may. */
+function clearSpot(state: GameState, point: Point): Point {
+  if (isClearToLand(state, point)) {
+    return point;
+  }
+  const { respawnSearch } = MONSTER_RULES;
+  let best = point;
+  let bestDistance = Infinity;
+  for (let dx = -respawnSearch; dx <= respawnSearch; dx += 1) {
+    for (let dz = -respawnSearch; dz <= respawnSearch; dz += 1) {
+      const candidate = { x: point.x + dx, z: point.z + dz };
+      const distance = Math.hypot(dx, dz);
+      if (distance < bestDistance && isClearToLand(state, candidate)) {
+        best = candidate;
+        bestDistance = distance;
+      }
+    }
+  }
+  return best;
+}
+
+/** Packs whose return is due come back at home, clear of the squad, and leave the record. */
 function bringBackPacks(state: GameState): Enemy[] {
   const record = recordOf(state);
   const { packs } = contentsOf(state);
@@ -37,7 +65,7 @@ function bringBackPacks(state: GameState): Enemy[] {
   record.returns = record.returns.filter(({ tick }) => tick > state.tick);
   return due.flatMap(({ packId }) => {
     const pack = packs[packId];
-    return pack ? createPack(state, pack, packId) : [];
+    return pack ? createPack(state, pack, packId, (point) => clearSpot(state, point)) : [];
   });
 }
 

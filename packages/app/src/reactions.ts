@@ -23,16 +23,6 @@ export interface Reaction {
   banner: Banner | null;
   shake: number;
   hitStop: boolean;
-  victory: boolean;
-}
-
-/** Counts for the victory screen, as in the squad test. */
-export interface RunTally {
-  wipes: number;
-  downs: number;
-  revives: number;
-  upgrades: number;
-  broken: number;
 }
 
 const BANNER_SECONDS = 2.6;
@@ -70,7 +60,6 @@ const nameOfUnit = (view: GameView, id: number): string => {
  */
 export class Reactions {
   private before: Before | null = null;
-  readonly tally: RunTally = { wipes: 0, downs: 0, revives: 0, upgrades: 0, broken: 0 };
 
   /** Call just before each tick. */
   remember(view: GameView): void {
@@ -89,7 +78,7 @@ export class Reactions {
 
   /** Call just after each tick, with its events. */
   react(view: GameView, events: readonly GameEvent[]): Reaction {
-    const reaction: Reaction = { sounds: [], log: [], banner: null, shake: 0, hitStop: false, victory: false };
+    const reaction: Reaction = { sounds: [], log: [], banner: null, shake: 0, hitStop: false };
     const sound = (name: SoundName): void => {
       if (!reaction.sounds.includes(name)) reaction.sounds.push(name);
     };
@@ -118,7 +107,7 @@ export class Reactions {
             sound('hurt');
             shake(FEEL.shake.hurt);
             lastHitter = event.sourceId;
-            if (enemyOf(event.sourceId)?.kind === 'brute') sound('slam');
+            if (enemyOf(event.sourceId)?.kind === 'boar') sound('slam');
           }
           break;
         case 'spell-cast':
@@ -147,16 +136,13 @@ export class Reactions {
           }
           break;
         case 'unit-down':
-          this.tally.downs += 1;
           say(`${nameOfUnit(view, event.unitId)} is down. No XP while down.`, 'bad');
           break;
         case 'unit-revived':
-          this.tally.revives += 1;
           sound('level');
           say(`${nameOfUnit(view, event.unitId)} revived`, 'gold');
           break;
         case 'squad-down': {
-          this.tally.wipes += 1;
           sound('fail');
           const killer = lastHitter === null ? undefined : enemyOf(lastHitter);
           say(
@@ -165,7 +151,7 @@ export class Reactions {
               : 'The squad is down. You are being teleported back to: camp',
             'bad',
           );
-          reaction.banner = { title: 'Squad down', line: 'Back to camp. The boss resets.', seconds: BANNER_SECONDS };
+          reaction.banner = { title: 'Squad down', line: 'Back to camp.', seconds: BANNER_SECONDS };
           break;
         }
         case 'boss-woken': {
@@ -189,24 +175,18 @@ export class Reactions {
           say(`Entered ${zoneLook(event.to).name}`, 'blue');
           reaction.banner = { title: zoneLook(event.to).name, line: '', seconds: SHORT_BANNER };
           break;
-        case 'victory':
-          sound('beacon');
-          reaction.victory = true;
-          reaction.banner = { title: 'The beacon is lit', line: '', seconds: BANNER_SECONDS };
-          break;
         default:
           break;
       }
     }
 
-    this.bossMoves(view, reaction, interrupted, sound, shake, say);
+    this.bossMoves(view, interrupted, sound, shake, say);
     return reaction;
   }
 
   /** Boss moves the core reports only through its state: slams, charges, casts and summons. */
   private bossMoves(
     view: GameView,
-    reaction: Reaction,
     interrupted: ReadonlySet<number>,
     sound: (name: SoundName) => void,
     shake: (strength: number) => void,
@@ -242,7 +222,7 @@ export class Reactions {
         sound('boss');
         say('Interrupt it before the cast lands', 'gold');
       }
-      if (was > 0 && now === 0 && enemy.alive && !interrupted.has(enemy.id) && !reaction.victory) {
+      if (was > 0 && now === 0 && enemy.alive && !interrupted.has(enemy.id)) {
         sound('slam');
         shake(FEEL.shake.blast);
       }

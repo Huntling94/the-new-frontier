@@ -33,9 +33,14 @@ function createEnemy(state: GameState, kind: EnemyKind, point: Point, stats: Ene
   return {
     level: stats.level,
     attack: stats.attack,
+    attackSeconds: stats.attackSeconds,
     ar: stats.ar,
     dr: stats.dr,
     defence: stats.defence,
+    crit: stats.crit,
+    evade: stats.evade,
+    block: stats.block,
+    resistances: stats.resistances,
     size: stats.size,
     speed: stats.speed,
     reach: stats.reach,
@@ -112,9 +117,14 @@ export function createMonster(
     level,
     health: health * data.healthShare,
     attack: (levels.attackBase + levels.attackPerLevel * level) * data.attackShare,
-    ar: Math.round(level * levels.arPerLevel),
-    dr: Math.round(level * levels.drPerLevel),
-    defence: levels.defenceBase + levels.defencePerLevel * level,
+    attackSeconds: data.attackSeconds,
+    ar: Math.round(level * levels.arPerLevel * data.arShare),
+    dr: Math.round(level * levels.drPerLevel * data.drShare),
+    defence: (levels.defenceBase + levels.defencePerLevel * level) * data.defenceShare,
+    crit: data.crit,
+    evade: data.evade,
+    block: data.block,
+    resistances: data.resistances,
     size: data.size * scale,
     speed: data.speed,
     reach: data.reach,
@@ -125,13 +135,19 @@ export function createMonster(
   return { ...enemy, strikeTicks: secondsToTicks(firstStrike) };
 }
 
-export function createPack(state: GameState, pack: PackData, packId: number): Enemy[] {
+/** A pack's members around its point. `settle` may move each one to where it really lands. */
+export function createPack(
+  state: GameState,
+  pack: PackData,
+  packId: number,
+  settle: (point: Point) => Point = (point) => point,
+): Enemy[] {
   const { spread } = MONSTER_RULES;
   return pack.mobs.flatMap(({ kind, count }) => {
     return Array.from({ length: count }, () => {
       const x = pack.x + randomBetween(state, -spread, spread);
       const z = pack.z + randomBetween(state, -spread, spread);
-      return { ...createMonster(state, kind, pack.level, { x, z }), packId };
+      return { ...createMonster(state, kind, pack.level, settle({ x, z })), packId };
     });
   });
 }

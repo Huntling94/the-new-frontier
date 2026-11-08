@@ -4,7 +4,7 @@ export { ISLAND_SCENARIO, TOWN_SCENARIO } from '../data/scenarios';
 export { ZONES } from '../data/zones';
 export { TICK_RATE } from '../data/sim';
 export { autoCommands } from './auto';
-export { botCommands } from './bots';
+export { botCommands, nextBotUpgrade } from './bots';
 export { characterOf, placeOf } from './family';
 export { advance, createGame, step } from './game';
 export { hashState } from './hash';

@@ -11,7 +11,6 @@ export interface Hook {
   view: {
     tick: number;
     anchor: { x: number; z: number };
-    victory: boolean;
     family: {
       marks: number;
       potions: number;
@@ -31,6 +30,7 @@ export interface Hook {
       spellTicks: Record<string, number>;
     }[];
     zoneId: string;
+    records: { id: string; returns: { packId: number; tick: number }[] }[];
     live: { enemies: { id: number; kind: string; alive: boolean; awake: boolean }[] };
   };
   selected: number[];

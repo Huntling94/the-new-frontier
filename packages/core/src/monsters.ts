@@ -1,7 +1,6 @@
 import { MONSTERS, MONSTER_RULES, SLAMMER, SPITTER } from '../data/enemies';
 import { hurtUnit, wakePack } from './combat';
 import { STANDING, type Drive } from './enemies';
-import { randomBetween } from './random';
 import type { Enemy, GameEvent, GameState, MonsterData, MonsterKind, Body } from './state';
 import { TICKS, secondsToTicks } from './time';
 
@@ -45,12 +44,10 @@ function strike(
   events: GameEvent[],
 ): void {
   const { behaviour } = dataOf(enemy);
-  const { strikeCooldownLeast, strikeCooldownMost, landStrikeExtra } = MONSTER_RULES;
-  const cooldown = randomBetween(state, strikeCooldownLeast, strikeCooldownMost);
-  enemy.strikeTicks = secondsToTicks(cooldown);
+  enemy.strikeTicks = secondsToTicks(enemy.attackSeconds);
   if (behaviour === 'spitter') {
     spit(state, enemy, target);
-  } else if (behaviour === 'melee' && distance < enemy.reach + landStrikeExtra) {
+  } else if (behaviour === 'melee' && distance < enemy.reach + MONSTER_RULES.landStrikeExtra) {
     hurtUnit(state, target, enemy.attack, enemy, events);
   }
 }

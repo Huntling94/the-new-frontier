@@ -66,8 +66,6 @@ const MOTES = 170;
 const MOTE_SPREAD = 50;
 const MOTE_HEIGHT = 26;
 const TUFTS = 320;
-/** Light eases from dusk towards sunrise at this rate once the beacon is lit. */
-const DAWN_RATE = 0.6;
 const DUSK = 0.12;
 
 /** Model sizes: the core's obstacle radius divided by these gives each prop's scale. */
@@ -123,7 +121,6 @@ export class ZoneScene {
   private readonly town: Town | null = null;
   private dawn = DUSK;
   private time = 0;
-  private lit = false;
 
   constructor(view: GameView, zone: ZoneView) {
     this.zone = zone;
@@ -194,7 +191,6 @@ export class ZoneScene {
     // Underground, motes against the dark read as stars, so only open ground has them.
     if (zone.ground.shape === 'island') this.scene.add(this.motes);
     this.applyLight(this.dawn);
-    this.lit = view.victory;
   }
 
   heightAt(x: number, z: number): number {
@@ -203,19 +199,8 @@ export class ZoneScene {
   }
 
   /** Moves light and dressing on. `focus` is where the camera looks. */
-  update(view: GameView, dt: number, focus: { x: number; z: number }, squad: { x: number; z: number }): void {
+  update(dt: number, focus: { x: number; z: number }, squad: { x: number; z: number }): void {
     this.time += dt;
-    if (view.victory && !this.lit) {
-      this.lit = true;
-      for (const beacon of this.beacons) {
-        beacon.coal.material = beacon.lit;
-        beacon.halo.visible = true;
-        beacon.beam.visible = true;
-      }
-    }
-    const target = this.lit ? 1 : DUSK;
-    this.dawn += (target - this.dawn) * Math.min(1, dt * DAWN_RATE);
-    this.applyLight(this.dawn);
     this.sea.t.value = this.time;
 
     this.sun.position.set(focus.x + 60, 130, focus.z + 70);

@@ -16,7 +16,7 @@ if (!Number.isInteger(seed) || (values.bot !== 'careful' && values.bot !== 'slop
 const result = runBot(seed, values.bot as BotKind);
 const minutes = (result.ticks / 30 / 60).toFixed(1);
 console.log(`Seed ${String(seed)}, ${String(values.bot)} bot`);
-console.log(result.finished ? `Boss down in ${minutes} game minutes.` : `Not finished after ${minutes} game minutes.`);
+console.log(result.finished ? `Finished in ${minutes} game minutes: every pack cleared at least once.` : `Stalled after ${minutes} game minutes.`);
 console.log(`Wipes ${String(result.wipes)}, characters down ${String(result.charactersDown)}, revives ${String(result.revives)}, interrupts ${String(result.interrupts)}.`);
 console.log(`Levels ${result.levels.join(', ')}. Upgrades ${String(result.upgrades)}. Marks ${String(result.marks)}, potions ${String(result.potions)}.`);
 console.log(`Monsters left ${String(result.monstersLeft)}. Refused orders ${String(result.refusals)}.`);

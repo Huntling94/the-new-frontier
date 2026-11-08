@@ -223,14 +223,25 @@ test.describe('commanding the squad', () => {
   });
 });
 
-test('a bot plays from the start to victory in the real page with a clean console', async ({ page }) => {
+test('a bot clears every pack in the real page, the game carries on, and the console stays clean', async ({ page }) => {
   test.setTimeout(240_000);
   const errors = watchErrors(page);
   await openGame(page, 'seed=1&bot=careful&speed=32');
-  await page.waitForFunction(() => window.__tnf.view.victory, undefined, { timeout: 170_000, polling: 500 });
-  // The beacon's banner, then the victory screen with the squad test's four questions. The
-  // banner's 2.6 seconds count clamped frame time, which runs slow on CI at 32 times speed.
-  await expect(page.locator('#end')).toBeVisible({ timeout: 60_000 });
-  await expect(page.locator('#endBox')).toContainText('Could you follow all three during the boss?');
+  // A pack that has been cleared is on the Lande's record until it comes back, so
+  // each is counted as it appears there.
+  await page.waitForFunction(
+    () => {
+      const store = window as unknown as { cleared?: Set<number> };
+      store.cleared ??= new Set();
+      for (const { packId } of window.__tnf.view.records.find(({ id }) => id === 'lande')?.returns ?? []) store.cleared.add(packId);
+      return store.cleared.size === 7;
+    },
+    undefined,
+    { timeout: 170_000, polling: 250 },
+  );
+  // Nothing to win: no end screen, and the clock runs on.
+  const tick = await page.evaluate(() => window.__tnf.view.tick);
+  await page.waitForFunction((was) => window.__tnf.view.tick > was + 60, tick, { timeout: 30_000 });
+  await expect(page.locator('#end')).toHaveCount(0);
   expect(errors).toEqual([]);
 });

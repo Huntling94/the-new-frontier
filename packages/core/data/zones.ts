@@ -22,8 +22,8 @@ const CAVE_PACKS: readonly PackData[] = [
     z: -18,
     level: 4,
     mobs: [
-      { kind: 'runner', count: 2 },
-      { kind: 'swarm', count: 3 },
+      { kind: 'boar', count: 1 },
+      { kind: 'wasp', count: 3 },
     ],
   },
 ];
@@ -45,7 +45,7 @@ export const ZONES: readonly ZoneData[] = [
       { kind: 'beacon', x: 0, z: 0, radius: 4.2 },
       ...LANDE_LAYOUT,
     ],
-    contents: { dummy: null, packs: PACKS, boss: { x: 0, z: 16 } },
+    contents: { dummy: null, packs: PACKS, boss: null },
     packRespawnSeconds: PACK_RESPAWN_SECONDS,
     gates: [
       {

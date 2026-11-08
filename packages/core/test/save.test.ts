@@ -12,7 +12,7 @@ import { fightOn } from '../src/reads';
 import { fromSave, migrate, toSave } from '../src/save';
 import type { GameState } from '../src/state';
 import { enterZone, recordOf } from '../src/zones';
-import { SNIPER, unitOf } from './helpers';
+import { SNIPER, ofType, unitOf } from './helpers';
 import V1 from './saves/v1.json' with { type: 'json' };
 import V2 from './saves/v2.json' with { type: 'json' };
 
@@ -22,7 +22,7 @@ const V1_SAVE: unknown = V1;
 /** A careful bot's run, stopped when no fight is on, as the app saves. */
 function playedGame(seed: number, ticks: number): GameState {
   const state = createGame(seed, ISLAND_SCENARIO);
-  while (!state.victory && (state.tick < ticks || fightOn(state) || state.squadDown)) step(state, botCommands(state, 'careful'));
+  while ((state.tick < ticks || fightOn(state) || state.squadDown)) step(state, botCommands(state, 'careful'));
   return state;
 }
 
@@ -157,6 +157,20 @@ describe('a save (S3c)', () => {
     expect(dropId).not.toBeNull();
     expect(characterIds).not.toContain(dropId);
     expect(enemyIds).not.toContain(dropId);
+  });
+});
+
+describe('a boss marked dead in an old save (S3f decision 18)', () => {
+  it.each([
+    ['version 1', V1],
+    ['version 2', V2],
+  ])('%s still loads and plays on', (_, example) => {
+    const save = JSON.parse(JSON.stringify(example)) as { game: { records: { id: string; bossDead: boolean }[] } };
+    const lande = save.game.records.find(({ id }) => id === 'lande');
+    if (!lande) throw new Error('No Lande.');
+    lande.bossDead = true;
+    const state = load(save);
+    expect(ofType(step(state, [{ type: 'regroup' }]), 'order-refused')).toEqual([]);
   });
 });
 

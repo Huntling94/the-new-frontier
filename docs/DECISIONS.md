@@ -489,3 +489,9 @@ Right click, right drag, middle drag, the wheel, left click and left drag, `Spac
 - Rates, and what "unknown" means in play, are rules for the drops brief.
 
 **Why:** the maintainer's direction, 9 Nov 2026. An enhanced drop can beat the same item from a shop, so drops are worth having.
+
+## D-056
+
+**Evade and block are on the shared combat sheet.** This changes D-049, which removed evade and left block off the sheet. Characters and monsters both carry evade and block, at 0, and neither does anything yet, like the resistances. AR and DR stay as D-049 has them. What evade and block do in a hit is for the brief that brings them to life.
+
+**Why:** the maintainer's direction, 9 Nov 2026, during the S3f build.

@@ -253,7 +253,7 @@ export class Hud {
 
     const zone = currentZone(view);
     const boss = view.live.enemies.find((enemy) => enemy.boss);
-    const bossUp = boss?.awake === true && boss.alive && !view.victory;
+    const bossUp = boss?.awake === true && boss.alive;
     setHidden(this.bossWrap, !bossUp);
     if (boss && bossUp) {
       const look = monsterLook(boss.kind);
@@ -291,7 +291,7 @@ export class Hud {
     setHidden(this.slowEdge, !input.slowed);
     const smith = npcOffering(view, 'smith');
     if (smith) setText(this.prompt, `Right click ${smith.name} to upgrade gear`);
-    setHidden(this.prompt, input.paused || !isNearSmith(view) || view.victory);
+    setHidden(this.prompt, input.paused || !isNearSmith(view));
   }
 
   /** Names the spell that interrupts, with its key, for whoever in the three has it. */

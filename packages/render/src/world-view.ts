@@ -223,7 +223,7 @@ export function createWorldView(canvas: HTMLCanvasElement, overlay: HTMLCanvasEl
       const squad = living.length > 0
         ? { x: living.reduce((sum, u) => sum + u.x, 0) / living.length, z: living.reduce((sum, u) => sum + u.z, 0) / living.length }
         : current.anchor;
-      loaded.scene.update(current, dt, focus, squad);
+      loaded.scene.update(dt, focus, squad);
       // A building never hides a living character: it fades while it would (S3d decision 9).
       // Nor an NPC, which must read as something to click (S3e decision 2).
       const seen = [...loaded.entities.drawnUnits().filter(({ alive }) => alive), ...loaded.npcs.positions()].map(({ x, y, z }) => ({ x, y: y + PICK_HEIGHT, z }));

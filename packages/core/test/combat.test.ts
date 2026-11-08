@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { COMBAT } from '../data/combat';
 import { SLOTS } from '../data/items';
 import { DUMMY } from '../data/enemies';
 import { EMPTY_SCENARIO } from '../data/scenarios';
@@ -10,6 +11,7 @@ import {
   hitEnemy,
   hurtUnit,
   shareXp,
+  xpShareFor,
 } from '../src/combat';
 import { characterOf } from '../src/family';
 import { applyCommands } from '../src/orders';
@@ -83,19 +85,19 @@ describe('damage to an enemy', () => {
 });
 
 /**
- * A Fighter has DR 5 and Def 86, so the dummy's AR 3 gives 0.8 and Def gives
- * 0.57. So 89 × 0.8 × 0.57 = 40.58.
+ * A Fighter has DR 5 and Def 86, so the dummy's AR 3, two below, gives 0.7 and
+ * Def gives 0.57. So 89 × 0.7 × 0.57 = 35.51.
  */
 describe('damage to a unit', () => {
   it('carries AR against DR, and Def', () => {
     const unit = unitOf(dummyGame(), FIGHTER);
-    expect(damageToUnit(unit, DUMMY.attack, DUMMY.ar)).toBe(41);
+    expect(damageToUnit(unit, DUMMY.attack, DUMMY.ar)).toBe(36);
   });
 
   it('takes 70% off under Guard', () => {
     const unit = unitOf(dummyGame(), FIGHTER);
     unit.guardTicks = 1;
-    expect(damageToUnit(unit, DUMMY.attack, DUMMY.ar)).toBe(12);
+    expect(damageToUnit(unit, DUMMY.attack, DUMMY.ar)).toBe(11);
   });
 
   it('is at least 1', () => {
@@ -139,18 +141,33 @@ describe('ge.c bugs that must not come back', () => {
 });
 
 describe('the maths behind them', () => {
-  it('AR against DR follows the squad test', () => {
-    expect(accuracyMultiplier(5, 5)).toBe(1);
-    expect(accuracyMultiplier(7, 5)).toBe(1.5);
-    expect(accuracyMultiplier(50, 5)).toBe(3);
-    expect(accuracyMultiplier(3, 5)).toBe(0.8);
-    expect(accuracyMultiplier(0, 50)).toBe(0.1);
+  it.each([
+    ['3 below', 2, 5, 0.6],
+    ['1 below', 4, 5, 0.8],
+    ['equal', 5, 5, 1],
+    ['1 above', 6, 5, 1.25],
+    ['3 above', 8, 5, 1.75],
+    ['12 above', 17, 5, 3],
+    ['at the floor, 8 below', 0, 8, 0.1],
+    ['far past the floor', 0, 50, 0.1],
+  ])('AR against DR, %s (D-049)', (_, ar, dr, multiplier) => {
+    expect(accuracyMultiplier(ar, dr)).toBeCloseTo(multiplier, 9);
   });
 
-  it('Def is capped', () => {
+  it('never lets a hit heal or fall below the minimum, even at the floor', () => {
+    const unit = unitOf(dummyGame(), FIGHTER);
+    unit.dr = 500;
+    unit.defence = 100000;
+    expect(damageToUnit(unit, 1, 0)).toBe(COMBAT.minDamage);
+  });
+
+  it('Def stops at 95%, and odd points count', () => {
     expect(defenceMultiplier(0)).toBe(1);
+    expect(defenceMultiplier(1)).toBeCloseTo(0.995, 9);
     expect(defenceMultiplier(100)).toBe(0.5);
-    expect(defenceMultiplier(100000)).toBe(0.25);
+    expect(defenceMultiplier(100000)).toBeCloseTo(0.05, 9);
+    expect(defenceMultiplier(190)).toBeCloseTo(0.05, 9);
+    expect(defenceMultiplier(180)).toBeCloseTo(0.1, 9);
   });
 
   it('starting stats follow the squad test', () => {
@@ -192,17 +209,44 @@ describe('the maths behind them', () => {
   });
 });
 
+describe('XP by level gap (D-051)', () => {
+  it.each([
+    ['same level', 20, 20, 1],
+    ['exactly 10 above', 30, 20, 1],
+    ['11 above, at level 21: reduced', 21, 10, 0.6],
+    ['12 above, at level 22: still reduced, inside 10 plus 2.2', 22, 10, 0.6],
+    ['13 above, at level 23: past 10 plus 2.3, none', 23, 10, 0],
+    ['exactly 5 below', 15, 20, 1],
+    ['6 below', 14, 20, 1.4],
+    ['exactly 20 below', 10, 30, 1.4],
+    ['21 below', 9, 30, 1.2],
+  ])('%s', (_, level, monsterLevel, share) => {
+    expect(xpShareFor(level, monsterLevel)).toBe(share);
+  });
+
+  it('pays characters of different levels by their own band, in one kill', () => {
+    const state = dummyGame();
+    const [low, even, high] = state.family.characters;
+    if (!low || !even || !high) throw new Error('No family.');
+    low.level = 4;
+    even.level = 10;
+    high.level = 21;
+    shareXp(state, 300, 10, []);
+    expect([low.xp, even.xp, high.xp]).toEqual([140, 100, 60]);
+  });
+});
+
 describe('XP and levels (D-004)', () => {
   it('splits equally among the living', () => {
     const state = dummyGame();
-    shareXp(state, 300, []);
+    shareXp(state, 300, 3, []);
     expect(state.family.characters.map((character) => character.xp)).toEqual([100, 100, 100]);
   });
 
   it('gives nothing to the dead, and more to the rest', () => {
     const state = dummyGame();
     unitOf(state, SNIPER).alive = false;
-    shareXp(state, 300, []);
+    shareXp(state, 300, 3, []);
     expect(state.family.characters.map((character) => character.xp)).toEqual([150, 0, 150]);
   });
 
@@ -223,7 +267,7 @@ describe('XP and levels (D-004)', () => {
     unit.health = 100;
     const { attack, maxHealth } = unit;
     const events: ReturnType<typeof run> = [];
-    shareXp(state, xpToNextLevel(3) * 3, events);
+    shareXp(state, xpToNextLevel(3) * 3, 3, events);
     expect(characterOf(state, FIGHTER).level).toBe(4);
     expect(characterOf(state, FIGHTER).xp).toBe(0);
     expect(unit.health).toBe(unit.maxHealth);
@@ -235,7 +279,7 @@ describe('XP and levels (D-004)', () => {
 
   it('can rise more than one level at once', () => {
     const state = dummyGame();
-    shareXp(state, (xpToNextLevel(3) + xpToNextLevel(4)) * 3, []);
+    shareXp(state, (xpToNextLevel(3) + xpToNextLevel(4)) * 3, 3, []);
     expect(characterOf(state, FIGHTER).level).toBe(5);
   });
 

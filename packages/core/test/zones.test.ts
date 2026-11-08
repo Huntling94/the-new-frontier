@@ -208,7 +208,7 @@ describe('gates (D-021)', () => {
 
 describe('zone records (D-021)', () => {
   function oneFarPack(): GameState {
-    const pack = { x: 40, z: -40, level: 3, mobs: [{ kind: 'runner' as const, count: 2 }] };
+    const pack = { x: 40, z: -40, level: 3, mobs: [{ kind: 'rooster' as const, count: 2 }] };
     return createGame(1, { ...EMPTY_SCENARIO, contents: { dummy: null, boss: null, packs: [pack] } });
   }
 
@@ -244,17 +244,15 @@ describe('zone records (D-021)', () => {
   });
 
   it('keep the boss dead after leaving and coming back', () => {
-    const state = createGame(1, ISLAND_SCENARIO);
+    const state = createGame(1, { ...ISLAND_SCENARIO, contents: { dummy: null, packs: [], boss: { x: 0, z: 16 } } });
     const boss = state.live.enemies.find((enemy) => enemy.boss);
     if (!boss) throw new Error('No boss.');
     hitEnemy(state, unitOf(state, SNIPER), boss, 1e6, []);
     expect(recordOf(state).bossDead).toBe(true);
-    // The run is over once the boss dies, so the crossing is made directly.
     crossGate(state, INTO_CAVE as NonNullable<typeof INTO_CAVE>, []);
     crossGate(state, OUT_OF_CAVE as NonNullable<typeof OUT_OF_CAVE>, []);
     expect(state.zoneId).toBe('lande');
     expect(state.live.enemies.some((enemy) => enemy.boss)).toBe(false);
-    expect(state.live.enemies.length).toBeGreaterThan(0);
   });
 
   it('are plain data, as a save will need', () => {

@@ -114,6 +114,29 @@ export interface Item {
   broken: boolean;
 }
 
+export type DamageType = 'fire' | 'ice' | 'lightning' | 'mental';
+
+/**
+ * The one combat sheet, shared by characters and monsters (D-049, D-056). Evade, block
+ * and the resistances are on it and do nothing yet.
+ */
+export interface CombatSheet {
+  maxHealth: number;
+  attack: number;
+  /** Seconds between attacks. */
+  attackSeconds: number;
+  /** Accuracy, which is set against the target's DR. */
+  ar: number;
+  /** Damage reduction, which is set against the attacker's AR. */
+  dr: number;
+  defence: number;
+  /** Chance of a crit, as a percentage. */
+  crit: number;
+  evade: number;
+  block: number;
+  resistances: Readonly<Record<DamageType, number>>;
+}
+
 /** One of the three places in the triangle (D-025). */
 export interface FormationPlace {
   /** Where the body starts, from the scenario's starting point. */
@@ -158,7 +181,7 @@ export interface Family {
  * A character's live body in the field. It belongs to the squad, not the zone's
  * live group, so a gate moves it whole (decision 1).
  */
-export interface Body {
+export interface Body extends CombatSheet {
   /** Its character's ID. */
   readonly id: number;
   alive: boolean;
@@ -184,14 +207,6 @@ export interface Body {
   invulnerableTicks: number;
   health: number;
   mana: number;
-  /** This stat and the five after it come from level and gear, through `recalculate`. Never saved. */
-  maxHealth: number;
-  attack: number;
-  ar: number;
-  crit: number;
-  defence: number;
-  /** Damage reduction, which is set against the attacker's AR. */
-  dr: number;
   targetId: number | null;
   /** Ordered onto its target, so it chases even while holding. */
   forced: boolean;
@@ -201,18 +216,14 @@ export interface Body {
   rallyTicks: number;
 }
 
-export type MonsterKind = 'swarm' | 'runner' | 'spitter' | 'brute';
+export type MonsterKind = 'wasp' | 'rooster' | 'viper' | 'boar';
 
 export type EnemyKind = 'dummy' | 'boss' | MonsterKind;
 
 /** An enemy's stats. Level scales them, so each enemy carries its own in state. */
-export interface EnemyStats {
+export interface EnemyStats extends Readonly<Omit<CombatSheet, 'maxHealth'>> {
   readonly level: number;
   readonly health: number;
-  readonly attack: number;
-  readonly ar: number;
-  readonly dr: number;
-  readonly defence: number;
   readonly size: number;
   /** World units per second. */
   readonly speed: number;
@@ -227,6 +238,15 @@ export interface MonsterData {
   readonly behaviour: 'melee' | 'spitter' | 'slammer';
   readonly healthShare: number;
   readonly attackShare: number;
+  readonly arShare: number;
+  readonly drShare: number;
+  readonly defenceShare: number;
+  /** Seconds it waits after a strike lands. */
+  readonly attackSeconds: number;
+  readonly crit: number;
+  readonly evade: number;
+  readonly block: number;
+  readonly resistances: CombatSheet['resistances'];
   readonly size: number;
   readonly speed: number;
   readonly reach: number;
@@ -253,7 +273,6 @@ export interface BossData extends EnemyStats {
   readonly walkAfterSeconds: number;
   readonly meleeExtraReach: number;
   readonly meleeShare: number;
-  readonly meleeSeconds: number;
   readonly interruptSeconds: number;
   readonly slam: {
     readonly radius: number;
@@ -498,8 +517,6 @@ export interface GameState {
   squadDown: boolean;
   /** Left until the squad returns to camp. */
   wipeTicks: number;
-  /** The boss is dead. Only the tick still moves. */
-  victory: boolean;
 }
 
 type DeepReadonly<T> = T extends readonly (infer Item)[]
@@ -614,8 +631,7 @@ export type RefusalReason =
   | 'needs-level'
   | 'needs-art'
   | 'needs-weapon'
-  | 'in-fight'
-  | 'run-over';
+  | 'in-fight';
 
 export type GameEvent =
   | { readonly type: 'order-accepted'; readonly tick: number; readonly order: Command['type'] }
@@ -685,7 +701,6 @@ export type GameEvent =
       readonly kind: Drop['kind'];
       readonly value: number;
     }
-  | { readonly type: 'victory'; readonly tick: number }
   | {
       readonly type: 'zone-changed';
       readonly tick: number;
@@ -694,7 +709,7 @@ export type GameEvent =
     };
 
 /** Why auto-combat has stopped (D-007). */
-export type AutoStop = 'danger' | 'clear' | 'squad-down' | 'victory';
+export type AutoStop = 'danger' | 'clear' | 'squad-down';
 
 export interface AutoResult {
   readonly commands: readonly Command[];

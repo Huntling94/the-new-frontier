@@ -94,9 +94,6 @@ export function roam(view: GameView): Point | 'busy' | null {
 }
 
 function autoStop(view: GameView): AutoStop | null {
-  if (view.victory) {
-    return 'victory';
-  }
   if (view.squadDown) {
     return 'squad-down';
   }

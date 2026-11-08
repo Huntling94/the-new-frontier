@@ -64,6 +64,7 @@ This is the same split as code and data (D-018), and it decides what a save hold
 | Zone | One playable space with its own ground, coordinates and monsters. Its ground is an island with a coast, a rectangle with walls, or a town's streets |
 | Save | The lasting part of the game as plain data, in an envelope with a format version. Kept in the browser, and exported and imported as a `.json` file (S3c) |
 | Zone record | What lasts about a zone: bosses dead, chests opened, when cleared packs come back |
+| Combat sheet | The stats a character and a monster share: health, attack, attack speed, AR, DR, defence, crit, evade, block, and fire, ice, lightning and mental resistance (D-049, D-056) |
 
 ## Entity relationships
 
@@ -141,16 +142,16 @@ Only one zone runs at a time, so there is at most one live group (D-021). The li
 | Entity | Kind | Saved | Status | Notes |
 |---|---|---|---|---|
 | Land | Definition | No | Planned | A name, a level range and a place on the world map. No rules of its own |
-| Zone | Definition | No | Built | `ZONES`: Lande de Montclaire, a cave off it, and the town of Montclaire (S3d). Holds its ground, camp, baked obstacles, packs, boss, gates, lots, NPCs and place in the world frame. Only the zone named on state runs |
+| Zone | Definition | No | Built | `ZONES`: Lande de Montclaire, a cave off it, and the town of Montclaire (S3d). Holds its ground, camp, baked obstacles, packs, any boss, gates, lots, NPCs and place in the world frame. No zone holds a boss for now (D-052). Only the zone named on state runs |
 | Town | Definition | No | Built | A zone of kind `town`. Montclaire, in `packages/core/data/montclaire.ts`: a plaza, a loop of streets and a gate street, hand-placed (D-022). No packs, boss or dummy, so no fight happens there. A player's new game starts in its plaza (`TOWN_SCENARIO`); bots, replays and test pages start on the Lande. Its smith stands at the smithy's door (S3e). Tested in `packages/core/test/town.test.ts` and `e2e/town.spec.ts` |
 | Street | Definition | No | Built | On a town's ground, with its open places: the grid opens every cell whose centre is a character's radius inside a street or place (S3d). Each of Montclaire's is 12 wide |
 | Lot | Definition | No | Built | `lots` on the zone: the smithy, the shop and the inn in Montclaire. The smith stands at the smithy's door; the others wait for their briefs |
 | Gate | Definition | No | Partial | On the zone it leaves: an area, the zone it arrives in, an arrival point and heading. Requirements and cost are held in the shared requirement shape, but nothing checks them yet |
-| Zone record | Instance | Yes | Built | `state.records`: whether the boss is dead, and the game tick each cleared pack comes back. Saved from S3c, without a test scenario's contents. A zone added since a save starts with a fresh record. Tested in `packages/core/test/save.test.ts`, where a cleared pack comes back on the same tick after a load |
+| Zone record | Instance | Yes | Built | `state.records`: whether a boss is dead, which no longer ends anything (D-052), and the game tick each cleared pack comes back. Saved from S3c, without a test scenario's contents. A zone added since a save starts with a fresh record. Tested in `packages/core/test/save.test.ts`, where a cleared pack comes back on the same tick after a load |
 | Live group | Instance | No | Built | `state.live`: enemies, shots, enemy shots, scheduled effects and drops |
-| Pack | Definition | No | Built | `PACKS` and the cave's pack, held on the zone. Comes back on the game clock after it is cleared |
+| Pack | Definition | No | Built | `PACKS` and the cave's pack, held on the zone. Comes back on the game clock after it is cleared. A monster that would land on a character, or on ground it cannot stand on, shifts to the nearest clear walkable spot (S3f) |
 | Grid | Derived | No | Built | Built from the zone's ground, walls and obstacles the first time the zone runs, and kept. Never in state |
-| Monster type | Definition | No | Built | `MONSTERS`, `BOSS` and `DUMMY` |
+| Monster type | Definition | No | Built | `MONSTERS`: the wasp, rooster, viper and wild boar, each with its own sheet as shares of what its level gives (D-050). Not saved, so their IDs can change with no migration. `BOSS` is the Warden, whose code stays unused until quest and raid bosses (D-052). `DUMMY` is for tests |
 | Enemy | Instance | No | Built | Keeps its own stats, because level scales them |
 | Loot table | Definition | No | Partial | Today `LOOT`, and `coins` on each monster |
 | Drop | Instance | No | Built | Loot on the ground |
@@ -188,7 +189,7 @@ A save is the lasting part of the game, and nothing that can be worked out again
 - **An envelope and the game.** The envelope holds `format`, `version` and the app's `savedAt`. Version 1 is the first format, and version 2 is today's (S3e).
 - **Migration is a chain.** Step *n* moves a save's game data from version *n* to *n* + 1. A save runs every step from its version to the current one, then the check. Steps are never edited once shipped, and each version keeps a frozen example in `packages/core/test/saves/`, which every later build must load. Step 1 retires the plain item types: each becomes the type it stood in for, with its ID and upgrade kept, and every item gains `broken: false` (S3e). It names every ID it retires (rule 9), and its test is "version 1 to 2" in `packages/core/test/save.test.ts`.
 - **The check.** The right shape, every content ID in this build's data (rule 9), S3b's item rules (rules 1 and 2), and no broken item in a slot. A save newer than the build, or one that fails the check, is refused and left untouched.
-- **Whether the run is won** follows from the boss's zone record, so it is not saved separately.
+- **There is no winning (D-052).** A boss marked dead in an older save is harmless, and the format did not change.
 - **Loading draws from the generator.** Building the zone's packs on load uses the generator, as any entry does. So the rolls after a reload differ from the rolls the run would have had without one. Replays start from `createGame` and never load a save.
 
 ## How stats are worked out
@@ -225,21 +226,26 @@ Stats are a named list, so adding one means one new entry:
 | Group | Stats |
 |---|---|
 | Resources | Health, mana, mana regeneration |
-| Offence | Melee, ranged and magic attack, attack speed, accuracy, crit chance, crit damage |
-| Defence | Defence, evade, block, one resistance per damage type |
+| Offence | Melee, ranged and magic attack, attack speed, AR, crit chance, crit damage |
+| Defence | Defence, DR, evade, block, one resistance per damage type |
 | Movement | Speed |
 
 Monsters use the same stat sheet as characters, with their numbers set directly, so they skip attributes. Items may boost any attribute or stat, so item boosts need no new structure when they arrive.
 
+Today's sheet, `CombatSheet` in `packages/core/src/state.ts`, is on every body and enemy (D-049, D-056): maximum health, attack, attack speed, AR, DR, defence, crit, evade, block, and fire, ice, lightning and mental resistance. A monster also has the XP it grants. Evade, block and the resistances are 0 and do nothing yet.
+
 ## How a hit is worked out
 
-A single function resolves every hit, in this order:
+Every hit runs in this order (D-049), from the 2019 formula with three fixes:
 
-1. **Accuracy against evade:** a multiplier, with no random misses.
-2. **Block:** a chance, which comes from shields.
-3. **Crit:** a chance.
-4. **Defence and resistance:** both reduce damage, up to their caps.
-5. **Minimum damage:** a hit always does at least 1.
+1. **Character attack only:** multiplied by 1.6, and doubled on a crit. A monster's attack has neither. Spell multipliers, Rally and stagger apply here.
+2. **AR against DR:** AR above DR adds 25% a point, up to +200%. AR below DR takes 10% for the difference plus one, so -20% at 1 below, down to 10% of the damage.
+3. **Defence:** each point takes 0.5%, up to 95%. Guard then applies to a character.
+4. **Minimum damage:** a hit always does at least 1, and never heals.
+
+Evade, block and resistances are on the sheet and are not part of a hit yet (D-056).
+
+XP is split equally among the living (D-004). Each character then earns by its own level against the monster's (D-051): none when more than 10 levels plus a tenth of its level above, 60% when more than 10 above, 120% when more than 20 below, 140% when more than 5 below, and otherwise 100%. The bands are `XP_BANDS` in `packages/core/data/combat.ts`.
 
 ## What can be used
 
@@ -261,7 +267,7 @@ A structure enters only when a real need demands it, and the brief that adds it 
 | Grid | Walkable ground inside a zone | Any position is one lookup away. One byte a cell says whether a character, and whether an enemy, may stand there, and connected areas are labelled once so an unreachable goal is known at once | Built |
 | A\* with a binary heap | Routes inside a zone | The heap always gives the most promising cell next. Routes are then smoothed by line of sight, so units walk long straight legs. The longest route on the Lande takes under a millisecond | Built |
 | Directed acyclic graph | Quest prerequisites | A topological sort proves that no quest is impossible | Planned |
-| State machine | Boss phases, quest status | One named stage at a time, with clear changes between stages. Today the boss only | Partial |
+| State machine | Boss phases, quest status | One named stage at a time, with clear changes between stages. Today the unused boss only | Partial |
 | Sorted array with binary search | XP levels, loot odds | Fast lookup, and it stays plain data | Planned |
 
 The world uses the same idea at two scales. Zones and gates form a coarse graph, and the walkable cells inside a zone form a fine one. A unit walks straight when the line is clear on the grid, and asks A\* only when it is not. Bots plan across zones with exactly this split (S3e): a breadth-first search over gates gives the route, and A\* walks each zone. Auto-combat stays inside the zone that runs.

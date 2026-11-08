@@ -21,7 +21,7 @@ export const TICKS = {
   shotLife: secondsToTicks(SHOTS.lifeSeconds),
   autoHeal: secondsToTicks(AUTO_HEAL.seconds),
   potionCooldown: secondsToTicks(POTIONS.cooldownSeconds),
-  dummyStrike: secondsToTicks(DUMMY.strikeSeconds),
+  dummyStrike: secondsToTicks(DUMMY.attackSeconds),
   dummyRespawn: secondsToTicks(DUMMY.respawnSeconds),
   taunt: secondsToTicks(SPELLS.taunt.seconds),
   guard: secondsToTicks(SPELLS.guard.seconds),
@@ -38,7 +38,7 @@ export const TICKS = {
   bossFirstMove: secondsToTicks(BOSS.firstMoveSeconds),
   bossWokenMove: secondsToTicks(BOSS.wokenMoveSeconds),
   bossWalkAfter: secondsToTicks(BOSS.walkAfterSeconds),
-  bossMelee: secondsToTicks(BOSS.meleeSeconds),
+  bossMelee: secondsToTicks(BOSS.attackSeconds),
   bossInterrupt: secondsToTicks(BOSS.interruptSeconds),
   chargeLength: secondsToTicks(BOSS.charge.seconds),
 };

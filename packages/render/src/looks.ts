@@ -32,7 +32,7 @@ export function npcLook(npcId: string): CharacterLook {
   return NPCS[npcId] ?? PLAIN_CHARACTER;
 }
 
-export type MonsterBody = 'swarm' | 'runner' | 'spitter' | 'brute' | 'post' | 'blob';
+export type MonsterBody = 'wasp' | 'rooster' | 'viper' | 'boar' | 'brute' | 'post' | 'blob';
 
 export interface MonsterLook {
   readonly name: string;
@@ -52,10 +52,10 @@ export interface MonsterLook {
 }
 
 const MONSTERS: Readonly<Record<string, MonsterLook>> = {
-  swarm: { name: 'Sand Skitter', body: 'swarm', colour: 0xd8b878, trim: 0x8a6a3a, modelSize: 0.8, crowned: false, barHeight: 0.8, overheadBar: true, castName: null },
-  runner: { name: 'Tide Crab', body: 'runner', colour: 0xd86a4a, trim: 0xf0c090, modelSize: 1.15, crowned: false, barHeight: 0.8, overheadBar: true, castName: null },
-  spitter: { name: 'Spit Anemone', body: 'spitter', colour: 0xc86aa8, trim: 0xf4d0e0, modelSize: 1.2, crowned: false, barHeight: 0.8, overheadBar: true, castName: null },
-  brute: { name: 'Slag Golem', body: 'brute', colour: 0x6c6a70, trim: 0xff9a40, modelSize: 2, crowned: false, barHeight: 3.5, overheadBar: true, castName: null },
+  wasp: { name: 'Wasp', body: 'wasp', colour: 0xe2b024, trim: 0x2a2418, modelSize: 0.8, crowned: false, barHeight: 1.6, overheadBar: true, castName: null },
+  rooster: { name: 'Rooster', body: 'rooster', colour: 0xa8562c, trim: 0xd8342a, modelSize: 1.15, crowned: false, barHeight: 2.6, overheadBar: true, castName: null },
+  viper: { name: 'Viper', body: 'viper', colour: 0x5a8a4a, trim: 0xc8d060, modelSize: 1.2, crowned: false, barHeight: 2.6, overheadBar: true, castName: null },
+  boar: { name: 'Wild Boar', body: 'boar', colour: 0x5a4436, trim: 0xe8dcc0, modelSize: 2, crowned: false, barHeight: 3.5, overheadBar: true, castName: null },
   boss: { name: 'The Warden', body: 'brute', colour: 0x3f4a55, trim: 0xffb648, modelSize: 1.5, crowned: true, barHeight: 13, overheadBar: false, castName: 'Warden’s Light' },
   dummy: { name: 'Training Dummy', body: 'post', colour: 0x8a6a48, trim: 0xd8c8a0, modelSize: 1.15, crowned: false, barHeight: 4, overheadBar: true, castName: null },
 };
@@ -170,7 +170,7 @@ const CAVE: ZoneLook = {
   },
 };
 
-/** Golden afternoon light, the same before and after the beacon: the town is safe. */
+/** Golden afternoon light: the town is safe. */
 const AFTERNOON: Light = {
   skyTop: 0x5f8fc0,
   horizon: 0xffd9b8,

@@ -4,7 +4,7 @@ import { START_ZONE, TOWN_ZONE } from './zones';
 
 const NOTHING: ZoneContents = { dummy: null, packs: [], boss: null };
 
-/** The real game: the squad at camp on Lande de Montclaire, with its packs and boss. */
+/** The real game: the squad at camp on Lande de Montclaire, with its packs. */
 export const ISLAND_SCENARIO: Scenario = {
   name: 'island',
   zone: START_ZONE,

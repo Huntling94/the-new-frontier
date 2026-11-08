@@ -41,7 +41,7 @@ function sustain(view: GameView): Command[] {
 }
 
 /** The next upgrade on the list, by place in the three and slot, that the squad can afford. */
-function nextUpgrade(view: GameView): Command | null {
+export function nextBotUpgrade(view: GameView): Command | null {
   for (const { place, slot } of BOTS.upgrades) {
     const unitId = view.family.active[place];
     const item = unitId === undefined ? null : characterOf(view, unitId).items[slot];
@@ -69,7 +69,7 @@ function towardsSmith(view: GameView): Command[] {
 
 /** With the zone clear: to the smith while there is money, and then the boss. */
 function headForBoss(view: GameView): Command[] {
-  const upgrade = nextUpgrade(view);
+  const upgrade = nextBotUpgrade(view);
   if (upgrade && isNearSmith(view)) {
     return [upgrade];
   }
@@ -85,9 +85,9 @@ function headForBoss(view: GameView): Command[] {
   return [moveAll(view, centre.z > bossStart.z ? bossStart : bossApproach, false)];
 }
 
-/** In a zone with no boss, such as town: spend what there is at the smith, then walk back to the boss's zone. */
+/** With nothing to fight here: spend what there is at the smith, then walk back to the fighting zone. */
 function travelLayer(view: GameView): Command[] {
-  const upgrade = nextUpgrade(view);
+  const upgrade = nextBotUpgrade(view);
   if (upgrade && isNearSmith(view)) {
     return [upgrade];
   }
@@ -97,12 +97,15 @@ function travelLayer(view: GameView): Command[] {
   return upgrade ? towardsSmith(view) : towardsZone(view, ({ id }) => id === BOTS.fightZone);
 }
 
-function roamLayer(view: GameView): Command[] {
+function roamLayer(view: GameView, hasBoss: boolean): Command[] {
   const next = roam(view);
   if (next === 'busy') {
     return [];
   }
-  return next ? [moveAll(view, next, true)] : headForBoss(view);
+  if (next) {
+    return [moveAll(view, next, true)];
+  }
+  return hasBoss ? headForBoss(view) : travelLayer(view);
 }
 
 /** The careful bot leaves a slam before it lands, and regroups once it has. */
@@ -162,14 +165,14 @@ function bossLayer(view: GameView, kind: BotKind, boss: EnemyView): Command[] {
 
 /** A player that acts only through commands (S2.2c). Roams as auto-combat does, then fights. */
 export function botCommands(view: GameView, kind: BotKind): Command[] {
-  if (view.tick % TICKS.botThink !== 0 || view.squadDown || view.victory) {
+  if (view.tick % TICKS.botThink !== 0 || view.squadDown) {
     return [];
   }
   const boss = view.live.enemies.find((enemy) => enemy.boss);
   if (!boss) {
-    return [...sustain(view), ...travelLayer(view)];
+    return [...sustain(view), ...(view.zoneId === BOTS.fightZone ? roamLayer(view, false) : travelLayer(view))];
   }
   return boss.awake
     ? bossLayer(view, kind, boss)
-    : [...sustain(view), ...roamLayer(view)];
+    : [...sustain(view), ...roamLayer(view, true)];
 }

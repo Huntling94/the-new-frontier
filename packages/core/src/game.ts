@@ -1,4 +1,4 @@
-import { LEVELS, POTIONS } from '../data/combat';
+import { LEVELS, NO_RESISTANCE, POTIONS } from '../data/combat';
 import { MARKS } from '../data/gear';
 import { STARTING_INVENTORY } from '../data/items';
 import { CLASSES, FORMATION, STARTING_FAMILY } from '../data/squad';
@@ -68,10 +68,14 @@ export function createBody(character: Character, point: Point): Body {
     mana: CLASSES[character.classId].mana,
     maxHealth: 0,
     attack: 0,
+    attackSeconds: 0,
     ar: 0,
     crit: 0,
     defence: 0,
     dr: 0,
+    evade: 0,
+    block: 0,
+    resistances: NO_RESISTANCE,
     targetId: null,
     forced: false,
     attackTicks: 0,
@@ -102,7 +106,6 @@ export function createGame(seed: number, scenario: Scenario): GameState {
     potionCooldownTicks: 0,
     squadDown: false,
     wipeTicks: 0,
-    victory: false,
   };
   const characters = (scenario.family ?? STARTING_FAMILY).map((start) => createCharacter(state, start));
   state.family.characters = characters;
@@ -191,8 +194,8 @@ function returnToCamp(state: GameState, events: GameEvent[]): void {
 }
 
 /**
- * Runs one tick. Units update in ID order. While the squad is down, or once the
- * boss is dead, the tick still counts, because replays and the viewer rely on it.
+ * Runs one tick. Units update in ID order. While the squad is down, the tick
+ * still counts, because replays and the viewer rely on it.
  */
 export function advance(state: GameState): GameEvent[] {
   const events: GameEvent[] = [];
@@ -201,7 +204,7 @@ export function advance(state: GameState): GameEvent[] {
     if (state.wipeTicks <= 0) {
       returnToCamp(state, events);
     }
-  } else if (!state.victory) {
+  } else {
     runRules(state, events);
   }
   state.tick += 1;

@@ -17,7 +17,7 @@ export const AUTO = {
 /** The test bots, from the squad test. */
 export const BOTS = {
   thinkSeconds: 0.2,
-  /** The zone holding the boss, which the bots walk back to from town. */
+  /** The zone the bots fight in, and walk back to from town. */
   fightZone: 'lande',
   /** Where the squad stands to wake the boss, and the way in from the camp side. */
   bossStart: { x: 0, z: 26 },
@@ -44,7 +44,11 @@ export const BOTS = {
   regroupAfterSeconds: 1.4,
 };
 
-/** A run counts as finished if the boss dies inside this, and as stalled after the second. */
+/**
+ * A run finishes once every pack has been cleared at least once and the marks are spent.
+ * One that reaches the hard limit, in game ticks, or has nothing happen for the seconds
+ * below, stops and counts as stalled, never as a finish (S3f decision 21).
+ */
 export const RUNS = {
   tickLimit: 36000,
   stallSeconds: 60,

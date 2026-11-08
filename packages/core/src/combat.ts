@@ -1,4 +1,4 @@
-import { COMBAT } from '../data/combat';
+import { COMBAT, XP_BANDS } from '../data/combat';
 import { characterOf } from './family';
 import { livingUnits } from './formation';
 import { dropLoot } from './loot';
@@ -8,13 +8,16 @@ import type { Enemy, GameEvent, GameState, Point, Body } from './state';
 import { TICKS } from './time';
 import { noteKill } from './zones';
 
-/** What AR against DR does to damage. More AR never lowers it, and it stops at a floor. */
+/** What AR against DR does to damage (D-049). More AR never lowers it, and it stops at a floor. */
 export function accuracyMultiplier(ar: number, dr: number): number {
   const difference = ar - dr;
   if (difference > 0) {
     return 1 + Math.min(COMBAT.accuracyMostExtra, difference * COMBAT.accuracyPerPointAbove);
   }
-  return Math.max(COMBAT.accuracyFloor, 1 + difference * COMBAT.accuracyPerPointBelow);
+  if (difference === 0) {
+    return 1;
+  }
+  return Math.max(COMBAT.accuracyFloor, 1 - (1 - difference) * COMBAT.accuracyPerPointBelow);
 }
 
 export function defenceMultiplier(defence: number): number {
@@ -49,8 +52,23 @@ export function damageToUnit(unit: Body, raw: number, sourceAr: number): number 
   return Math.max(COMBAT.minDamage, Math.round(damage));
 }
 
-/** XP splits equally among the living (D-004). */
-export function shareXp(state: GameState, xp: number, events: GameEvent[]): void {
+/** The share of a kill's XP a character of this level keeps (D-051). */
+export function xpShareFor(level: number, monsterLevel: number): number {
+  const above = level - monsterLevel;
+  if (above > XP_BANDS.noneAbove + level * XP_BANDS.noneAbovePerLevel) {
+    return 0;
+  }
+  if (above > XP_BANDS.reducedAbove) {
+    return XP_BANDS.reducedShare;
+  }
+  if (-above > XP_BANDS.farBelow) {
+    return XP_BANDS.farBelowShare;
+  }
+  return -above > XP_BANDS.nearBelow ? XP_BANDS.nearBelowShare : 1;
+}
+
+/** XP splits equally among the living (D-004), then each earns by its own level (D-051). */
+export function shareXp(state: GameState, xp: number, monsterLevel: number, events: GameEvent[]): void {
   const living = livingUnits(state);
   if (living.length === 0) {
     return;
@@ -58,7 +76,7 @@ export function shareXp(state: GameState, xp: number, events: GameEvent[]): void
   const each = Math.round(xp / living.length);
   for (const unit of living) {
     const character = characterOf(state, unit.id);
-    character.xp += each;
+    character.xp += Math.round(each * xpShareFor(character.level, monsterLevel));
     while (character.xp >= xpToNextLevel(character.level)) {
       character.xp -= xpToNextLevel(character.level);
       character.level += 1;
@@ -77,13 +95,9 @@ function killEnemy(state: GameState, enemy: Enemy, events: GameEvent[]): void {
     state.sharedTargetId = null;
   }
   events.push({ type: 'enemy-down', tick: state.tick, enemyId: enemy.id });
-  shareXp(state, enemy.xp, events);
+  shareXp(state, enemy.xp, enemy.level, events);
   dropLoot(state, enemy);
   noteKill(state, enemy);
-  if (enemy.boss) {
-    state.victory = true;
-    events.push({ type: 'victory', tick: state.tick });
-  }
 }
 
 /** Wakes the enemy and the rest of its pack. A sleeping boss wakes only by being hit or neared. */

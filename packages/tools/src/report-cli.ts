@@ -32,7 +32,7 @@ function reportAuto(): void {
   const stops = new Map<string, number>();
   for (const seed of seeds) {
     const { stalled, stop } = runAuto(seed);
-    const reason = stalled ? 'stalled' : (stop ?? 'tick limit');
+    const reason = stalled ? 'stalled' : (stop ?? 'unknown');
     stops.set(reason, (stops.get(reason) ?? 0) + 1);
   }
   const lines = [...stops].map(([reason, runs]) => `${reason} ${String(runs)}`);

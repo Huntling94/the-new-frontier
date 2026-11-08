@@ -1,9 +1,11 @@
 import {
   ISLAND_SCENARIO,
   RUNS,
+  ZONES,
   TICK_RATE,
   autoCommands,
   botCommands,
+  nextBotUpgrade,
   createGame,
   hashState,
   step,
@@ -59,14 +61,49 @@ function count(tally: Tally, event: GameEvent): void {
   if (event.type === 'order-refused') tally.refusals += 1;
 }
 
-/** Plays until `next` says to stop, the boss dies, the limit passes, or nothing moves. */
-export function play(seed: number, next: (state: GameState) => readonly Command[] | null): RunResult {
+/** Which packs of the run's first zone have been cleared. A pack that comes back stays counted. */
+function noteCleared(state: GameState, zoneId: string, cleared: Set<number>): void {
+  const record = state.records.find(({ id }) => id === zoneId);
+  for (const { packId } of record?.returns ?? []) {
+    cleared.add(packId);
+  }
+}
+
+/** Every pack of the zone has been cleared at least once, whatever has come back since. */
+function allCleared(zoneId: string, cleared: ReadonlySet<number>): boolean {
+  const packs = ZONES.find(({ id }) => id === zoneId)?.contents.packs ?? [];
+  return packs.length > 0 && packs.every((_, packId) => cleared.has(packId));
+}
+
+/** What a run may change from the defaults. */
+export interface PlayOptions {
+  readonly tickLimit?: number;
+  /** Whether the run counts as finished, with every pack cleared at least once. */
+  readonly doneOnceCleared?: (state: GameState) => boolean;
+}
+
+/**
+ * Plays until `next` says to stop or the run is finished, or stops as stalled at the
+ * hard limit or when nothing moves (S3f decision 21).
+ */
+export function play(
+  seed: number,
+  next: (state: GameState) => readonly Command[] | null,
+  { tickLimit = RUNS.tickLimit, doneOnceCleared = () => false }: PlayOptions = {},
+): RunResult {
   const state = createGame(seed, ISLAND_SCENARIO);
   const tally = { wipes: 0, charactersDown: 0, revives: 0, interrupts: 0, upgrades: 0, refusals: 0 };
   let print = healthPrint(state);
   let quietSince = 0;
   let stalled = false;
-  while (!state.victory && state.tick < RUNS.tickLimit) {
+  let finished = false;
+  const cleared = new Set<number>();
+  const { zoneId } = state;
+  while (!finished && !stalled) {
+    if (state.tick >= tickLimit) {
+      stalled = true;
+      break;
+    }
     const commands = next(state);
     if (!commands) {
       break;
@@ -79,13 +116,12 @@ export function play(seed: number, next: (state: GameState) => readonly Command[
       print = now;
       quietSince = state.tick;
     }
-    if (state.tick - quietSince > STALL_TICKS) {
-      stalled = true;
-      break;
-    }
+    noteCleared(state, zoneId, cleared);
+    finished = allCleared(zoneId, cleared) && doneOnceCleared(state);
+    stalled = !finished && state.tick - quietSince > STALL_TICKS;
   }
   return {
-    finished: state.victory,
+    finished,
     stalled,
     ticks: state.tick,
     ...tally,
@@ -97,8 +133,12 @@ export function play(seed: number, next: (state: GameState) => readonly Command[
   };
 }
 
-export function runBot(seed: number, kind: BotKind): RunResult {
-  return play(seed, (state) => botCommands(state, kind));
+/** A bot finishes with every pack cleared at least once and its marks spent, as it upgrades today. */
+export function runBot(seed: number, kind: BotKind, options: PlayOptions = {}): RunResult {
+  return play(seed, (state) => botCommands(state, kind), {
+    doneOnceCleared: (state) => nextBotUpgrade(state) === null,
+    ...options,
+  });
 }
 
 export function runAuto(seed: number): RunResult & { readonly stop: AutoStop | null } {

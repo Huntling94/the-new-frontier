@@ -114,7 +114,7 @@ describe('equip and unequip (decision 17)', () => {
     expect(refusals(state, [{ type: 'equip', unitId: FIGHTER, itemId: necklace, slot: 'necklace' }])).toEqual([]);
     expect(refusals(state, [{ type: 'equip', unitId: FIGHTER, itemId: cap, slot: 'chest' }])).toEqual(['wrong-slot']);
     expect(refusals(state, [{ type: 'unequip', unitId: FIGHTER, slot: 'head' }])).toEqual(['slot-empty']);
-    const fight = createGame(1, { ...EMPTY_SCENARIO, contents: { dummy: null, boss: null, packs: [{ x: 0, z: 40, level: 3, mobs: [{ kind: 'runner', count: 1 }] }] } });
+    const fight = createGame(1, { ...EMPTY_SCENARIO, contents: { dummy: null, boss: null, packs: [{ x: 0, z: 40, level: 3, mobs: [{ kind: 'rooster', count: 1 }] }] } });
     const [monster] = fight.live.enemies;
     if (!monster) throw new Error('No monster.');
     monster.awake = true;

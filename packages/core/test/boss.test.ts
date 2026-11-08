@@ -5,6 +5,7 @@ import { EMPTY_SCENARIO } from '../data/scenarios';
 import { characterOf } from '../src/family';
 import { hitEnemy } from '../src/combat';
 import { createGame, step } from '../src/game';
+import { recordOf } from '../src/zones';
 import { nextRandom } from '../src/random';
 import type { BossMove, Enemy, GameState, PackData } from '../src/state';
 import { TICKS } from '../src/time';
@@ -264,7 +265,7 @@ describe('interrupts', () => {
 
   it('ignores a Crippling Shot that hits something else', () => {
     const { state, boss } = casting();
-    const minionPack = { x: 20, z: 16, level: 3, mobs: [{ kind: 'swarm', count: 1 }] } as const;
+    const minionPack = { x: 20, z: 16, level: 3, mobs: [{ kind: 'wasp', count: 1 }] } as const;
     const other = bossGame(1, [minionPack]).state.live.enemies[0];
     if (!other) throw new Error('No monster.');
     state.live.enemies.unshift({ ...other, id: 500, x: boss.x + 12, z: boss.z, awake: true });
@@ -358,25 +359,14 @@ describe('Taunt and the slow on the boss', () => {
   });
 });
 
-describe('victory', () => {
-  it('ends the run, and later commands are refused', () => {
+describe('a boss killed (D-052)', () => {
+  it('ends nothing, and later commands still work', () => {
     const { state, boss } = awakeBoss();
     boss.health = 1;
-    const events: Parameters<typeof hitEnemy>[4] = [];
-    hitEnemy(state, unitOf(state, SNIPER), boss, 1, events);
-    expect(ofType(events, 'victory')).toHaveLength(1);
-    expect(state.victory).toBe(true);
-    const tick = state.tick;
-    const positions = JSON.stringify(state.bodies);
-    unitOf(state, FIGHTER).dest = { x: 0, z: 0 };
+    hitEnemy(state, unitOf(state, SNIPER), boss, 1, []);
+    expect(recordOf(state).bossDead).toBe(true);
     const after = step(state, [{ type: 'regroup' }]);
-    expect(state.tick).toBe(tick + 1);
-    expect(JSON.stringify({ ...state.bodies, 0: null })).toBe(
-      JSON.stringify({ ...(JSON.parse(positions) as unknown[]), 0: null }),
-    );
-    expect(unitOf(state, FIGHTER).dest).toEqual({ x: 0, z: 0 });
-    expect(unitOf(state, FIGHTER).bestDistance).toBeNull();
-    expect(ofType(after, 'order-refused').map(({ reason }) => reason)).toEqual(['run-over']);
+    expect(ofType(after, 'order-refused')).toEqual([]);
   });
 
   it('gives its XP', () => {
@@ -388,7 +378,7 @@ describe('victory', () => {
 });
 
 describe('wipes', () => {
-  const PACK = [{ x: 40, z: 30, level: 3, mobs: [{ kind: 'runner', count: 2 }] }] as const;
+  const PACK = [{ x: 40, z: 30, level: 3, mobs: [{ kind: 'rooster', count: 2 }] }] as const;
 
   function wiped(): { state: GameState; boss: Enemy; monster: Enemy } {
     const { state, boss } = bossGame(1, PACK);

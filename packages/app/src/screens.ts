@@ -1,9 +1,7 @@
-import { characterOf, TICK_RATE, type Command, type GameEvent, type GameView } from '@new-frontier/core';
+import { type Command, type GameEvent, type GameView } from '@new-frontier/core';
 import { percentText, smithGroups, type SmithRow } from './smith';
 import { KEY_LIST } from './hud';
-import type { RunTally } from './reactions';
 
-const SECONDS_IN_MINUTE = 60;
 
 function element<T extends HTMLElement>(id: string): T {
   const found = document.getElementById(id);
@@ -256,34 +254,4 @@ export class SmithScreen {
     box.append(yes, no);
     return box;
   }
-}
-
-/** The victory screen, with the run's numbers and the squad test's four questions. */
-export function showVictory(view: GameView, tally: RunTally): void {
-  const seconds = Math.floor(view.tick / TICK_RATE);
-  const minutes = Math.floor(seconds / SECONDS_IN_MINUTE);
-  const box = element('endBox');
-  const again = make('button', 'btn', 'Play again') as HTMLButtonElement;
-  again.type = 'button';
-  again.addEventListener('click', () => window.location.reload());
-  const buttons = make('div', 'btns');
-  buttons.append(again);
-  box.replaceChildren(
-    make('h1', '', 'Beacon lit'),
-    make(
-      'p',
-      'dim',
-      `${minutes} min ${seconds % SECONDS_IN_MINUTE} sec. Levels ${view.family.active.map((id) => characterOf(view, id).level).join(', ')}. ` +
-        `Squad wipes ${tally.wipes}, characters down ${tally.downs}, revives ${tally.revives}, ` +
-        `upgrades ${tally.upgrades}, items broken ${tally.broken}.`,
-    ),
-    make('h3', '', 'Your verdict'),
-    make('p', '', 'Did you feel like you were commanding a team, or babysitting one?'),
-    make('p', '', 'Did losing the Healer change how you played?'),
-    make('p', '', 'Could you follow all three during the boss?'),
-    make('p', '', 'Did the camera do what your hands expected?'),
-    buttons,
-  );
-  element('end').hidden = false;
-  again.focus();
 }

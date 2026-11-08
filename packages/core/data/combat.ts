@@ -1,4 +1,7 @@
-/** The squad test's combat maths. Times are seconds, and rates are per second. */
+/** Nothing resisted. Every hit is physical today, and physical uses none (D-049). */
+export const NO_RESISTANCE = { fire: 0, ice: 0, lightning: 0, mental: 0 };
+
+/** The combat maths (D-049). Times are seconds, and rates are per second. */
 export const COMBAT = {
   attackModifier: 1.6,
   critMultiplier: 2,
@@ -11,12 +14,12 @@ export const COMBAT = {
   /** AR above DR adds this per point, up to the most extra. */
   accuracyPerPointAbove: 0.25,
   accuracyMostExtra: 2,
-  /** AR below DR takes this off per point, down to the floor. */
+  /** AR below DR takes this off for the difference plus one, down to the floor. */
   accuracyPerPointBelow: 0.1,
   accuracyFloor: 0.1,
   /** Each point of Def takes this share off damage, up to the most reduction. */
   defencePerPoint: 0.005,
-  defenceMostReduction: 0.75,
+  defenceMostReduction: 0.95,
   /** Brief invulnerability after being hit. */
   hitInvulnerableSeconds: 0.18,
   /** Share of an enemy's size that counts towards melee range. */
@@ -58,6 +61,25 @@ export const POTIONS = {
   start: 6,
   cooldownSeconds: 1.5,
   healthShare: 0.4,
+};
+
+/**
+ * What share of a kill's XP a character keeps, by its level against the monster's (D-051).
+ * "Above" means the character is the higher level. Bands are read in the order here.
+ */
+export const XP_BANDS = {
+  /** More than this far above, plus this share of its own level, earns nothing. */
+  noneAbove: 10,
+  noneAbovePerLevel: 0.1,
+  /** More than this far above earns this share. */
+  reducedAbove: 10,
+  reducedShare: 0.6,
+  /** More than this far below earns this share, which is checked before the next. */
+  farBelow: 20,
+  farBelowShare: 1.2,
+  /** More than this far below earns this share. */
+  nearBelow: 5,
+  nearBelowShare: 1.4,
 };
 
 export const LEVELS = {

@@ -164,8 +164,6 @@ function describe(event: GameEvent): string {
       return `${String(event.tick)} the Warden was interrupted`;
     case 'loot':
       return `${String(event.tick)} found ${event.kind === 'marks' ? `${String(event.value)} marks` : 'a potion'}`;
-    case 'victory':
-      return `${String(event.tick)} the Warden is down`;
   }
 }
 
@@ -223,12 +221,10 @@ function showStatus(view: GameView): void {
   element('stock').textContent = `${String(view.family.marks)} marks, ${String(view.family.potions)} potions`;
   const boss = view.live.enemies.find((enemy) => enemy.boss);
   const cast = boss?.boss && boss.boss.castTicks > 0 ? ', casting' : '';
-  const state = view.victory ? 'down' : boss?.awake ? `awake${cast}` : 'asleep';
+  const state = boss?.awake ? `awake${cast}` : 'asleep';
   element('boss').textContent = boss
     ? `${String(Math.round(boss.health))} of ${String(boss.maxHealth)}, ${state}`
-    : view.victory
-      ? 'down'
-      : 'none';
+    : 'none';
 }
 
 function frame(now: number): void {
@@ -238,7 +234,7 @@ function frame(now: number): void {
   if (!paused) {
     owedSeconds += elapsed * Number(speedSelect.value);
   }
-  const over = (): boolean => game.tick >= run.ticks || game.victory;
+  const over = (): boolean => game.tick >= run.ticks;
   while (owedSeconds >= 1 / TICK_RATE && !over()) {
     owedSeconds -= 1 / TICK_RATE;
     runOneTick();

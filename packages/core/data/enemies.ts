@@ -1,12 +1,12 @@
 import type { BossData, EnemyStats, MonsterData, MonsterKind, PackData } from '../src/state';
+import { NO_RESISTANCE } from './combat';
 
 /**
- * A level 5 Tide Crab with far more health and a longer reach. A crab walks in
- * to hit, but the dummy stands still, so a crab's reach would miss a Fighter at
+ * A level 5 Rooster with far more health and a longer reach. A rooster walks in
+ * to hit, but the dummy stands still, so a rooster's reach would miss a Fighter at
  * the edge of melee range. These are not balance.
  */
 export const DUMMY: EnemyStats & {
-  readonly strikeSeconds: number;
   readonly respawnSeconds: number;
 } = {
   level: 5,
@@ -15,19 +15,35 @@ export const DUMMY: EnemyStats & {
   ar: 3,
   dr: 3,
   defence: 19,
+  attackSeconds: 1,
+  crit: 0,
+  evade: 0,
+  block: 0,
+  resistances: NO_RESISTANCE,
   size: 1.15,
   speed: 0,
   reach: 5.5,
   xp: 338,
   knockbackShare: 1,
-  strikeSeconds: 1,
   respawnSeconds: 10,
 };
 
-/** The squad test's monster types. Each is a share of what its level gives. */
+/**
+ * The Lande's monster types (D-050), each with its own sheet. Health, attack, AR, DR and
+ * defence are shares of what its level gives. `attackSeconds` is the wait after a strike
+ * lands before the next wind-up can begin. Names are working names (D-038).
+ */
 export const MONSTERS: Readonly<Record<MonsterKind, MonsterData>> = {
-  swarm: {
-    name: 'Sand Skitter',
+  wasp: {
+    name: 'Wasp',
+    attackSeconds: 1.1,
+    arShare: 1,
+    drShare: 1,
+    defenceShare: 1,
+    crit: 0,
+    evade: 0,
+    block: 0,
+    resistances: NO_RESISTANCE,
     behaviour: 'melee',
     healthShare: 0.4,
     attackShare: 0.6,
@@ -39,8 +55,16 @@ export const MONSTERS: Readonly<Record<MonsterKind, MonsterData>> = {
     windSeconds: 0.12,
     coins: { least: 1, most: 2 },
   },
-  runner: {
-    name: 'Tide Crab',
+  rooster: {
+    name: 'Rooster',
+    attackSeconds: 1.4,
+    arShare: 1,
+    drShare: 1,
+    defenceShare: 1,
+    crit: 0,
+    evade: 0,
+    block: 0,
+    resistances: NO_RESISTANCE,
     behaviour: 'melee',
     healthShare: 1,
     attackShare: 1,
@@ -52,8 +76,16 @@ export const MONSTERS: Readonly<Record<MonsterKind, MonsterData>> = {
     windSeconds: 0.3,
     coins: { least: 1, most: 2 },
   },
-  spitter: {
-    name: 'Spit Anemone',
+  viper: {
+    name: 'Viper',
+    attackSeconds: 1.6,
+    arShare: 1,
+    drShare: 1,
+    defenceShare: 1,
+    crit: 0,
+    evade: 0,
+    block: 0,
+    resistances: NO_RESISTANCE,
     behaviour: 'spitter',
     healthShare: 0.8,
     attackShare: 0.9,
@@ -65,13 +97,21 @@ export const MONSTERS: Readonly<Record<MonsterKind, MonsterData>> = {
     windSeconds: 0.5,
     coins: { least: 1, most: 2 },
   },
-  brute: {
-    name: 'Slag Golem',
+  boar: {
+    name: 'Wild Boar',
+    attackSeconds: 1.8,
+    arShare: 1,
+    drShare: 1,
+    defenceShare: 1,
+    crit: 0,
+    evade: 0,
+    block: 0,
+    resistances: NO_RESISTANCE,
     behaviour: 'slammer',
     healthShare: 2.8,
     attackShare: 1.7,
     size: 2,
-    speed: 4.4,
+    speed: 6,
     reach: 5.5,
     xpShare: 2.4,
     knockbackShare: 0.4,
@@ -105,8 +145,10 @@ export const MONSTER_RULES = {
   mostScale: 1.05,
   firstStrikeLeast: 0.4,
   firstStrikeMost: 1.4,
-  strikeCooldownLeast: 1.1,
-  strikeCooldownMost: 1.8,
+  /** A pack coming back lands no monster closer than this to a character (S3f decision 20). */
+  respawnClearance: 3,
+  /** How far from its place, in whole units each way, a monster looks for a clear spot. */
+  respawnSearch: 20,
   /** A slowed monster moves at this share of its speed. */
   slowShare: 0.45,
   /** Melee monsters close to this share of their reach, plus a share of their size. */
@@ -138,7 +180,7 @@ export const SPITTER = {
   shotHitRadius: 1.3,
 };
 
-/** The Slag Golem's slam. What is drawn is a little smaller than what lands. */
+/** The Wild Boar's slam. What is drawn is a little smaller than what lands. */
 export const SLAMMER = { radius: 6.5, hitRadius: 6.9 };
 
 export const PACKS: readonly PackData[] = [
@@ -147,8 +189,8 @@ export const PACKS: readonly PackData[] = [
     z: 50,
     level: 3,
     mobs: [
-      { kind: 'runner', count: 3 },
-      { kind: 'swarm', count: 3 },
+      { kind: 'rooster', count: 3 },
+      { kind: 'wasp', count: 3 },
     ],
   },
   {
@@ -157,8 +199,8 @@ export const PACKS: readonly PackData[] = [
     z: 50,
     level: 3,
     mobs: [
-      { kind: 'runner', count: 2 },
-      { kind: 'spitter', count: 2 },
+      { kind: 'rooster', count: 2 },
+      { kind: 'viper', count: 2 },
     ],
   },
   {
@@ -166,8 +208,8 @@ export const PACKS: readonly PackData[] = [
     z: 12,
     level: 4,
     mobs: [
-      { kind: 'spitter', count: 3 },
-      { kind: 'runner', count: 2 },
+      { kind: 'viper', count: 3 },
+      { kind: 'rooster', count: 2 },
     ],
   },
   {
@@ -175,8 +217,8 @@ export const PACKS: readonly PackData[] = [
     z: 10,
     level: 4,
     mobs: [
-      { kind: 'brute', count: 1 },
-      { kind: 'swarm', count: 4 },
+      { kind: 'boar', count: 1 },
+      { kind: 'wasp', count: 4 },
     ],
   },
   {
@@ -184,8 +226,8 @@ export const PACKS: readonly PackData[] = [
     z: -42,
     level: 5,
     mobs: [
-      { kind: 'brute', count: 1 },
-      { kind: 'runner', count: 3 },
+      { kind: 'boar', count: 1 },
+      { kind: 'rooster', count: 3 },
     ],
   },
   {
@@ -193,8 +235,8 @@ export const PACKS: readonly PackData[] = [
     z: -44,
     level: 5,
     mobs: [
-      { kind: 'brute', count: 1 },
-      { kind: 'spitter', count: 3 },
+      { kind: 'boar', count: 1 },
+      { kind: 'viper', count: 3 },
     ],
   },
   {
@@ -202,14 +244,17 @@ export const PACKS: readonly PackData[] = [
     z: -66,
     level: 6,
     mobs: [
-      { kind: 'brute', count: 2 },
-      { kind: 'runner', count: 2 },
-      { kind: 'spitter', count: 2 },
+      { kind: 'boar', count: 2 },
+      { kind: 'rooster', count: 2 },
+      { kind: 'viper', count: 2 },
     ],
   },
 ];
 
-/** The Warden, from the squad test. Times are seconds, and damage is a share of attack. */
+/**
+ * The Warden, from the squad test. No zone holds it for now (D-052); it waits for quest
+ * and raid bosses. Times are seconds, and damage is a share of attack.
+ */
 export const BOSS: BossData = {
   level: 8,
   health: 32000,
@@ -217,6 +262,11 @@ export const BOSS: BossData = {
   ar: 6,
   dr: 5,
   defence: 40,
+  attackSeconds: 1.8,
+  crit: 0,
+  evade: 0,
+  block: 0,
+  resistances: NO_RESISTANCE,
   size: 3.6,
   speed: 6,
   reach: 7,
@@ -232,7 +282,6 @@ export const BOSS: BossData = {
   walkAfterSeconds: 0.2,
   meleeExtraReach: 1,
   meleeShare: 0.6,
-  meleeSeconds: 1.8,
   interruptSeconds: 2.4,
   slam: {
     radius: 9,
@@ -262,7 +311,7 @@ export const BOSS: BossData = {
     cooldownSeconds: 2,
   },
   summon: {
-    kind: 'swarm',
+    kind: 'wasp',
     level: 7,
     health: 600,
     calmCount: 2,

@@ -63,10 +63,10 @@ const LOT_TICK = 3;
 
 const ENEMY_LOOKS = {
   dummy: { colour: '#b0653a', letter: 'D', scale: 1.3 },
-  swarm: { colour: '#d8b878', letter: 'w', scale: 0.7 },
-  runner: { colour: '#d86a4a', letter: 'r', scale: 1 },
-  spitter: { colour: '#c86aa8', letter: 'a', scale: 1 },
-  brute: { colour: '#8a8890', letter: 'G', scale: 1.5 },
+  wasp: { colour: '#e2b024', letter: 'w', scale: 0.7 },
+  rooster: { colour: '#d86a4a', letter: 'r', scale: 1 },
+  viper: { colour: '#7ab060', letter: 'v', scale: 1 },
+  boar: { colour: '#8a6a58', letter: 'B', scale: 1.5 },
   boss: { colour: '#ffb648', letter: 'W', scale: 2.6 },
 };
 

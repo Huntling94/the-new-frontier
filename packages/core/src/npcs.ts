@@ -29,9 +29,6 @@ export function whyNotTalk(view: GameView, npcId: string): RefusalReason | null 
   if (!npc) {
     return 'unknown-npc';
   }
-  if (view.victory) {
-    return 'run-over';
-  }
   if (inFight(view)) {
     return 'in-fight';
   }

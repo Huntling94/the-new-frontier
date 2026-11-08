@@ -404,7 +404,6 @@ function build(value: unknown): GameState {
     squadDown: false,
     wipeTicks: 0,
     // Whether the run is won follows from the boss's record.
-    victory: records.some(({ bossDead }) => bossDead),
   };
   state.bodies = bodies.map((saved) => standBody(state, saved));
   placeSquad(state, bodies);

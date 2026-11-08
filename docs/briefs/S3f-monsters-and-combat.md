@@ -121,3 +121,43 @@ Numbers below are starting points, to be tuned.
 - Any standing trigger in `CLAUDE.md` fires.
 
 ## Outcome (builder fills in)
+
+Built 9 Nov 2026, in a worktree. Closed 9 Nov 2026: the maintainer played it and approved the file list and diff.
+
+**Changed during the build, at the maintainer's direction:** evade and block are on the shared sheet, at 0, and do nothing yet (D-056). This changes decision 2 and D-049. AR and DR stay as agreed.
+
+**Checks:** `pnpm check` passes, with 529 unit tests and the `legacy/` guard. `pnpm test:e2e` passes, 32 of 32.
+
+**The 100-seed report.** The finish line moved from killing the Warden to every pack cleared at least once with the marks spent.
+
+| | Before (`bc3ddd5`) | After |
+|---|---|---|
+| Careful bot | finished 100 of 100, stalled 0 | finished 100 of 100, stalled 0 |
+| Sloppy bot | finished 100 of 100, stalled 0 | finished 100 of 100, stalled 0 |
+| Game minutes (careful, sloppy) | 2.7, 2.8 | 1.8, 1.8 |
+| Wipes, characters down | 0, 0 | 0, 0 |
+| Upgrades | 10.2 | 10.4 |
+| Lowest level | 6.0 | 6.0 |
+| Interrupts (careful) | 3.0 | 0.0, as only a boss casts |
+| Auto-combat | clear 100 | clear 100 |
+| Replay hash, spell tour | `d924a66d` | `74be8540` |
+| Replay hash, squad tour | `8f5ea15f` | `eea90d82` |
+
+**Worth knowing:**
+
+- **Attack speed is the wait after a strike lands,** a straight swap for today's random 1.1 to 1.8 seconds. The wind-up comes on top, so a boar strikes about every 2.75 seconds, and a wasp about every 1.2.
+- **The careful and sloppy bots now play identically.** They differed only in how they fight a boss, so they give the same result on every seed. The bots still never struggle, as before.
+- **The victory screen and its run tally** are gone from the page, and the beacon no longer lights. The boss's HUD bar, reactions and bot boss logic stay in place, unused.
+
+**Tests changed, and why:**
+
+- `e2e/play.spec.ts`: "a bot plays from the start to victory" became "a bot clears every pack in the real page, the game carries on", as nothing can be won.
+- `e2e/game.ts`: the hook's types lose `victory` and gain `records`.
+- `packages/core/test/boss.test.ts`: killing a boss now ends nothing.
+- `packages/core/test/bots.test.ts`: boss tests use their own scenario with the Warden, since the Lande has none.
+- `packages/core/test/combat.test.ts`: the new formula numbers, and `shareXp` takes the monster's level.
+- `packages/core/test/monsters.test.ts` and `zones.test.ts`, `items.test.ts`: new monster IDs, seven packs and no boss.
+- `packages/core/test/save.test.ts`: adds saves with the boss marked dead.
+- `packages/app/test/feel.test.ts`: no victory or tally to follow.
+- `packages/tools/test/runs.test.ts`: new finish line and time limit. "Interrupts only with the careful bot", the minion case, and "differs by bot" went, because they need a boss.
+- New: `packages/core/test/monster-types.test.ts`.

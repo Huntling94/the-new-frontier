@@ -29,7 +29,8 @@ export function recalculate(character: Character, unit: Body): void {
   const held = items['main-hand'];
   const heldType = held ? itemType(held.typeId) : null;
   const fighting = heldType?.weapon && held ? held : null;
-  const { stats } = weaponOf(character);
+  const { stats, weapon } = weaponOf(character);
+  unit.attackSeconds = weapon.attackSeconds;
   unit.attack =
     stats.attack *
     (1 + UPGRADES.attackPerLevel * (fighting?.upgrade ?? 0)) *

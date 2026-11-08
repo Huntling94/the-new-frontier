@@ -43,7 +43,7 @@ import {
   savedTime,
   savingAllowed,
 } from './saves';
-import { showVictory, SmithScreen, StartScreen } from './screens';
+import { SmithScreen, StartScreen } from './screens';
 import { Session } from './session';
 import { Sound } from './sound';
 import { fitViewport } from './viewport';
@@ -63,7 +63,7 @@ const MAX_RECENT = 2000;
 /** The start screen circles the island, as the squad test's does, and comes closer for a town (S3d). */
 const ORBIT = { radius: 130, height: 64, lookHeight: 4, turn: 0.1 };
 const TOWN_ORBIT = { ...ORBIT, radius: 92, height: 58 };
-/** Banners last this long, and the victory screen follows the beacon's banner after it. */
+/** Banners last this long. */
 const BANNER_SECONDS = 2.6;
 /** Crossing a gate fades out with the game held, then fades in on the new zone (D-021). */
 const FADE = { outSeconds: 0.3, inSeconds: 0.45 };
@@ -109,7 +109,7 @@ try {
 
 if (world) start(world);
 
-type Mode = 'start' | 'play' | 'won';
+type Mode = 'start' | 'play';
 
 interface PageState {
   readonly saver: AutoSaver | null;
@@ -123,7 +123,6 @@ interface PageState {
 function start(world: WorldView): void {
   let mode: Mode = 'start';
   let shown = 0;
-  let victoryIn = 0;
   let hudIn = 0;
   const camera = createCamera(squadCentre(session.view));
   const sound = new Sound();
@@ -139,11 +138,9 @@ function start(world: WorldView): void {
       recent.push(...events);
       for (const event of events) {
         if (event.type === 'upgraded' || event.type === 'repaired') {
-          reactions.tally.upgrades += event.type === 'upgraded' ? 1 : 0;
           sound.play('forge');
         }
         if (event.type === 'item-broken') {
-          reactions.tally.broken += 1;
           sound.play('fail');
         }
       }
@@ -288,11 +285,6 @@ function start(world: WorldView): void {
     hud.show(true);
     hud.log({ text: loaded ? 'Welcome back.' : 'Squad ready. Right click to move.', tone: 'plain' });
     hud.banner({ title: zoneLook(currentZone(session.view).id).name, line, seconds: BANNER_SECONDS });
-    // A won run stays won: its save says the boss is dead.
-    if (session.view.victory) {
-      mode = 'won';
-      victoryIn = BANNER_SECONDS;
-    }
   };
 
   /** What the store holds, and the game Continue loads: from the backup if the save itself is refused. */
@@ -363,10 +355,6 @@ function start(world: WorldView): void {
     if (reaction.banner) hud.banner(reaction.banner);
     if (reaction.shake > 0) addShake(camera, reaction.shake);
     if (reaction.hitStop) clock.hitStop();
-    if (reaction.victory && mode === 'play') {
-      mode = 'won';
-      victoryIn = BANNER_SECONDS;
-    }
   };
 
   const moveCamera = (dt: number): CameraPose => {
@@ -471,13 +459,6 @@ function start(world: WorldView): void {
         slowed: running && clock.slowed,
         paused: modalOpen(),
       });
-    }
-    if (mode === 'won' && victoryIn > 0) {
-      victoryIn -= dt;
-      if (victoryIn <= 0) {
-        hud.show(false);
-        showVictory(session.view, reactions.tally);
-      }
     }
     if (hook) hook.frames += 1;
   };
