@@ -8,7 +8,7 @@ Every design and architecture decision, in one place. Entries are never rewritte
 | [D-002](#d-002) | Name: The New Frontier | Accepted | 7 Nov 2026 |
 | [D-003](#d-003) | Right-click control and a free rotating camera | Accepted, extended by D-013, changed by D-031 and D-034 | 7 Nov 2026 |
 | [D-004](#d-004) | Individual levels, XP split among the living | Accepted | 7 Nov 2026 |
-| [D-005](#d-005) | Upgrades are safe to +4, then risk destruction | Accepted, extended by D-028 | 7 Nov 2026 |
+| [D-005](#d-005) | Upgrades are safe to +4, then risk destruction | Replaced by D-042 | 7 Nov 2026 |
 | [D-006](#d-006) | Five classes, with a Family House to rotate them | Accepted, extended by D-020 | 7 Nov 2026 |
 | [D-007](#d-007) | Space is auto-combat, and also the test bot | Accepted, extended by D-035, changed by D-036 | 7 Nov 2026 |
 | [D-008](#d-008) | The Healer auto-heals one person at a time | Accepted | 7 Nov 2026 |
@@ -31,7 +31,7 @@ Every design and architecture decision, in one place. Entries are never rewritte
 | [D-025](#d-025) | The family holds the store, and gear moves onto characters | Accepted | 7 Nov 2026 |
 | [D-026](#d-026) | Attributes and stats are calculated in a fixed order | Accepted | 7 Nov 2026 |
 | [D-027](#d-027) | Arts decide what a character can use | Accepted | 7 Nov 2026 |
-| [D-028](#d-028) | Seven gear slots to start, on shared item types | Accepted | 7 Nov 2026 |
+| [D-028](#d-028) | Seven gear slots to start, on shared item types | Accepted, changed by D-042 | 7 Nov 2026 |
 | [D-029](#d-029) | Definitions and instances, and a data model document | Accepted | 7 Nov 2026 |
 | [D-030](#d-030) | Graphics come in two steps | Accepted | 7 Nov 2026 |
 | [D-031](#d-031) | Spell keys in a grid, one row per character | Accepted, changed by D-034 | 7 Nov 2026 |
@@ -42,8 +42,10 @@ Every design and architecture decision, in one place. Entries are never rewritte
 | [D-036](#d-036) | Auto-combat fights bosses | Accepted | 7 Nov 2026 |
 | [D-037](#d-037) | The camera follows a character selected alone | Accepted | 7 Nov 2026 |
 | [D-038](#d-038) | The world borrows the 2019 shape, with original names and places | Accepted | 8 Nov 2026 |
-| [D-039](#d-039) | Upgrades come only from a smith in a town | Accepted | 8 Nov 2026 |
+| [D-039](#d-039) | Upgrades come only from a smith in a town | Accepted, changed by D-042, extended by D-043 | 8 Nov 2026 |
 | [D-040](#d-040) | `Alt` + `E` opens the inventory | Accepted | 8 Nov 2026 |
+| [D-042](#d-042) | A failed upgrade breaks the item, and the smith repairs it | Accepted | 8 Nov 2026 |
+| [D-043](#d-043) | Montclaire comes first as a place to walk, and its systems arrive one at a time | Accepted | 8 Nov 2026 |
 
 ## D-001
 
@@ -338,3 +340,30 @@ Right click, right drag, middle drag, the wheel, left click and left drag, `Spac
 **`Alt` + `E` opens the inventory.** This extends D-034. The inventory screen (brief S3b) opens and closes with `Alt` + `E`, anywhere, including in fields and dungeons. Holding `Alt` keeps `E` from casting the first character's third spell (D-031). `Esc` also closes it. The key is read by position, so it works on other layouts and on a Mac, where `Option` + `E` would otherwise type an accent.
 
 **Why:** the maintainer's direction. The inventory should be reachable on the battlefield without a spell key firing by mistake.
+
+## D-042
+
+**A failed upgrade breaks the item, and the smith repairs it.** This replaces D-005, and the spare in D-028 and D-039.
+
+- **Pick an item, not a slot.** The smith upgrades any weapon or armour the family owns, worn or in the inventory.
+- **Weapons and armour only:** main hand, off hand, head, chest, gloves and boots. Jewellery, the necklace now and rings later, is never upgraded, and earns its value another way later.
+- **The odds do not change.** Steps up to +4 always succeed. From +4 to +5 the chance is 50%, and each step after halves it: 25%, 12.5% and on to +10. The smith shows the chance, and that a miss breaks the item, before the player confirms.
+- **A miss breaks the item; nothing is destroyed.** A broken item cannot be worn. If it was worn, it goes to the inventory and leaves its slot empty. It keeps its type and the level it broke at.
+- **The smith repairs a broken item to +4,** for marks scaled by the level it broke at. The player loses the levels above +4 and the fee, never the item. Costs and the repair fee are data, and placeholders until balance.
+- **There is no spare.** The plain item types go, and a save migration turns each one into the type it stood in for.
+- A save still follows every result (D-024).
+
+**Why:** the maintainer's direction, 8 Nov 2026. Losing the levels, not the item, keeps the risk real without wiping out a favourite piece of gear, and it needs no shop to replace what was lost. The 2019 game meant the same odds; its code inverted them (`rand()%power` succeeds on every value but one), which `legacy/` keeps as its record.
+
+## D-043
+
+**Montclaire comes first as a place to walk, and its systems arrive one at a time.** This extends D-011, D-030, D-038 and D-039.
+
+- **The first slice is a town to walk around:** streets, a square and buildings, with a gate out to Lande de Montclaire, and no NPCs or shops. The game starts there.
+- **Each later slice adds one step of the core loop,** in order: the smith (spending on gear), the shop (buying and selling), then trainers and quest givers. Each is its own brief.
+- **The theme follows the 2019 game's feel, not its layout.** The 2019 game was text only, so it has no streets to copy. Its towns were Mediterranean, French and Portuguese ports and market towns, and Montclaire follows them (D-038).
+- **The look stays at prototype level** (D-030): simple buildings, roofs, streets and a town palette, composed with care. Anything more is S5's work.
+- **Buildings never hide the squad.** A building between the camera and a character in the active three fades while it is in the way.
+- The field anvil stays until the smith's brief, as D-039 allows.
+
+**Why:** the maintainer's direction, 8 Nov 2026. The town is the hub of the core loop, so it should exist early and grow, and each slice is small enough to see running and learn from.
