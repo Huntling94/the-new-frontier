@@ -2,7 +2,8 @@ import {
   cardOf,
   characterOf,
   currentZone,
-  isNearAnvil,
+  isNearSmith,
+  npcOffering,
   spellInfo,
   spellsOf,
   TICK_RATE,
@@ -24,6 +25,7 @@ const INTERRUPTER: SpellId = 'crippling-shot';
 export const KEY_LIST: readonly (readonly [string, string])[] = [
   ['Right click ground', 'Move'],
   ['Right click enemy', 'Target'],
+  ['Right click the smith', 'Upgrade and repair gear'],
   ['Right drag', 'Rotate and tilt'],
   ['Middle drag', 'Grip the camera'],
   ['Arrow keys', 'Move the camera'],
@@ -41,12 +43,11 @@ export const KEY_LIST: readonly (readonly [string, string])[] = [
   ['Shift (hold)', 'Slow time'],
   ['5', 'Potion'],
   ['Home', 'Snap camera to squad'],
-  ['Y', 'Use the anvil'],
   ['Alt + E', 'Inventory'],
   ['H / N', 'Hide help / sound'],
 ];
 /** Help shows the first of these during play, as the squad test did. */
-const HELP_KEYS = 18;
+const HELP_KEYS = 19;
 
 function element<T extends HTMLElement>(id: string): T {
   const found = document.getElementById(id);
@@ -269,8 +270,8 @@ export class Hud {
 
     const left = view.live.enemies.filter((enemy) => enemy.alive && !enemy.boss && enemy.kind !== 'dummy').length;
     const title = zoneLook(zone.id).name;
-    // Only a zone with a boss sends the squad on to the anvil and the beacon.
-    const then = boss ? ' Upgrade at the anvil, then walk to the beacon.' : '';
+    // Only a zone with a boss sends the squad on to the smith and the beacon.
+    const then = boss ? ' Upgrade at the smith in Montclaire, then walk to the beacon.' : '';
     // A town has nothing to fight, so it points the way out (S3d decision 11).
     const out = zone.kind === 'town' ? zone.gates[0] : undefined;
     const goal = out
@@ -288,7 +289,9 @@ export class Hud {
     const seconds = Math.floor(view.tick / TICK_RATE);
     setText(this.clock, `${Math.floor(seconds / SECONDS_IN_MINUTE)}:${String(seconds % SECONDS_IN_MINUTE).padStart(2, '0')}`);
     setHidden(this.slowEdge, !input.slowed);
-    setHidden(this.prompt, input.paused || !isNearAnvil(view) || view.victory);
+    const smith = npcOffering(view, 'smith');
+    if (smith) setText(this.prompt, `Right click ${smith.name} to upgrade gear`);
+    setHidden(this.prompt, input.paused || !isNearSmith(view) || view.victory);
   }
 
   /** Names the spell that interrupts, with its key, for whoever in the three has it. */

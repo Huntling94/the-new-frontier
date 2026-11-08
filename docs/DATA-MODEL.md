@@ -47,14 +47,15 @@ This is the same split as code and data (D-018), and it decides what a save hold
 | Grid | A zone's walkable ground, as square cells one world unit across. Built from the zone's data, never saved |
 | Instance | Something that changes in play, and points at a definition |
 | Inventory | The family's shared items: every item not equipped. Called the store until S3c (D-041) |
-| Item | One specific piece of gear: its type plus its upgrade, with its own ID |
+| Item | One specific piece of gear: its type plus its upgrade, with its own ID. It may be broken (D-042) |
 | Item type | The definition of a piece of gear, such as a level 20 pistol: its category, the slots it fits and fills, stats, requirements and price |
 | Land | A named group of zones |
+| NPC | Someone placed on a zone: an ID, a name, a point, a list of services and a list of quests. Either list may be empty (D-044) |
+| Service | A type on an NPC's list: `smith` is built, and `enhancer`, `bank` and `shop` are to come (D-044) |
 | Live group | Everything that exists only while a zone runs: enemies, shots, drops and scheduled effects |
 | Marks | The family's money |
 | Route | The corners a character walks through to reach a point, found on the grid by A\* |
 | Slot | One of seven places a character wears an item: main hand, off hand, head, chest, gloves, boots and necklace |
-| Spare | The basic item the smith hands over when an upgrade destroys one (D-005). Each item type names its spare |
 | Stat | One named number on a character or enemy |
 | Unarmed | What an empty main hand fights with. A type in data, not an item |
 | Lot | A place in a town kept for a later system, such as the smithy: an ID, a door point on a walkable cell where that system's townsperson will stand, and the way the door faces. Its building is drawn by `render` only (S3d) |
@@ -128,8 +129,8 @@ Only one zone runs at a time, so there is at most one live group (D-021). The li
 | Art | Definition | No | Partial | `ARTS`: one per class, known from the start, unlocking its three spells and its weapon categories. Trainers, and arts gained later, come with the town |
 | Spell | Definition | No | Built | `SPELLS`. Each belongs to an art, and `SPELL_WEAPONS` names the weapon it needs in hand, if any |
 | Category | Definition | No | Built | `CATEGORIES`: sword, great sword, dagger, spear, pistol, rifle, staff and shield are weapons; leather, metal, coat and jewellery are armour. More can be added as data |
-| Item type | Definition | No | Built | `ITEM_TYPES`: category, slots it fits and fills, stats, weapon values, requirements, price, quality and spare. Item boosts come later (D-028) |
-| Item | Instance | Yes | Built | Type ID, upgrade and an ID from `nextItemId`, a counter of its own. The counter is not saved: load sets it one above the highest item ID in the save (S3c). Tested in `packages/core/test/save.test.ts` |
+| Item type | Definition | No | Built | `ITEM_TYPES`: category, slots it fits and fills, stats, weapon values, requirements and price. The plain types, quality and spare went in S3e (D-042). Item boosts come later (D-028) |
+| Item | Instance | Yes | Built | Type ID, upgrade, whether it is broken (D-042), and an ID from `nextItemId`, a counter of its own. A broken item keeps its type and the level it broke at, and cannot be worn. The counter is not saved: load sets it one above the highest item ID in the save (S3c). Tested in `packages/core/test/upgrades.test.ts` and `packages/core/test/save.test.ts` |
 | Inventory | Instance | Yes | Built | `state.family.inventory`: every item not equipped. A new family starts with a cap, a buckler and a necklace. Named the store until S3c (D-041). Saved whole: `packages/core/test/save.test.ts` |
 | Effect type | Definition | No | Planned | Says how repeats stack |
 | Effect | Instance | Live only | Partial | Today separate timers, such as `guardTicks`, `rallyTicks` and `slowTicks` |
@@ -140,10 +141,10 @@ Only one zone runs at a time, so there is at most one live group (D-021). The li
 | Entity | Kind | Saved | Status | Notes |
 |---|---|---|---|---|
 | Land | Definition | No | Planned | A name, a level range and a place on the world map. No rules of its own |
-| Zone | Definition | No | Built | `ZONES`: Lande de Montclaire, a cave off it, and the town of Montclaire (S3d). Holds its ground, camp, anvil, baked obstacles, packs, boss, gates, lots and place in the world frame. Only the zone named on state runs |
-| Town | Definition | No | Built | A zone of kind `town`. Montclaire, in `packages/core/data/montclaire.ts`: a plaza, a loop of streets and a gate street, hand-placed (D-022). No packs, boss or dummy, so no fight happens there. A player's new game starts in its plaza (`TOWN_SCENARIO`); bots, replays and test pages start on the Lande. NPCs come with S3e. Tested in `packages/core/test/town.test.ts` and `e2e/town.spec.ts` |
+| Zone | Definition | No | Built | `ZONES`: Lande de Montclaire, a cave off it, and the town of Montclaire (S3d). Holds its ground, camp, baked obstacles, packs, boss, gates, lots, NPCs and place in the world frame. Only the zone named on state runs |
+| Town | Definition | No | Built | A zone of kind `town`. Montclaire, in `packages/core/data/montclaire.ts`: a plaza, a loop of streets and a gate street, hand-placed (D-022). No packs, boss or dummy, so no fight happens there. A player's new game starts in its plaza (`TOWN_SCENARIO`); bots, replays and test pages start on the Lande. Its smith stands at the smithy's door (S3e). Tested in `packages/core/test/town.test.ts` and `e2e/town.spec.ts` |
 | Street | Definition | No | Built | On a town's ground, with its open places: the grid opens every cell whose centre is a character's radius inside a street or place (S3d). Each of Montclaire's is 12 wide |
-| Lot | Definition | No | Built | `lots` on the zone: the smithy, the shop and the inn in Montclaire. Nothing in them works yet; S3e puts the smith at the smithy's door |
+| Lot | Definition | No | Built | `lots` on the zone: the smithy, the shop and the inn in Montclaire. The smith stands at the smithy's door; the others wait for their briefs |
 | Gate | Definition | No | Partial | On the zone it leaves: an area, the zone it arrives in, an arrival point and heading. Requirements and cost are held in the shared requirement shape, but nothing checks them yet |
 | Zone record | Instance | Yes | Built | `state.records`: whether the boss is dead, and the game tick each cleared pack comes back. Saved from S3c, without a test scenario's contents. A zone added since a save starts with a fresh record. Tested in `packages/core/test/save.test.ts`, where a cleared pack comes back on the same tick after a load |
 | Live group | Instance | No | Built | `state.live`: enemies, shots, enemy shots, scheduled effects and drops |
@@ -153,7 +154,7 @@ Only one zone runs at a time, so there is at most one live group (D-021). The li
 | Enemy | Instance | No | Built | Keeps its own stats, because level scales them |
 | Loot table | Definition | No | Partial | Today `LOOT`, and `coins` on each monster |
 | Drop | Instance | No | Built | Loot on the ground |
-| NPC | Definition | No | Planned | |
+| NPC | Definition | No | Partial | `npcs` on the zone (S3e, D-044). The smith is the first, and only `smith` works. Quest lists exist and stay empty. Talking is a read, `whyNotTalk`, refused while any enemy is awake. A data check, `badNpcs`, holds a smith to towns. Tested in `packages/core/test/upgrades.test.ts`, `packages/core/test/zones.test.ts` and `e2e/smith.spec.ts` |
 | Shop | Definition | No | Planned | D-012 |
 | Quest | Definition | No | Planned | |
 | Quest progress | Instance | Yes | Planned | Joins the save through a migration step when quests arrive (S3c) |
@@ -171,7 +172,7 @@ Each rule should have a test or a validator check once it is built. The world's 
 6. Every zone can be reached from the start, every gate arrives on a walkable cell, and every pack and camp stands on one. Reachability is checked by breadth-first search over gates.
 7. A crossing never strands the player: every land can earn enough to leave it, or the way back is free.
 8. Quest prerequisites contain no loops.
-9. Content IDs are never deleted or reused without a save migration. A save naming a class, art, item type, zone or pack this build lacks is refused, in `packages/core/test/save.test.ts`. Saves hold no gate IDs.
+9. Content IDs are never deleted or reused without a save migration, as S3e's step 1 does for the plain item types. A save naming a class, art, item type, zone or pack this build lacks is refused, in `packages/core/test/save.test.ts`. Saves hold no gate IDs.
 
 ## Saves
 
@@ -184,9 +185,9 @@ A save is the lasting part of the game, and nothing that can be worked out again
 | The zone the squad is in, each body's position, health and mana and whether it is down, and the triangle's centre and heading | Everything else on a body: orders, route, target, cooldowns and calculated stats |
 | The generator's state and the game tick | The ID counters, which load works out: one above the highest character ID, and one above the highest item ID |
 
-- **An envelope and the game.** The envelope holds `format`, `version` and the app's `savedAt`. Version 1 is the first format.
-- **Migration is a chain.** Step *n* moves a save's game data from version *n* to *n* + 1. A save runs every step from its version to the current one, then the check. Steps are never edited once shipped, and each version keeps a frozen example in `packages/core/test/saves/`, which every later build must load.
-- **The check.** The right shape, every content ID in this build's data (rule 9), and S3b's item rules (rules 1 and 2). A save newer than the build, or one that fails the check, is refused and left untouched.
+- **An envelope and the game.** The envelope holds `format`, `version` and the app's `savedAt`. Version 1 is the first format, and version 2 is today's (S3e).
+- **Migration is a chain.** Step *n* moves a save's game data from version *n* to *n* + 1. A save runs every step from its version to the current one, then the check. Steps are never edited once shipped, and each version keeps a frozen example in `packages/core/test/saves/`, which every later build must load. Step 1 retires the plain item types: each becomes the type it stood in for, with its ID and upgrade kept, and every item gains `broken: false` (S3e). It names every ID it retires (rule 9), and its test is "version 1 to 2" in `packages/core/test/save.test.ts`.
+- **The check.** The right shape, every content ID in this build's data (rule 9), S3b's item rules (rules 1 and 2), and no broken item in a slot. A save newer than the build, or one that fails the check, is refused and left untouched.
 - **Whether the run is won** follows from the boss's zone record, so it is not saved separately.
 - **Loading draws from the generator.** Building the zone's packs on load uses the generator, as any entry does. So the rolls after a reload differ from the rolls the run would have had without one. Replays start from `createGame` and never load a save.
 
@@ -201,7 +202,7 @@ total      = stats + each item's stats × its upgrade
 final      = total × effects, then any cap
 ```
 
-Until attributes arrive, level still scales attack and health directly (S3b decision 14). Today's sum, in `packages/core/src/stats.ts`: attack from the weapon in hand, or the unarmed type, raised by its upgrade and by level; AR and crit from every item; Def from every other item, scaled by the class's armour skill and then by the item's quality; DR from every other item plus a point every four levels. Upgrades past +4 add AR on a weapon and DR on anything else. A spare's quality is 0.85 for a weapon and 0.8 for armour, applied after the armour skill, so spares keep the squad test's numbers exactly (D-005).
+Until attributes arrive, level still scales attack and health directly (S3b decision 14). Today's sum, in `packages/core/src/stats.ts`: attack from the weapon in hand, or the unarmed type, raised by its upgrade and by level; AR and crit from every item; Def from every other item, scaled by the class's armour skill; DR from every other item plus a point every four levels. Upgrades past +4 add AR on a weapon and DR on anything else.
 
 ### Attributes
 
@@ -263,7 +264,7 @@ A structure enters only when a real need demands it, and the brief that adds it 
 | State machine | Boss phases, quest status | One named stage at a time, with clear changes between stages. Today the boss only | Partial |
 | Sorted array with binary search | XP levels, loot odds | Fast lookup, and it stays plain data | Planned |
 
-The world uses the same idea at two scales. Zones and gates form a coarse graph, and the walkable cells inside a zone form a fine one. A unit walks straight when the line is clear on the grid, and asks A\* only when it is not. Bots stay inside the zone that runs for now; planning which zones to cross waits for a brief that needs it.
+The world uses the same idea at two scales. Zones and gates form a coarse graph, and the walkable cells inside a zone form a fine one. A unit walks straight when the line is clear on the grid, and asks A\* only when it is not. Bots plan across zones with exactly this split (S3e): a breadth-first search over gates gives the route, and A\* walks each zone. Auto-combat stays inside the zone that runs.
 
 ## Keeping this document true
 

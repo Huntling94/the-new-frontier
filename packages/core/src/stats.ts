@@ -19,8 +19,7 @@ function pastGuaranteed(item: Item): number {
  * are calculated, never saved. New maximum health is added to its health.
  *
  * Attack comes from the weapon in hand, or the unarmed type. Armour's Def is scaled by
- * the class's armour skill, then by the item's quality, so a spare keeps today's
- * rounding (D-005). Upgrades past +4 add AR on a weapon and DR on anything else.
+ * the class's armour skill. Upgrades past +4 add AR on a weapon and DR on anything else.
  */
 export function recalculate(character: Character, unit: Body): void {
   const { level, items } = character;
@@ -31,9 +30,8 @@ export function recalculate(character: Character, unit: Body): void {
   const heldType = held ? itemType(held.typeId) : null;
   const fighting = heldType?.weapon && held ? held : null;
   const { stats } = weaponOf(character);
-  const quality = fighting ? (heldType?.quality ?? 1) : 1;
   unit.attack =
-    Math.round(stats.attack * quality) *
+    stats.attack *
     (1 + UPGRADES.attackPerLevel * (fighting?.upgrade ?? 0)) *
     (1 + LEVELS.attackPerLevel * levelsGained);
   let ar = stats.ar + levelPoints + (fighting ? pastGuaranteed(fighting) : 0);
@@ -49,7 +47,7 @@ export function recalculate(character: Character, unit: Body): void {
     ar += type.stats.ar;
     crit += type.stats.crit;
     defence +=
-      Math.round(Math.round(type.stats.defence * armourScale) * type.quality) +
+      Math.round(type.stats.defence * armourScale) +
       item.upgrade * UPGRADES.defencePerLevel;
     dr += type.stats.dr + pastGuaranteed(item);
   }

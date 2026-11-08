@@ -18,20 +18,23 @@ export {
   GEAR_SLOTS,
   itemInfo,
   previewChange,
+  smithEntries,
   spellInfo,
   spellsOf,
   whyNotUse,
   zoneGrid,
 } from './reads';
-export type { CardView, ChangePreview, GateView, ItemView, SpellView, StatSheet, ZoneView } from './reads';
+export type { CardView, ChangePreview, GateView, ItemView, SmithEntry, SpellView, StatSheet, ZoneView } from './reads';
 export { randomBetween } from './random';
 export type { Box, Place, Street } from './grid';
-export type { Ground, Lot, ZoneData } from './world';
+export type { Ground, Lot, NpcData, ServiceId, ZoneData } from './world';
 export { runReplay } from './replay';
 export { SAVE_VERSION } from './migrations';
 export { fromSave, toSave } from './save';
 export type { LoadResult, SaveFile, SaveRefusal } from './save';
-export { isNearAnvil, upgradeOffer } from './upgrades';
+export { isNearSmith, npcOffering, whyNotTalk } from './npcs';
+export { repairCost, upgradeOffer } from './upgrades';
+export type { UpgradeOffer } from './upgrades';
 export type {
   AutoResult,
   AutoStop,

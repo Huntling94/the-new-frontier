@@ -30,6 +30,25 @@ export interface Lot {
   readonly facing: number;
 }
 
+/** What an NPC offers (D-044). Only `smith` is built; the rest arrive with their briefs. */
+export type ServiceId = 'smith' | 'enhancer' | 'bank' | 'shop';
+
+/**
+ * A townsperson, or anyone else placed on a zone (D-044): a name, a point, what it
+ * offers and what it asks. Either list may be empty. It does not block the way.
+ */
+export interface NpcData {
+  readonly id: string;
+  /** A placeholder until the naming session (D-038). */
+  readonly name: string;
+  readonly at: Point;
+  /** The way it faces. */
+  readonly facing: number;
+  readonly services: readonly ServiceId[];
+  /** Quest IDs. Nothing reads them until quests arrive (D-044). */
+  readonly quests: readonly string[];
+}
+
 /** Gates hold requirements in the shared shape, which nothing checks for gates yet. */
 export type { Requirement };
 
@@ -60,7 +79,6 @@ export interface ZoneData {
   readonly ground: Ground;
   /** Where the squad gets up after a wipe in this zone. */
   readonly camp: Point & { readonly heading: number };
-  readonly anvil: Point | null;
   readonly obstacles: readonly Obstacle[];
   readonly contents: ZoneContents;
   /** How long a cleared pack takes to come back, on the game clock. */
@@ -68,6 +86,8 @@ export interface ZoneData {
   readonly gates: readonly GateData[];
   /** Places kept for systems to come. Only towns have any. */
   readonly lots: readonly Lot[];
+  /** Who stands here (D-044). */
+  readonly npcs: readonly NpcData[];
 }
 
 export function zoneData(id: string, zones: readonly ZoneData[] = ZONES): ZoneData {

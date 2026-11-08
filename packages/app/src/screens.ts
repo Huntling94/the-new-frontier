@@ -1,11 +1,9 @@
-import { characterOf, TICK_RATE, upgradeOffer, type GameEvent, type GameView, type GearSlot } from '@new-frontier/core';
-import { characterLook, itemName } from '@new-frontier/render';
-import { anvilRows } from './anvil';
+import { characterOf, TICK_RATE, type Command, type GameEvent, type GameView } from '@new-frontier/core';
+import { percentText, smithGroups, type SmithRow } from './smith';
 import { KEY_LIST } from './hud';
 import type { RunTally } from './reactions';
 
 const SECONDS_IN_MINUTE = 60;
-const ODDS_PLACES = 6;
 
 function element<T extends HTMLElement>(id: string): T {
   const found = document.getElementById(id);
@@ -121,65 +119,47 @@ export class StartScreen {
   }
 }
 
-/** What an upgrade did, for the anvil's result box, as the squad test wrote it. */
-export function upgradeResult(
-  view: GameView,
-  unitId: number,
-  slot: GearSlot,
-  chance: number,
-  events: readonly GameEvent[],
-  before: string | null,
-): string {
-  const unit = view.family.characters.find(({ id }) => id === unitId);
-  if (!unit) return '';
-  const who = unit.name;
-  const rate = `Success Rate: ${chance.toFixed(ODDS_PLACES)}`;
+/** What the smith did, in plain words, for the result box. */
+export function smithResult(rowName: string, events: readonly GameEvent[]): string {
   for (const event of events) {
-    if (event.type === 'upgraded') return `${rate}\n${who}'s ${itemName(before ?? '')} is now +${event.level}.`;
-    if (event.type === 'item-destroyed') {
-      const spare = unit.items[slot];
-      const handed = spare ? ` The smith hands over a ${itemName(spare.typeId)}.` : '';
-      return `${rate}\n${who}'s ${itemName(before ?? '', event.level)} shatters on the anvil.${handed}`;
-    }
-    if (event.type === 'order-refused') return event.reason === 'no-marks' ? 'Not enough marks.' : 'The anvil is out of reach.';
+    if (event.type === 'upgraded') return `${rowName} is now +${event.level}.`;
+    if (event.type === 'item-broken') return `${rowName} breaks. It waits in the inventory until the smith repairs it to +4.`;
+    if (event.type === 'repaired') return `${rowName} is repaired to +${event.level}.`;
+    if (event.type === 'order-refused') return event.reason === 'no-marks' ? 'Not enough marks.' : 'The smith cannot do that.';
   }
   return '';
 }
 
 /**
- * The anvil (S2.3b decisions 4 and 5). It shows whatever slots each character's gear
- * holds, and buys through `upgrade`, which sends a command while the game is paused.
+ * The smith's screen (S3e). It does not pause the game: towns hold no monsters and no
+ * one talks during a fight (decision 4). A step that can fail is confirmed first (decision 6).
  */
-export class Anvil {
+export class SmithScreen {
   private readonly modal = element('forge');
   private readonly box = element('forgeBox');
-  private result = '';
   private view: GameView | null = null;
+  private result = '';
+  /** The risky step waiting for the player's yes. */
+  private asking: SmithRow | null = null;
+  private title = 'The smith';
 
-  private readonly upgrade: (unitId: number, slot: GearSlot) => string;
+  private readonly send: (commands: readonly Command[]) => readonly GameEvent[];
   private readonly close: () => void;
 
-  constructor(upgrade: (unitId: number, slot: GearSlot) => string, close: () => void) {
-    this.upgrade = upgrade;
+  constructor(send: (commands: readonly Command[]) => readonly GameEvent[], close: () => void) {
+    this.send = send;
     this.close = close;
-    this.box.addEventListener('click', (event) => {
-      const target = (event.target as HTMLElement).closest<HTMLButtonElement>('button');
-      if (!target || target.disabled) return;
-      if (target.dataset.unit !== undefined && target.dataset.slot !== undefined) {
-        this.result = this.upgrade(Number(target.dataset.unit), target.dataset.slot as GearSlot);
-        if (this.view) this.draw(this.view);
-      } else if (target.dataset.back !== undefined) {
-        this.close();
-      }
-    });
+    this.box.addEventListener('click', (event) => this.click(event));
   }
 
   get open(): boolean {
     return !this.modal.hidden;
   }
 
-  show(view: GameView): void {
+  show(view: GameView, title: string): void {
     this.result = '';
+    this.asking = null;
+    this.title = title;
     this.modal.hidden = false;
     this.draw(view);
   }
@@ -187,47 +167,94 @@ export class Anvil {
   hide(): void {
     this.modal.hidden = true;
     this.result = '';
+    this.asking = null;
+  }
+
+  private findRow(itemId: number): SmithRow | null {
+    return this.view ? (smithGroups(this.view).flatMap(({ rows }) => rows).find((row) => row.itemId === itemId) ?? null) : null;
+  }
+
+  private act(row: SmithRow): void {
+    if (!row.action) return;
+    const command: Command = { type: row.action, itemId: row.itemId };
+    // The name without its level, since the result says the level.
+    this.result = smithResult(row.name.replace(/ \+\d+$/, ''), this.send([command]));
+    this.asking = null;
+  }
+
+  private click(event: MouseEvent): void {
+    const target = (event.target as HTMLElement).closest<HTMLButtonElement>('button');
+    if (!target || target.disabled || !this.view) return;
+    if (target.dataset.back !== undefined) {
+      this.close();
+      return;
+    }
+    if (target.dataset.confirm !== undefined) {
+      if (this.asking) this.act(this.asking);
+    } else if (target.dataset.cancel !== undefined) {
+      this.asking = null;
+    } else if (target.dataset.item !== undefined) {
+      const row = this.findRow(Number(target.dataset.item));
+      if (row?.action === 'upgrade' && row.chance !== null && row.chance < 1) {
+        this.asking = row;
+        this.result = '';
+      } else if (row) {
+        this.act(row);
+      }
+    }
+    this.draw(this.view);
+  }
+
+  private rowButton({ itemId, name, odds, cost, action, affordable }: SmithRow): HTMLElement {
+    const button = make('button', 'urow') as HTMLButtonElement;
+    button.type = 'button';
+    if (action) {
+      button.dataset.item = String(itemId);
+      button.disabled = !affordable;
+      button.append(make('em', '', (cost ?? 0).toLocaleString('en-AU')));
+    } else {
+      button.disabled = true;
+    }
+    button.append(make('b', '', name), make('small', '', odds));
+    return button;
   }
 
   private draw(view: GameView): void {
     this.view = view;
     const head = make('div', 'mhead');
-    head.append(make('h3', '', 'The anvil'), make('span', 'money', `${Math.round(view.family.marks).toLocaleString('en-AU')} marks`));
-    const blurb = make(
-      'p',
-      'dim',
-      'Guaranteed up to +4. Past that each step halves your odds, and a miss destroys the item. The smith hands over a basic spare.',
-    );
+    head.append(make('h3', '', this.title), make('span', 'money', `${Math.round(view.family.marks).toLocaleString('en-AU')} marks`));
+    const blurb = make('p', 'dim', 'Guaranteed up to +4. Past that each step halves your odds, and a miss breaks the item. Broken gear cannot be worn until it is repaired to +4.');
     const parts: HTMLElement[] = [head, blurb];
     if (this.result) parts.push(make('div', 'resbox', this.result));
+    if (this.asking) parts.push(this.askBox(this.asking));
     const columns = make('div', 'ucols');
-    for (const unit of view.bodies) {
-      const character = characterOf(view, unit.id);
+    for (const group of smithGroups(view)) {
       const column = make('div');
-      column.append(make('h4', '', `${character.name}, ${characterLook(character.classId).name}`));
-      for (const row of anvilRows(character, (slot) => upgradeOffer(view, unit.id, slot as GearSlot), view.family.marks)) {
-        const button = make('button', 'urow') as HTMLButtonElement;
-        button.type = 'button';
-        if (row.offer) {
-          button.dataset.unit = String(row.unitId);
-          button.dataset.slot = row.slot;
-          button.disabled = !row.affordable;
-          button.append(make('em', '', row.offer.cost.toLocaleString('en-AU')));
-        } else {
-          button.disabled = true;
-        }
-        button.append(make('b', '', row.name), make('small', '', row.odds));
-        column.append(button);
-      }
+      column.append(make('h4', '', group.title));
+      for (const row of group.rows) column.append(this.rowButton(row));
       columns.append(column);
     }
     const buttons = make('div', 'btns');
-    const back = make('button', 'btn', 'Back to the island') as HTMLButtonElement;
+    const back = make('button', 'btn', 'Leave the smith') as HTMLButtonElement;
     back.type = 'button';
     back.dataset.back = '';
     buttons.append(back);
     parts.push(columns, buttons);
     this.box.replaceChildren(...parts);
+  }
+
+  private askBox(row: SmithRow): HTMLElement {
+    const box = make('div', 'resbox smithask');
+    box.id = 'smithAsk';
+    box.append(make('p', '', `${row.name}: ${percentText(row.chance ?? 0)} chance to succeed for ${(row.cost ?? 0).toLocaleString('en-AU')} marks. A miss breaks the item.`));
+    const yes = make('button', 'btn', 'Try it') as HTMLButtonElement;
+    yes.type = 'button';
+    yes.dataset.confirm = '';
+    const no = make('button', 'btn', 'Not now') as HTMLButtonElement;
+    no.type = 'button';
+    no.dataset.cancel = '';
+    box.append(yes, no);
+    return box;
   }
 }
 
@@ -248,7 +275,7 @@ export function showVictory(view: GameView, tally: RunTally): void {
       'dim',
       `${minutes} min ${seconds % SECONDS_IN_MINUTE} sec. Levels ${view.family.active.map((id) => characterOf(view, id).level).join(', ')}. ` +
         `Squad wipes ${tally.wipes}, characters down ${tally.downs}, revives ${tally.revives}, ` +
-        `upgrades ${tally.upgrades}, items destroyed ${tally.destroyed}.`,
+        `upgrades ${tally.upgrades}, items broken ${tally.broken}.`,
     ),
     make('h3', '', 'Your verdict'),
     make('p', '', 'Did you feel like you were commanding a team, or babysitting one?'),

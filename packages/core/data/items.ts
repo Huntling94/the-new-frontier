@@ -10,7 +10,7 @@ import type {
   WeaponData,
 } from '../src/state';
 
-/** The seven slots, in the order screens and the anvil show them (D-028, decision 8). */
+/** The seven slots, in the order screens show them (D-028, decision 8). */
 export const SLOTS: readonly GearSlot[] = ['main-hand', 'off-hand', 'head', 'chest', 'gloves', 'boots', 'necklace'];
 
 /** Every category, from the genre's usual set. More can be added here (decision 9). */
@@ -54,9 +54,6 @@ export const SPELL_WEAPONS: Readonly<Record<SpellId, CategoryId | null>> = {
 
 const NO_STATS: ItemStats = { attack: 0, ar: 0, crit: 0, defence: 0, dr: 0 };
 
-/** Share of a weapon's attack and of armour's Def that a smith's spare keeps (D-005). */
-const SPARE = { weapon: 0.85, armour: 0.8 };
-
 /** The squad test's weapons, moved off the classes with the same numbers (decision 10). */
 const SWORD: WeaponData = { range: 3.3, attackSeconds: 0.85, knockback: 8, melee: true, attackStat: 'melee' };
 const RIFLE: WeaponData = { range: 25, attackSeconds: 1.05, knockback: 0, melee: false, attackStat: 'ranged' };
@@ -67,8 +64,6 @@ function weapon(
   stats: Pick<ItemStats, 'attack' | 'ar' | 'crit'>,
   data: WeaponData,
   twoHanded: boolean,
-  spare: string,
-  quality = 1,
 ): ItemTypeData {
   return {
     category,
@@ -78,8 +73,6 @@ function weapon(
     weapon: data,
     requires: [],
     price: 100,
-    quality,
-    spare,
   };
 }
 
@@ -87,8 +80,7 @@ function armour(
   category: CategoryId,
   slot: GearSlot,
   stats: Partial<ItemStats>,
-  spare: string,
-  options: { quality?: number; price?: number; requires?: ItemTypeData['requires'] } = {},
+  options: { price?: number; requires?: ItemTypeData['requires'] } = {},
 ): ItemTypeData {
   return {
     category,
@@ -98,8 +90,6 @@ function armour(
     weapon: null,
     requires: options.requires ?? [],
     price: options.price ?? 60,
-    quality: options.quality ?? 1,
-    spare,
   };
 }
 
@@ -113,34 +103,21 @@ const FEET = { defence: 15, dr: 1 };
  * and the cap, buckler and necklace numbers, are placeholders until balance.
  */
 export const ITEM_TYPES: Readonly<Record<string, ItemTypeData>> = {
-  sword: weapon('sword', { attack: 62, ar: 4, crit: 8 }, SWORD, false, 'plain-sword'),
-  rifle: weapon('rifle', { attack: 76, ar: 5, crit: 12 }, RIFLE, true, 'plain-rifle'),
-  staff: weapon('staff', { attack: 34, ar: 3, crit: 0 }, STAFF, true, 'plain-staff'),
-  'plain-sword': weapon('sword', { attack: 62, ar: 4, crit: 8 }, SWORD, false, 'plain-sword', SPARE.weapon),
-  'plain-rifle': weapon('rifle', { attack: 76, ar: 5, crit: 12 }, RIFLE, true, 'plain-rifle', SPARE.weapon),
-  'plain-staff': weapon('staff', { attack: 34, ar: 3, crit: 0 }, STAFF, true, 'plain-staff', SPARE.weapon),
-  'metal-chest': armour('metal', 'chest', CHEST, 'plain-chest'),
-  'metal-gloves': armour('metal', 'gloves', HANDS, 'plain-gloves'),
-  'metal-boots': armour('metal', 'boots', FEET, 'plain-boots'),
-  'leather-chest': armour('leather', 'chest', CHEST, 'plain-chest'),
-  'leather-gloves': armour('leather', 'gloves', HANDS, 'plain-gloves'),
-  'leather-boots': armour('leather', 'boots', FEET, 'plain-boots'),
-  'coat-chest': armour('coat', 'chest', CHEST, 'plain-chest'),
-  'coat-gloves': armour('coat', 'gloves', HANDS, 'plain-gloves'),
-  'coat-boots': armour('coat', 'boots', FEET, 'plain-boots'),
-  'plain-chest': armour('leather', 'chest', CHEST, 'plain-chest', { quality: SPARE.armour }),
-  'plain-gloves': armour('leather', 'gloves', HANDS, 'plain-gloves', { quality: SPARE.armour }),
-  'plain-boots': armour('leather', 'boots', FEET, 'plain-boots', { quality: SPARE.armour }),
-  cap: armour('leather', 'head', { defence: 8 }, 'plain-cap', { price: 40 }),
-  'plain-cap': armour('leather', 'head', { defence: 8 }, 'plain-cap', { quality: SPARE.armour, price: 40 }),
-  buckler: armour('shield', 'off-hand', { defence: 10, dr: 1 }, 'plain-buckler', { price: 50 }),
-  'plain-buckler': armour('shield', 'off-hand', { defence: 10, dr: 1 }, 'plain-buckler', { quality: SPARE.armour, price: 50 }),
-  necklace: armour('jewellery', 'necklace', { ar: 1, dr: 1 }, 'plain-necklace', {
-    price: 80,
-    requires: [{ kind: 'level', level: 4 }],
-  }),
-  'plain-necklace': armour('jewellery', 'necklace', { ar: 1, dr: 1 }, 'plain-necklace', {
-    quality: SPARE.armour,
+  sword: weapon('sword', { attack: 62, ar: 4, crit: 8 }, SWORD, false),
+  rifle: weapon('rifle', { attack: 76, ar: 5, crit: 12 }, RIFLE, true),
+  staff: weapon('staff', { attack: 34, ar: 3, crit: 0 }, STAFF, true),
+  'metal-chest': armour('metal', 'chest', CHEST),
+  'metal-gloves': armour('metal', 'gloves', HANDS),
+  'metal-boots': armour('metal', 'boots', FEET),
+  'leather-chest': armour('leather', 'chest', CHEST),
+  'leather-gloves': armour('leather', 'gloves', HANDS),
+  'leather-boots': armour('leather', 'boots', FEET),
+  'coat-chest': armour('coat', 'chest', CHEST),
+  'coat-gloves': armour('coat', 'gloves', HANDS),
+  'coat-boots': armour('coat', 'boots', FEET),
+  cap: armour('leather', 'head', { defence: 8 }, { price: 40 }),
+  buckler: armour('shield', 'off-hand', { defence: 10, dr: 1 }, { price: 50 }),
+  necklace: armour('jewellery', 'necklace', { ar: 1, dr: 1 }, {
     price: 80,
     requires: [{ kind: 'level', level: 4 }],
   }),

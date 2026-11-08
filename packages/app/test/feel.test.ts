@@ -1,4 +1,4 @@
-import { botCommands, characterOf, createGame, ISLAND_SCENARIO, step, TICK_RATE, type GameEvent, type GameState } from '@new-frontier/core';
+import { botCommands, characterOf, createGame, ISLAND_SCENARIO, step, TICK_RATE, type GameEvent, type GameState, TOWN_SCENARIO } from '@new-frontier/core';
 import { describe, expect, it } from 'vitest';
 import { addShake, createCamera, poseOf, shakePose } from '../src/camera';
 import { Clock } from '../src/clock';
@@ -150,14 +150,20 @@ describe('the session notes the player’s own orders', () => {
     expect(session.notes.map(({ text }) => text)).toEqual([`${characterOf(session.state, healer.id).name}: not enough mana`]);
   });
 
-  it('applies an anvil upgrade at once, with no tick passing (decision 4)', () => {
-    const session = new Session(1, null);
+  it('applies an upgrade at once, with no tick passing (decision 4)', () => {
+    const session = new Session(1, null, TOWN_SCENARIO);
     const [unit] = session.state.bodies;
     if (!unit) throw new Error('No unit.');
+    for (const body of session.state.bodies) {
+      body.x = -40.6;
+      body.z = -4;
+    }
+    const held = characterOf(session.state, unit.id).items['main-hand'];
+    if (!held) throw new Error('Nothing held.');
     const tick = session.state.tick;
-    const events = session.applyNow([{ type: 'upgrade', unitId: unit.id, slot: 'main-hand' }]);
+    const events = session.applyNow([{ type: 'upgrade', itemId: held.id }]);
     expect(events.map(({ type }) => type)).toEqual(['order-accepted', 'upgraded']);
     expect(session.state.tick).toBe(tick);
-    expect(characterOf(session.state, unit.id).items['main-hand']?.upgrade).toBe(1);
+    expect(held.upgrade).toBe(1);
   });
 });

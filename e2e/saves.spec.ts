@@ -186,16 +186,18 @@ test.describe('saves (S3c)', () => {
     await expect(page.locator('#ban')).toContainText('A cave under the Lande');
   });
 
-  test('an anvil result saves at once, so a reload keeps it', async ({ page }) => {
-    await openGame(page, SAVING);
-    await page.keyboard.press('KeyY');
-    await expect(page.locator('#forge')).toBeVisible();
-    await page.locator('#forge .urow[data-unit="1"][data-slot="main-hand"]').click();
-    await expect(page.locator('#forge .resbox')).toContainText("Aurelio's Sword is now +1.");
-    // Saved while the anvil is still open, before any tick runs.
-    await expect.poll(async () => JSON.parse((await storedSave(page)) ?? '{}').game?.family.characters[0].items['main-hand'].upgrade).toBe(1);
+  test('a version 1 save with a spare in it loads, and shows the replacement item (S3e decision 12)', async ({ page }) => {
+    const v1 = JSON.parse(await readFile('packages/core/test/saves/v1.json', 'utf8')) as { game: { family: { inventory: { typeId: string; upgrade: number }[] } } };
+    const [first] = v1.game.family.inventory;
+    if (!first) throw new Error('No item in the example save.');
+    first.typeId = 'plain-cap';
+    first.upgrade = 2;
+    await openStart(page, SAVING);
+    await page.evaluate(([key, text]) => localStorage.setItem(key as string, text as string), [SAVE_KEY, JSON.stringify(v1)]);
     await reloadAndContinue(page);
-    expect(await page.evaluate(() => window.__tnf.view.family.characters[0]?.items['main-hand']?.upgrade)).toBe(1);
+    expect(await page.evaluate(() => window.__tnf.view.family.inventory[0])).toMatchObject({ typeId: 'cap', upgrade: 2, broken: false });
+    await page.keyboard.press('Alt+KeyE');
+    await expect(page.locator('#inventory')).toContainText('Leather Cap +2');
   });
 
   test('export, start a new game, import: the exported game comes back', async ({ page }) => {

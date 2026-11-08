@@ -7,6 +7,7 @@ import {
   MONTCLAIRE_BOUNDS,
   MONTCLAIRE_GROUND,
   MONTCLAIRE_LOTS,
+  MONTCLAIRE_NPCS,
   MONTCLAIRE_OBSTACLES,
   MONTCLAIRE_START,
 } from './montclaire';
@@ -40,10 +41,8 @@ export const ZONES: readonly ZoneData[] = [
     place: { x: 0, z: 0 },
     ground: { shape: 'island', island: TEST_ISLAND, walkableEdge: 0.9, enemyEdge: 0.87 },
     camp: { x: 0, z: 62, heading: -Math.PI / 2 },
-    anvil: { x: 6, z: 66 },
     obstacles: [
       { kind: 'beacon', x: 0, z: 0, radius: 4.2 },
-      { kind: 'waystone', x: 6, z: 66, radius: 1.1 },
       ...LANDE_LAYOUT,
     ],
     contents: { dummy: null, packs: PACKS, boss: { x: 0, z: 16 } },
@@ -69,6 +68,7 @@ export const ZONES: readonly ZoneData[] = [
       },
     ],
     lots: [],
+    npcs: [],
   },
   {
     id: 'lande-cave',
@@ -85,7 +85,6 @@ export const ZONES: readonly ZoneData[] = [
       ],
     },
     camp: { x: -30, z: 16, heading: 0 },
-    anvil: null,
     obstacles: [],
     contents: { dummy: null, packs: CAVE_PACKS, boss: null },
     packRespawnSeconds: PACK_RESPAWN_SECONDS,
@@ -101,6 +100,7 @@ export const ZONES: readonly ZoneData[] = [
       },
     ],
     lots: [],
+    npcs: [],
   },
   {
     id: 'montclaire',
@@ -108,7 +108,6 @@ export const ZONES: readonly ZoneData[] = [
     place: { x: 150, z: 130 },
     ground: { shape: 'streets', level: 3, bounds: MONTCLAIRE_BOUNDS, ...MONTCLAIRE_GROUND },
     camp: MONTCLAIRE_START,
-    anvil: null,
     obstacles: MONTCLAIRE_OBSTACLES,
     contents: { dummy: null, packs: [], boss: null },
     packRespawnSeconds: PACK_RESPAWN_SECONDS,
@@ -124,6 +123,7 @@ export const ZONES: readonly ZoneData[] = [
       },
     ],
     lots: MONTCLAIRE_LOTS,
+    npcs: MONTCLAIRE_NPCS,
   },
 ];
 

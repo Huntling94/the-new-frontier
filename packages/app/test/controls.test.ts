@@ -29,8 +29,8 @@ describe('keys (D-031)', () => {
     expect(pressAction('Backspace')).toEqual({ kind: 'reset-view' });
   });
 
-  it('puts the anvil on Y, closes it on Escape, and keeps H and N for help and sound (S2.3b)', () => {
-    expect(pressAction('KeyY')).toEqual({ kind: 'anvil' });
+  it('leaves Y doing nothing, closes on Escape, and keeps H and N for help and sound (S3e decision 3)', () => {
+    expect(pressAction('KeyY')).toBeNull();
     expect(pressAction('Escape')).toEqual({ kind: 'close' });
     expect(pressAction('KeyH')).toEqual({ kind: 'help' });
     expect(pressAction('KeyN')).toEqual({ kind: 'mute' });

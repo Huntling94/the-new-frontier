@@ -33,7 +33,7 @@ describe('full runs', () => {
     );
 
     it(
-      'walks to the anvil, and so upgrades through commands',
+      'walks to the smith, and so upgrades through commands',
       () => {
         expect(runBot(1, kind).upgrades).toBeGreaterThan(0);
       },

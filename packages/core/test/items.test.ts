@@ -1,18 +1,15 @@
 import { describe, expect, it } from 'vitest';
 import { LEVELS } from '../data/combat';
-import { UPGRADES } from '../data/gear';
-import { ITEM_TYPES, SLOTS, STARTING_INVENTORY, UNARMED } from '../data/items';
+import { SLOTS, STARTING_INVENTORY, UNARMED } from '../data/items';
 import { EMPTY_SCENARIO } from '../data/scenarios';
 import { CLASSES } from '../data/squad';
 import { characterOf } from '../src/family';
-import { createGame, step } from '../src/game';
+import { createGame } from '../src/game';
 import { createItem, everyItem, itemType } from '../src/items';
 import { applyCommands } from '../src/orders';
 import { nextRandom } from '../src/random';
 import { previewChange } from '../src/reads';
-import { recalculate } from '../src/stats';
-import type { Command, GameState, GearSlot } from '../src/state';
-import { applyUpgrade } from '../src/upgrades';
+import type { Command, GameState } from '../src/state';
 import { FIGHTER, HEALER, SNIPER, dummyGame, dummyOf, itemAt, ofType, place, run, sendAway, unitOf } from './helpers';
 
 const refusals = (state: GameState, commands: readonly Command[]): string[] =>
@@ -59,32 +56,6 @@ describe('items (S3b decisions 7 to 14)', () => {
     expect(itemType('sword').fills).toEqual([]);
   });
 
-  it('give each spare exactly today’s numbers, for every class and slot (D-005, decision 13)', () => {
-    for (const classId of ['fighter', 'sniper', 'healer'] as const) {
-      const state = createGame(1, { ...EMPTY_SCENARIO, family: [{ classId, name: 'Test' }] });
-      const character = characterOf(state, 1);
-      const body = unitOf(state, 1);
-      const { armourScale } = CLASSES[classId];
-      for (const slot of ['main-hand', 'chest', 'gloves', 'boots'] as const) {
-        const held = character.items[slot];
-        if (!held) throw new Error('Nothing held.');
-        const type = itemType(held.typeId);
-        const before = { attack: body.attack, defence: body.defence, ar: body.ar, dr: body.dr };
-        character.items[slot] = createItem(state, type.spare);
-        recalculate(character, body);
-        if (slot === 'main-hand') {
-          const levelScale = 1 + LEVELS.attackPerLevel * (character.level - 1);
-          expect(body.attack).toBeCloseTo(Math.round(type.stats.attack * 0.85) * levelScale, 8);
-        } else {
-          const old = Math.round(type.stats.defence * armourScale);
-          expect(body.defence).toBe(before.defence - old + Math.round(old * 0.8));
-        }
-        expect([body.ar, body.dr]).toEqual([before.ar, before.dr]);
-        character.items[slot] = held;
-        recalculate(character, body);
-      }
-    }
-  });
 });
 
 describe('equip and unequip (decision 17)', () => {
@@ -106,7 +77,7 @@ describe('equip and unequip (decision 17)', () => {
   it('sends whatever was in the slot back to the inventory', () => {
     const state = dummyGame();
     const sword = itemAt(state, FIGHTER, 'main-hand').id;
-    const spare = inventoryItem(state, 'plain-sword');
+    const spare = inventoryItem(state, 'sword');
     applyCommands(state, [{ type: 'equip', unitId: FIGHTER, itemId: spare, slot: 'main-hand' }]);
     expect(itemAt(state, FIGHTER, 'main-hand').id).toBe(spare);
     expect(state.family.inventory.map(({ id }) => id)).toContain(sword);
@@ -155,7 +126,7 @@ describe('equip and unequip (decision 17)', () => {
   it('keeps every item in exactly one place, across random equips and unequips (rule 1)', () => {
     const state = dummyGame(9);
     characterOf(state, FIGHTER).level = 10;
-    for (const typeId of ['rifle', 'staff', 'buckler', 'cap', 'plain-chest']) inventoryItem(state, typeId);
+    for (const typeId of ['rifle', 'staff', 'buckler', 'cap', 'leather-chest']) inventoryItem(state, typeId);
     const total = everyItem(state).length;
     const rolls = { rng: 12345 };
     const pick = <T>(list: readonly T[]): T => list[Math.floor(nextRandom(rolls) * list.length)] as T;
@@ -201,38 +172,5 @@ describe('the unarmed type (decision 12)', () => {
     applyCommands(state, [{ type: 'unequip', unitId: FIGHTER, slot: 'main-hand' }]);
     expect(refusals(state, [{ type: 'cast', unitId: FIGHTER, spell: 'cleave' }])).toEqual(['needs-weapon']);
     expect(refusals(state, [{ type: 'cast', unitId: FIGHTER, spell: 'guard' }])).toEqual([]);
-  });
-});
-
-describe('the anvil over seven slots (decision 19)', () => {
-  it('upgrades any filled slot by place and slot, with today’s odds and costs', () => {
-    const state = dummyGame();
-    state.family.marks = 100000;
-    const cap = inventoryItem(state, 'cap');
-    step(state, [{ type: 'equip', unitId: FIGHTER, itemId: cap, slot: 'head' }]);
-    const events: ReturnType<typeof applyCommands> = [];
-    expect(applyUpgrade(state, { type: 'upgrade', unitId: FIGHTER, slot: 'head' }, events)).toBeNull();
-    expect(itemAt(state, FIGHTER, 'head').upgrade).toBe(1);
-    expect(state.family.marks).toBe(100000 - Math.round(UPGRADES.costBase));
-    expect(applyUpgrade(state, { type: 'upgrade', unitId: FIGHTER, slot: 'necklace' }, [])).toBe('slot-empty');
-  });
-
-  it('turns a destroyed item into the spare for its slot', () => {
-    for (const slot of ['main-hand', 'head'] as GearSlot[]) {
-      const state = dummyGame();
-      state.family.marks = 1000000;
-      if (slot === 'head') applyCommands(state, [{ type: 'equip', unitId: FIGHTER, itemId: inventoryItem(state, 'cap'), slot }]);
-      let destroyed = false;
-      for (let tries = 0; tries < 60 && !destroyed; tries += 1) {
-        itemAt(state, FIGHTER, slot).upgrade = 9;
-        const events = applyCommands(state, [{ type: 'upgrade', unitId: FIGHTER, slot }]);
-        destroyed = ofType(events, 'item-destroyed').length === 1;
-      }
-      expect(destroyed).toBe(true);
-      const spare = itemAt(state, FIGHTER, slot);
-      expect(spare.typeId).toBe(slot === 'head' ? 'plain-cap' : 'plain-sword');
-      expect(spare.upgrade).toBe(0);
-      expect(ITEM_TYPES[spare.typeId]?.quality).toBeLessThan(1);
-    }
   });
 });

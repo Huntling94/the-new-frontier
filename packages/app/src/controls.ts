@@ -14,7 +14,6 @@ export type KeyAction =
   | { readonly kind: 'auto' }
   | { readonly kind: 'snap' }
   | { readonly kind: 'reset-view' }
-  | { readonly kind: 'anvil' }
   | { readonly kind: 'inventory' }
   | { readonly kind: 'close' }
   | { readonly kind: 'help' }
@@ -43,7 +42,6 @@ const PRESSES: Readonly<Record<string, KeyAction>> = {
   Space: { kind: 'auto' },
   Home: { kind: 'snap' },
   Backspace: { kind: 'reset-view' },
-  KeyY: { kind: 'anvil' },
   Escape: { kind: 'close' },
   KeyH: { kind: 'help' },
   KeyN: { kind: 'mute' },

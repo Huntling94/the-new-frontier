@@ -19,7 +19,7 @@ import type {
 } from './state';
 import { TICKS } from './time';
 import { applyEquip, applyUnequip } from './items';
-import { applyUpgrade } from './upgrades';
+import { applyRepair, applyUpgrade } from './upgrades';
 import { clearAlong } from './grid';
 import { gridOf, pullOntoLand } from './world';
 
@@ -192,6 +192,8 @@ function apply(state: GameState, command: Command, events: GameEvent[]): Refusal
       return applyPotion(state, command, events);
     case 'upgrade':
       return applyUpgrade(state, command, events);
+    case 'repair':
+      return applyRepair(state, command, events);
     case 'equip':
       return applyEquip(state, command, events);
     case 'unequip':

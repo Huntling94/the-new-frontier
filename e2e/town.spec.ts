@@ -20,7 +20,14 @@ test('a new game starts in Montclaire, walks out of the gate onto the Lande, and
   const from = await page.evaluate(() => window.__tnf.events.length);
   await bringIntoView(page, OUT_OF_TOWN);
   await rightClickGround(page, [OUT_OF_TOWN]);
-  await crossInto(page, 'lande');
+  // So a failure says whether the click missed or the walk was slow.
+  await expect
+    .poll(() => page.evaluate((count) => window.__tnf.events.slice(count).some(({ type, order }) => type === 'order-accepted' && order === 'move'), from), {
+      message: 'The right click on the gate gave no move order.',
+    })
+    .toBe(true);
+  // The plaza to the gate is the longest walk in the tests, and CI renders in software.
+  await crossInto(page, 'lande', 60_000);
   await expect(page.locator('#ban')).toContainText('Lande de Montclaire');
   const walked = await page.evaluate((count) => window.__tnf.events.slice(count).map(({ type }) => type), from);
   expect(walked).not.toContain('unit-gave-up');

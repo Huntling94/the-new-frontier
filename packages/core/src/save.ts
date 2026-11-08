@@ -28,6 +28,7 @@ export interface SavedItem {
   readonly id: number;
   readonly typeId: string;
   readonly upgrade: number;
+  readonly broken: boolean;
 }
 
 export interface SavedCharacter {
@@ -98,7 +99,7 @@ export type LoadResult =
   | { readonly ok: false; readonly refusal: SaveRefusal; readonly detail: string };
 
 function copyItem(item: GameView['family']['inventory'][number]): SavedItem {
-  return { id: item.id, typeId: item.typeId, upgrade: item.upgrade };
+  return { id: item.id, typeId: item.typeId, upgrade: item.upgrade, broken: item.broken };
 }
 
 /**
@@ -231,6 +232,7 @@ function readItem(value: unknown, where: string): Item {
     id: whole(item.id, `${where}'s ID`, 1),
     typeId: known(text(item.typeId, `${where}'s type`), ITEM_TYPES, 'item type'),
     upgrade: whole(item.upgrade, `${where}'s upgrade`, 0),
+    broken: flag(item.broken, `${where}'s broken flag`),
   };
 }
 
@@ -314,6 +316,9 @@ function checkItems(characters: readonly Character[], inventory: readonly Item[]
       const held = character.items[slot];
       if (!held) continue;
       note(held);
+      if (held.broken) {
+        throw new Refused('item-rules', `${character.name}'s ${slot} holds a broken ${held.typeId} (D-042).`);
+      }
       const type = ITEM_TYPES[held.typeId];
       if (!type?.fits.includes(slot)) {
         throw new Refused('item-rules', `${character.name}'s ${slot} holds a ${held.typeId}, which does not fit there.`);

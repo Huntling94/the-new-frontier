@@ -52,6 +52,8 @@ export function refusalText(reason: RefusalReason, item: ItemView | null, who: s
       return `${who} needs level ${item?.level ?? '?'} for this.`;
     case 'needs-art':
       return `${who} has no art for a ${categoryLook(item?.category ?? '').name.toLowerCase()}.`;
+    case 'broken':
+      return 'It is broken. The smith in town can repair it to +4.';
     case 'wrong-slot':
       return 'It does not fit that slot.';
     case 'slot-empty':
@@ -74,7 +76,7 @@ export function statLines(preview: ChangePreview): { readonly label: string; rea
 /**
  * The inventory (S3b decision 20, D-040). The family's shared items on the left, the active three on
  * the right. Click an inventory item, then a slot, to equip; click an equipped item to send
- * it back. It pauses the game like the anvil, and sends its commands at once.
+ * it back. It pauses the game, and sends its commands at once.
  */
 export class Inventory {
   private readonly modal = element('inventory');
@@ -182,6 +184,7 @@ export class Inventory {
     badge.style.borderColor = look.colour;
     tile.append(badge, make('b', '', itemName(item.typeId, item.upgrade)));
     if (item.fills.length > 0) tile.append(make('small', '', 'Two hands'));
+    if (item.broken) tile.append(make('small', 'warn', 'Broken'));
     return tile;
   }
 
@@ -234,7 +237,7 @@ export class Inventory {
           const item = this.inventoryItem(view, this.held);
           const fits = item?.fits.includes(slot) ?? false;
           row.classList.toggle('fits', fits);
-          row.classList.toggle('blocked', fits && whyNotUse(view, id, item?.typeId ?? '') !== null);
+          row.classList.toggle('blocked', fits && (item?.broken === true || whyNotUse(view, id, item?.typeId ?? '') !== null));
         }
         column.append(row);
       }

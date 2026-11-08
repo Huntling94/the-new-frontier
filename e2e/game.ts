@@ -16,8 +16,8 @@ export interface Hook {
       marks: number;
       potions: number;
       active: number[];
-      characters: { id: number; name: string; classId: string; level: number; xp: number; items: Record<string, { id: number; typeId: string; upgrade: number } | null> }[];
-      inventory: { id: number; typeId: string; upgrade: number }[];
+      characters: { id: number; name: string; classId: string; level: number; xp: number; items: Record<string, { id: number; typeId: string; upgrade: number; broken: boolean } | null> }[];
+      inventory: { id: number; typeId: string; upgrade: number; broken: boolean }[];
     };
     bodies: {
       id: number;
@@ -47,7 +47,8 @@ export interface Hook {
     groundAt(x: number, y: number): { x: number; z: number } | null;
     screenOf(point: { x: number; y: number; z: number }): { x: number; y: number; visible: boolean };
     heightAt(x: number, z: number): number;
-    pickables(): { units: { id: number; screen: { x: number; y: number } }[]; enemies: unknown[] };
+    pickables(): { units: { id: number; screen: { x: number; y: number } }[]; enemies: unknown[]; npcs: { id: number; screen: { x: number; y: number } }[] };
+    npcHighlighted(): number | null;
     rebuildZone(): void;
     memory(): { geometries: number; textures: number; programs: number };
     floating(): number;
@@ -137,7 +138,8 @@ export async function bringIntoView(page: Page, point: { x: number; z: number })
   }
 }
 
-export async function crossInto(page: Page, zoneId: string): Promise<void> {
-  await page.waitForFunction(() => window.__tnf.fading, undefined, { timeout: 20_000, polling: 'raf' });
+/** Waits out a gate crossing. `walkMs` is how long the walk to the gate may take. */
+export async function crossInto(page: Page, zoneId: string, walkMs = 20_000): Promise<void> {
+  await page.waitForFunction(() => window.__tnf.fading, undefined, { timeout: walkMs, polling: 'raf' });
   await page.waitForFunction((id) => window.__tnf.view.zoneId === id && !window.__tnf.fading, zoneId, { timeout: 10_000 });
 }

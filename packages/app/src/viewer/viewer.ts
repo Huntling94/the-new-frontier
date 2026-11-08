@@ -145,9 +145,11 @@ function describe(event: GameEvent): string {
     case 'unit-revived':
       return `${String(event.tick)} unit ${String(event.unitId)} revived`;
     case 'upgraded':
-      return `${String(event.tick)} unit ${String(event.unitId)} ${event.slot} now +${String(event.level)}`;
-    case 'item-destroyed':
-      return `${String(event.tick)} unit ${String(event.unitId)} ${event.slot} +${String(event.level)} destroyed`;
+      return `${String(event.tick)} item ${String(event.itemId)} now +${String(event.level)}`;
+    case 'item-broken':
+      return `${String(event.tick)} item ${String(event.itemId)} broke at +${String(event.level)}`;
+    case 'repaired':
+      return `${String(event.tick)} item ${String(event.itemId)} repaired to +${String(event.level)}`;
     case 'equipped':
       return `${String(event.tick)} unit ${String(event.unitId)} equips item ${String(event.itemId)} in ${event.slot}`;
     case 'unequipped':

@@ -39,6 +39,8 @@ export interface Feel {
     /** Pixels from a character or enemy that still counts as clicking it. */
     readonly characterRadius: number;
     readonly enemyRadius: number;
+    /** Pixels from an NPC that still counts as hovering or clicking it (S3e decision 2). */
+    readonly npcRadius: number;
     /** Pixels around a box that still count as inside it. */
     readonly boxMargin: number;
   };
@@ -98,6 +100,7 @@ export const FEEL: Feel = {
     dragThreshold: 6,
     characterRadius: 34,
     enemyRadius: 36,
+    npcRadius: 34,
     boxMargin: 8,
   },
   slowTime: {

@@ -2,6 +2,7 @@ import { SPELLS } from '../data/spells';
 import { characterOf, classOf } from './family';
 import { SLOTS } from '../data/items';
 import { applyEquip, applyUnequip, inFight, itemType, spellsKnown, weaponOf, whyNot } from './items';
+import { isUpgradable } from './upgrades';
 import type { Grid } from './grid';
 import { recalculate, xpToNextLevel } from './stats';
 import type {
@@ -20,7 +21,7 @@ import type {
   UnequipCommand,
 } from './state';
 import { secondsToTicks } from './time';
-import { gridOf, obstaclesOf, zoneOf, type Ground, type Lot, type ZoneKind } from './world';
+import { gridOf, obstaclesOf, zoneOf, type Ground, type Lot, type NpcData, type ZoneKind } from './world';
 
 /** A gate as the screen needs it: where it is, and where it leads. */
 export interface GateView {
@@ -43,12 +44,13 @@ export interface ZoneView {
   /** Height of the ground at its average. */
   readonly groundLevel: number;
   readonly ground: Ground;
-  readonly anvil: Point | null;
   /** Baked once, and the same on every run (D-022). */
   readonly obstacles: readonly Obstacle[];
   readonly gates: readonly GateView[];
   /** Places kept for systems to come, such as the smithy (S3d). Only towns have any. */
   readonly lots: readonly Lot[];
+  /** Who stands here (D-044). */
+  readonly npcs: readonly NpcData[];
   /** Where the zone sits in the shared world frame (decision 11). */
   readonly place: Point;
 }
@@ -74,10 +76,10 @@ export function currentZone(view: GameView): ZoneView {
     size: centre.size,
     groundLevel: centre.level,
     ground,
-    anvil: zone.anvil,
     obstacles: obstaclesOf(view),
     gates: zone.gates.map(({ id, area, to }) => ({ id, x: area.x, z: area.z, radius: area.radius, to })),
     lots: zone.lots,
+    npcs: zone.npcs,
     place: zone.place,
   };
 }
@@ -136,13 +138,13 @@ export interface ItemView {
   readonly fits: readonly GearSlot[];
   /** Other slots it empties, as a two-handed weapon empties the off hand. */
   readonly fills: readonly GearSlot[];
-  /** The smith's spare (D-005). */
-  readonly spare: boolean;
+  /** Broken by a missed upgrade, so it cannot be worn (D-042). */
+  readonly broken: boolean;
   /** The level it needs, if any. */
   readonly level: number | null;
 }
 
-export function itemInfo(item: { readonly id: number; readonly typeId: string; readonly upgrade: number }): ItemView {
+export function itemInfo(item: { readonly id: number; readonly typeId: string; readonly upgrade: number; readonly broken: boolean }): ItemView {
   const type = itemType(item.typeId);
   return {
     id: item.id,
@@ -151,7 +153,7 @@ export function itemInfo(item: { readonly id: number; readonly typeId: string; r
     upgrade: item.upgrade,
     fits: type.fits,
     fills: type.fills,
-    spare: type.quality < 1,
+    broken: item.broken,
     level: type.requires.reduce<number | null>((most, need) => (need.kind === 'level' ? Math.max(most ?? 0, need.level) : most), null),
   };
 }
@@ -210,4 +212,22 @@ export function whyNotUse(view: GameView, characterId: number, typeId: string): 
 /** Whether a fight is on, which stops equipping (decision 17). */
 export function fightOn(view: GameView): boolean {
   return inFight(view);
+}
+
+/** One line on the smith's screen: an item and who wears it, or null for the inventory (S3e decision 5). */
+export interface SmithEntry {
+  readonly wearerId: number | null;
+  readonly item: ItemView;
+}
+
+/** Every weapon and armour item the family owns, by who wears it, then the inventory. Jewellery is not listed. */
+export function smithEntries(view: GameView): readonly SmithEntry[] {
+  const worn = view.family.characters.flatMap((character) =>
+    SLOTS.flatMap((slot) => {
+      const held = character.items[slot];
+      return held && isUpgradable(held.typeId) ? [{ wearerId: character.id, item: itemInfo(held) }] : [];
+    }),
+  );
+  const stored = view.family.inventory.flatMap((held) => (isUpgradable(held.typeId) ? [{ wearerId: null, item: itemInfo(held) }] : []));
+  return [...worn, ...stored];
 }

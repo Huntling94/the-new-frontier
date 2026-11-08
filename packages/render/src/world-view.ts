@@ -14,6 +14,7 @@ import { Effects } from './effects';
 import { EntityLayer, type Marks } from './entities';
 import { Floats } from './floats';
 import { monsterLook } from './looks';
+import { NpcLayer } from './npcs';
 import { ZoneScene } from './zone-scene';
 
 export interface Vec3 {
@@ -38,6 +39,8 @@ export interface Box {
 
 export interface ScreenState extends Marks {
   readonly box: Box | null;
+  /** The NPC the pointer is over, by its place in the zone's list (S3e decision 2). */
+  readonly npcHover: number | null;
 }
 
 export interface ScreenPoint {
@@ -70,8 +73,10 @@ export interface WorldView {
   groundAt(x: number, y: number): Point | null;
   screenOf(point: Vec3): ScreenPoint;
   heightAt(x: number, z: number): number;
-  /** Characters and enemies where they are drawn, raised to body height for clicking. */
-  pickables(view: GameView): { readonly units: Pickable[]; readonly enemies: Pickable[] };
+  /** Characters, enemies and NPCs where they are drawn, raised to body height for clicking. An NPC's ID is its place in the zone's list. */
+  pickables(view: GameView): { readonly units: Pickable[]; readonly enemies: Pickable[]; readonly npcs: Pickable[] };
+  /** The NPC lit by hovering, for tests. */
+  npcHighlighted(): number | null;
   /** Drops the zone's scene and builds it again from the view (decision 10). */
   rebuildZone(view: GameView): void;
   resize(width: number, height: number, pixelRatio: number): void;
@@ -83,6 +88,8 @@ export interface WorldView {
 /** Characters and enemies are clicked at this height above their feet, as in the squad test. */
 const PICK_HEIGHT = 2;
 const UNIT_BAR_HEIGHT = 5.4;
+const NPC_NAME_HEIGHT = 4.8;
+const NPC_NAME_FONT = '500 14px "Alegreya Sans", sans-serif';
 const UNIT_BAR_WIDTH = 34;
 const BAR_THICKNESS = 4;
 const LOW_HEALTH = 0.3;
@@ -92,12 +99,13 @@ interface Loaded {
   readonly scene: ZoneScene;
   readonly effects: Effects;
   readonly entities: EntityLayer;
+  readonly npcs: NpcLayer;
 }
 
 function load(view: GameView): Loaded {
   const scene = new ZoneScene(view, currentZone(view));
   const effects = new Effects(scene);
-  return { scene, effects, entities: new EntityLayer(scene, effects) };
+  return { scene, effects, entities: new EntityLayer(scene, effects), npcs: new NpcLayer(scene) };
 }
 
 function unload(loaded: Loaded): void {
@@ -174,6 +182,18 @@ export function createWorldView(canvas: HTMLCanvasElement, overlay: HTMLCanvasEl
       context.fillStyle = unit.share < LOW_HEALTH ? '#ef6a54' : '#9be8a6';
       context.fillRect(at.x - UNIT_BAR_WIDTH / 2, at.y, UNIT_BAR_WIDTH * unit.share, BAR_THICKNESS);
     }
+    // NPCs wear their names, so they can be told apart (S3e).
+    context.font = NPC_NAME_FONT;
+    context.textAlign = 'center';
+    context.fillStyle = '#f2e6c8';
+    context.shadowColor = '#000';
+    context.shadowBlur = 3;
+    for (const { id, x, y, z } of loaded.npcs.positions()) {
+      const at = screenOf({ x, y: y + NPC_NAME_HEIGHT, z });
+      const name = loaded.scene.zone.npcs[id]?.name;
+      if (at.visible && name) context.fillText(name, at.x, at.y);
+    }
+    context.shadowBlur = 0;
     floats.draw(context, dt, (x, y, z) => screenOf({ x, y, z }));
   };
 
@@ -197,6 +217,7 @@ export function createWorldView(canvas: HTMLCanvasElement, overlay: HTMLCanvasEl
         loaded = load(current);
       }
       loaded.entities.draw(current, alpha, dt, screen);
+      loaded.npcs.highlight(screen.npcHover);
       loaded.effects.update(dt);
       const living = current.bodies.filter(({ alive }) => alive);
       const squad = living.length > 0
@@ -204,7 +225,8 @@ export function createWorldView(canvas: HTMLCanvasElement, overlay: HTMLCanvasEl
         : current.anchor;
       loaded.scene.update(current, dt, focus, squad);
       // A building never hides a living character: it fades while it would (S3d decision 9).
-      const seen = loaded.entities.drawnUnits().filter(({ alive }) => alive).map(({ x, y, z }) => ({ x, y: y + PICK_HEIGHT, z }));
+      // Nor an NPC, which must read as something to click (S3e decision 2).
+      const seen = [...loaded.entities.drawnUnits().filter(({ alive }) => alive), ...loaded.npcs.positions()].map(({ x, y, z }) => ({ x, y: y + PICK_HEIGHT, z }));
       loaded.scene.occlude(camera.position, seen, dt);
       renderer.render(loaded.scene.scene, camera);
       drawOverlay(current, screen, dt);
@@ -238,7 +260,11 @@ export function createWorldView(canvas: HTMLCanvasElement, overlay: HTMLCanvasEl
       return {
         units: loaded.entities.drawnUnits().filter(({ alive }) => alive).map(raise),
         enemies: loaded.entities.drawnEnemies(current).map(raise),
+        npcs: loaded.npcs.positions().map(raise),
       };
+    },
+    npcHighlighted() {
+      return loaded.npcs.highlighted;
     },
     rebuildZone(current) {
       unload(loaded);

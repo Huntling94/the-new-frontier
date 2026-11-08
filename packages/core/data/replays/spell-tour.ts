@@ -9,8 +9,7 @@ const DUMMY_ID = 4;
 const DUMMY_POINT = { x: 0, z: 30 };
 
 /**
- * Written by hand, as no input exists until S2.3. The squad upgrades at the
- * anvil, walks to the dummy and fights it, and casts eight spells. Replays cannot
+ * Written by hand, as no input exists until S2.3. The squad walks to the dummy and fights it, and casts eight spells. Replays cannot
  * set state, so the Healer then walks out of auto-heal range until the Fighter
  * falls, comes back and revives it. The squad finishes the dummy, which respawns.
  *
@@ -22,7 +21,6 @@ export const SPELL_TOUR: Replay = {
   scenario: DUMMY_SCENARIO,
   ticks: 3400,
   entries: [
-    { tick: 5, commands: [{ type: 'upgrade', unitId: FIGHTER, slot: 'chest' }] },
     {
       tick: 15,
       commands: [{ type: 'move', unitIds: EVERYONE, x: DUMMY_POINT.x, z: 40, attack: true }],
@@ -51,5 +49,5 @@ export const SPELL_TOUR: Replay = {
     { tick: 2580, commands: [{ type: 'regroup' }] },
     { tick: 2640, commands: [{ type: 'target', unitIds: EVERYONE, enemyId: DUMMY_ID }] },
   ],
-  expectedHash: '6e574ca1',
+  expectedHash: 'd924a66d',
 };

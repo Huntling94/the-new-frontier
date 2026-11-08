@@ -17,6 +17,8 @@ export const AUTO = {
 /** The test bots, from the squad test. */
 export const BOTS = {
   thinkSeconds: 0.2,
+  /** The zone holding the boss, which the bots walk back to from town. */
+  fightZone: 'lande',
   /** Where the squad stands to wake the boss, and the way in from the camp side. */
   bossStart: { x: 0, z: 26 },
   bossApproach: { x: 0, z: 50 },

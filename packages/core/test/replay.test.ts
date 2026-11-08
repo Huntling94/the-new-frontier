@@ -86,12 +86,11 @@ describe('the spell tour', () => {
     expect(hits.some((hit) => hit.sourceId === 4)).toBe(true);
   });
 
-  it('heals, drinks and upgrades', () => {
+  it('heals and drinks', () => {
     const types = events.map((event) => event.type);
     expect(types).toContain('healed');
-    expect(types).toContain('upgraded');
     expect(state.family.potions).toBe(5);
-    expect(state.family.marks).toBe(380);
+    expect(state.family.marks).toBe(450);
   });
 
   it('reaches Revive by leaving the Fighter to fall, with room to spare', () => {

@@ -18,7 +18,7 @@ test.describe('the interface (S2.3b)', () => {
     await openStart(page);
     await expect(page.locator('#start')).toBeVisible();
     await expect(page.locator('#keyList kbd').first()).toHaveText('Right click ground');
-    await expect(page.locator('#keyList')).toContainText('Use the anvil');
+    await expect(page.locator('#keyList')).toContainText('Upgrade and repair gear');
     const frames = await page.evaluate(() => window.__tnf.frames);
     await page.waitForFunction((at) => window.__tnf.frames > at + 10, frames);
     expect(await page.evaluate(() => [window.__tnf.mode, window.__tnf.view.tick])).toEqual(['start', 0]);
@@ -52,38 +52,6 @@ test.describe('the interface (S2.3b)', () => {
     const first = await shadeOf(button);
     await ticksPass(page, 30);
     await expect.poll(() => shadeOf(button)).toBeLessThan(first);
-  });
-
-  test('the anvil opens on Y, pauses the game, buys an upgrade, and resumes', async ({ page }) => {
-    await openGame(page);
-    await page.keyboard.press('KeyY');
-    await expect(page.locator('#forge')).toBeVisible();
-    expect(await page.evaluate(() => window.__tnf.paused)).toBe(true);
-    const tick = await page.evaluate(() => window.__tnf.view.tick);
-    const marks = await page.evaluate(() => window.__tnf.view.family.marks);
-    await page.waitForTimeout(500);
-    expect(await page.evaluate(() => window.__tnf.view.tick)).toBe(tick);
-
-    // All seven slots get a row for each of the three (S3b decision 19).
-    await expect(page.locator('#forge .ucols > div')).toHaveCount(3);
-    await expect(page.locator('#forge .urow')).toHaveCount(21);
-    await page.locator('#forge .urow[data-unit="1"][data-slot="main-hand"]').click();
-    await expect(page.locator('#forge .resbox')).toContainText("Aurelio's Sword is now +1.");
-    expect(await page.evaluate(() => window.__tnf.view.family.characters[0]?.items['main-hand']?.upgrade)).toBe(1);
-    expect(await page.evaluate(() => window.__tnf.view.family.marks)).toBeLessThan(marks);
-    // Still paused after buying: the command landed with no tick.
-    expect(await page.evaluate(() => window.__tnf.view.tick)).toBe(tick);
-    expect(await page.evaluate(() => window.__tnf.events.some((event) => event.type === 'upgraded'))).toBe(true);
-
-    await page.keyboard.press('Escape');
-    await expect(page.locator('#forge')).toBeHidden();
-    await ticksPass(page, 5);
-
-    await page.keyboard.press('KeyY');
-    await expect(page.locator('#forge')).toBeVisible();
-    await page.keyboard.press('KeyY');
-    await expect(page.locator('#forge')).toBeHidden();
-    expect(await page.evaluate(() => window.__tnf.paused)).toBe(false);
   });
 
   test('N mutes and unmutes the sound, and H hides and shows help', async ({ page }) => {

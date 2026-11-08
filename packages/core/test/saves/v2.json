@@ -1,0 +1,231 @@
+{
+  "format": "the-new-frontier-save",
+  "version": 2,
+  "game": {
+    "tick": 3323,
+    "rng": 563648977,
+    "family": {
+      "characters": [
+        {
+          "id": 1,
+          "name": "Aurelio",
+          "classId": "fighter",
+          "level": 6,
+          "xp": 465,
+          "arts": [
+            "swordplay"
+          ],
+          "items": {
+            "main-hand": {
+              "id": 1,
+              "typeId": "sword",
+              "upgrade": 1,
+              "broken": false
+            },
+            "off-hand": null,
+            "head": null,
+            "chest": {
+              "id": 2,
+              "typeId": "metal-chest",
+              "upgrade": 0,
+              "broken": false
+            },
+            "gloves": {
+              "id": 3,
+              "typeId": "metal-gloves",
+              "upgrade": 0,
+              "broken": false
+            },
+            "boots": {
+              "id": 4,
+              "typeId": "metal-boots",
+              "upgrade": 0,
+              "broken": false
+            },
+            "necklace": null
+          }
+        },
+        {
+          "id": 2,
+          "name": "Inês",
+          "classId": "sniper",
+          "level": 6,
+          "xp": 465,
+          "arts": [
+            "marksmanship"
+          ],
+          "items": {
+            "main-hand": {
+              "id": 5,
+              "typeId": "rifle",
+              "upgrade": 3,
+              "broken": false
+            },
+            "off-hand": null,
+            "head": null,
+            "chest": {
+              "id": 6,
+              "typeId": "leather-chest",
+              "upgrade": 0,
+              "broken": false
+            },
+            "gloves": {
+              "id": 7,
+              "typeId": "leather-gloves",
+              "upgrade": 0,
+              "broken": false
+            },
+            "boots": {
+              "id": 8,
+              "typeId": "leather-boots",
+              "upgrade": 0,
+              "broken": false
+            },
+            "necklace": null
+          }
+        },
+        {
+          "id": 3,
+          "name": "Mireille",
+          "classId": "healer",
+          "level": 6,
+          "xp": 465,
+          "arts": [
+            "mending"
+          ],
+          "items": {
+            "main-hand": {
+              "id": 9,
+              "typeId": "staff",
+              "upgrade": 0,
+              "broken": false
+            },
+            "off-hand": null,
+            "head": null,
+            "chest": {
+              "id": 10,
+              "typeId": "coat-chest",
+              "upgrade": 0,
+              "broken": false
+            },
+            "gloves": {
+              "id": 11,
+              "typeId": "coat-gloves",
+              "upgrade": 0,
+              "broken": false
+            },
+            "boots": {
+              "id": 12,
+              "typeId": "coat-boots",
+              "upgrade": 0,
+              "broken": false
+            },
+            "necklace": {
+              "id": 15,
+              "typeId": "necklace",
+              "upgrade": 0,
+              "broken": false
+            }
+          }
+        }
+      ],
+      "active": [
+        1,
+        2,
+        3
+      ],
+      "inventory": [
+        {
+          "id": 13,
+          "typeId": "cap",
+          "upgrade": 0,
+          "broken": false
+        },
+        {
+          "id": 14,
+          "typeId": "buckler",
+          "upgrade": 0,
+          "broken": false
+        }
+      ],
+      "marks": 1717,
+      "potions": 8
+    },
+    "zoneId": "lande-cave",
+    "records": [
+      {
+        "id": "lande",
+        "bossDead": false,
+        "returns": [
+          {
+            "packId": 1,
+            "tick": 5642
+          },
+          {
+            "packId": 3,
+            "tick": 6004
+          },
+          {
+            "packId": 5,
+            "tick": 6516
+          },
+          {
+            "packId": 6,
+            "tick": 7256
+          },
+          {
+            "packId": 4,
+            "tick": 7705
+          },
+          {
+            "packId": 2,
+            "tick": 8032
+          },
+          {
+            "packId": 0,
+            "tick": 8313
+          }
+        ]
+      },
+      {
+        "id": "lande-cave",
+        "bossDead": false,
+        "returns": []
+      }
+    ],
+    "squad": {
+      "anchor": {
+        "x": -26,
+        "z": 14
+      },
+      "heading": -0.3851575063634739,
+      "bodies": [
+        {
+          "id": 1,
+          "x": -24.38691909429667,
+          "z": 13.561990797559933,
+          "health": 2452,
+          "mana": 0,
+          "alive": true
+        },
+        {
+          "id": 2,
+          "x": -30.753685982316256,
+          "z": 10.885475307477279,
+          "health": 1425,
+          "mana": 0,
+          "alive": true
+        },
+        {
+          "id": 3,
+          "x": -27.369667220723027,
+          "z": 19.398030728707347,
+          "health": 1219,
+          "mana": 400,
+          "alive": true
+        }
+      ]
+    }
+  },
+  "savedAt": "2026-11-08T12:00:00.000Z"
+}

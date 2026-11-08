@@ -23,6 +23,15 @@ export function characterLook(classId: string): CharacterLook {
   return CHARACTERS[classId] ?? PLAIN_CHARACTER;
 }
 
+/** How each NPC is dressed, keyed by its ID (D-044), with a plain default. */
+const NPCS: Readonly<Record<string, CharacterLook>> = {
+  smith: { name: 'Smith', coat: 0x4a3a2c, hat: null, weapon: null },
+};
+
+export function npcLook(npcId: string): CharacterLook {
+  return NPCS[npcId] ?? PLAIN_CHARACTER;
+}
+
 export type MonsterBody = 'swarm' | 'runner' | 'spitter' | 'brute' | 'post' | 'blob';
 
 export interface MonsterLook {
@@ -316,9 +325,6 @@ const ITEM_NAMES: Readonly<Record<string, string>> = {
   sword: 'Sword',
   rifle: 'Rifle',
   staff: 'Staff',
-  'plain-sword': 'Plain Sword',
-  'plain-rifle': 'Plain Rifle',
-  'plain-staff': 'Plain Staff',
   'metal-chest': 'Metal Armour',
   'metal-gloves': 'Metal Gloves',
   'metal-boots': 'Metal Boots',
@@ -328,15 +334,9 @@ const ITEM_NAMES: Readonly<Record<string, string>> = {
   'coat-chest': 'Coat',
   'coat-gloves': 'Coat Gloves',
   'coat-boots': 'Coat Boots',
-  'plain-chest': 'Plain Armour',
-  'plain-gloves': 'Plain Gloves',
-  'plain-boots': 'Plain Boots',
   cap: 'Leather Cap',
-  'plain-cap': 'Plain Cap',
   buckler: 'Buckler',
-  'plain-buckler': 'Plain Buckler',
   necklace: 'Necklace',
-  'plain-necklace': 'Plain Necklace',
 };
 
 /** An item's name, with a plain default for any type the data adds. */

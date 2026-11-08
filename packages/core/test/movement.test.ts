@@ -60,10 +60,9 @@ describe('obstacles', () => {
     expect(kinds.filter((kind) => kind === 'rock')).toHaveLength(34);
   });
 
-  it('keep the beacon and waystone at fixed places', () => {
-    expect(obstaclesOf(createGame(1, EMPTY_SCENARIO)).slice(0, 2)).toEqual([
+  it('keep the beacon at its fixed place', () => {
+    expect(obstaclesOf(createGame(1, EMPTY_SCENARIO)).slice(0, 1)).toEqual([
       { kind: 'beacon', x: 0, z: 0, radius: 4.2 },
-      { kind: 'waystone', x: 6, z: 66, radius: 1.1 },
     ]);
   });
 

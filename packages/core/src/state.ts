@@ -85,13 +85,6 @@ export interface ItemTypeData {
   readonly requires: readonly Requirement[];
   /** In marks. Nothing sells yet (D-012). */
   readonly price: number;
-  /**
-   * 1, or the share of the stats a smith's spare keeps (D-005). It applies after the
-   * class's armour scale, so spares keep today's numbers exactly.
-   */
-  readonly quality: number;
-  /** What the smith hands over if it breaks at the anvil (decision 13). */
-  readonly spare: string;
 }
 
 export interface ClassData {
@@ -117,6 +110,8 @@ export interface Item {
   readonly id: number;
   readonly typeId: string;
   upgrade: number;
+  /** Broken by a missed upgrade: cannot be worn until a smith repairs it (D-042). */
+  broken: boolean;
 }
 
 /** One of the three places in the triangle (D-025). */
@@ -435,7 +430,7 @@ export interface ChargeTelegraph {
 
 export type ScheduledEffect = ScheduledStrike | SlamTelegraph | ChargeTelegraph;
 
-export type ObstacleKind = 'stone' | 'rock' | 'beacon' | 'waystone' | 'fountain';
+export type ObstacleKind = 'stone' | 'rock' | 'beacon' | 'fountain';
 
 export interface Obstacle extends Point {
   readonly kind: ObstacleKind;
@@ -570,10 +565,16 @@ export interface UnequipCommand {
   readonly slot: GearSlot;
 }
 
+/** A step up at the smith, for any weapon or armour the family owns (D-042). */
 export interface UpgradeCommand {
   readonly type: 'upgrade';
-  readonly unitId: number;
-  readonly slot: GearSlot;
+  readonly itemId: number;
+}
+
+/** Repairs a broken item to +4 at the smith (D-042). */
+export interface RepairCommand {
+  readonly type: 'repair';
+  readonly itemId: number;
 }
 
 export type Command =
@@ -582,6 +583,7 @@ export type Command =
   | CastCommand
   | PotionCommand
   | UpgradeCommand
+  | RepairCommand
   | EquipCommand
   | UnequipCommand
   | { readonly type: 'regroup' }
@@ -599,7 +601,12 @@ export type RefusalReason =
   | 'no-potions'
   | 'nobody-hurt'
   | 'no-marks'
-  | 'not-near-anvil'
+  | 'not-near-smith'
+  | 'not-near-npc'
+  | 'unknown-npc'
+  | 'broken'
+  | 'not-broken'
+  | 'not-upgradable'
   | 'already-max'
   | 'unknown-item'
   | 'wrong-slot'
@@ -654,17 +661,10 @@ export type GameEvent =
   | { readonly type: 'enemy-down'; readonly tick: number; readonly enemyId: number }
   | { readonly type: 'unit-revived'; readonly tick: number; readonly unitId: number }
   | {
-      readonly type: 'upgraded';
+      readonly type: 'upgraded' | 'item-broken' | 'repaired';
       readonly tick: number;
-      readonly unitId: number;
-      readonly slot: GearSlot;
-      readonly level: number;
-    }
-  | {
-      readonly type: 'item-destroyed';
-      readonly tick: number;
-      readonly unitId: number;
-      readonly slot: GearSlot;
+      readonly itemId: number;
+      /** The level it reached, broke at, or was repaired to. */
       readonly level: number;
     }
   | {

@@ -32,7 +32,7 @@ export interface RunTally {
   downs: number;
   revives: number;
   upgrades: number;
-  destroyed: number;
+  broken: number;
 }
 
 const BANNER_SECONDS = 2.6;
@@ -70,7 +70,7 @@ const nameOfUnit = (view: GameView, id: number): string => {
  */
 export class Reactions {
   private before: Before | null = null;
-  readonly tally: RunTally = { wipes: 0, downs: 0, revives: 0, upgrades: 0, destroyed: 0 };
+  readonly tally: RunTally = { wipes: 0, downs: 0, revives: 0, upgrades: 0, broken: 0 };
 
   /** Call just before each tick. */
   remember(view: GameView): void {

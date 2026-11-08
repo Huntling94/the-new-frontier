@@ -58,7 +58,7 @@ test.describe('commanding the squad', () => {
       await rightClick(page, x, y);
       await ticksPass(page, 2);
       const anchor = await page.evaluate(() => window.__tnf.view.anchor);
-      // A click on open ground lands exactly. One beside a stone or the waystone moves to the
+      // A click on open ground lands exactly. One beside a stone moves to the
       // nearest walkable cell (S3a decision 7), which is never more than a stone's margin away.
       const moved = Math.hypot(anchor.x - (under?.x ?? NaN), anchor.z - (under?.z ?? NaN));
       expect(moved).toBeLessThan(3.5);

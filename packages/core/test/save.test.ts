@@ -14,6 +14,7 @@ import type { GameState } from '../src/state';
 import { enterZone, recordOf } from '../src/zones';
 import { SNIPER, unitOf } from './helpers';
 import V1 from './saves/v1.json' with { type: 'json' };
+import V2 from './saves/v2.json' with { type: 'json' };
 
 /** Frozen forever: every later build must load it (S3c decision 3). */
 const V1_SAVE: unknown = V1;
@@ -21,7 +22,7 @@ const V1_SAVE: unknown = V1;
 /** A careful bot's run, stopped when no fight is on, as the app saves. */
 function playedGame(seed: number, ticks: number): GameState {
   const state = createGame(seed, ISLAND_SCENARIO);
-  while (state.tick < ticks || fightOn(state) || state.squadDown) step(state, botCommands(state, 'careful'));
+  while (!state.victory && (state.tick < ticks || fightOn(state) || state.squadDown)) step(state, botCommands(state, 'careful'));
   return state;
 }
 
@@ -170,7 +171,7 @@ describe('the version 1 example save', () => {
     expect(state.zoneId).toBe('lande-cave');
     // Montclaire came after this save was made, so it gets a fresh record (S3d decision 10).
     const town = { id: 'montclaire', bossDead: false, returns: [] };
-    expect(lasting(toSave(state))).toEqual(lasting({ ...V1, game: { ...V1.game, records: [...V1.game.records, town] } }));
+    expect(lasting(toSave(state))).toEqual(lasting({ ...V2, game: { ...V2.game, records: [...V2.game.records, town] } }));
     // Health and mana as saved: a reload never heals the squad.
     expect(state.bodies.map(({ health, mana }) => ({ health, mana }))).toEqual(V1.game.squad.bodies.map(({ health, mana }) => ({ health, mana })));
     expect(state.bodies.some(({ health, maxHealth }) => health < maxHealth)).toBe(true);
@@ -225,7 +226,8 @@ describe('a cleared pack', () => {
 });
 
 describe('migration (S3c decision 3)', () => {
-  // Test-only steps: version 1 ships with none.
+  // Test-only steps, run on the version 2 example, which needs no real step to load.
+  const atVersion = (version: number): unknown => ({ ...copy(V2), version });
   const addOne = (game: unknown): unknown => {
     const moved = copy(game) as { family: { marks: number } };
     moved.family.marks += 1;
@@ -237,24 +239,24 @@ describe('migration (S3c decision 3)', () => {
     return moved;
   };
 
-  it('ships version 1 with no steps', () => {
-    expect(SAVE_VERSION).toBe(1);
-    expect(toSave(createGame(1, ISLAND_SCENARIO)).version).toBe(1);
+  it('writes version 2, after one step', () => {
+    expect(SAVE_VERSION).toBe(2);
+    expect(toSave(createGame(1, ISLAND_SCENARIO)).version).toBe(2);
   });
 
   it('runs every step from the save version to the current one, in order', () => {
-    const marks = V1.game.family.marks;
-    const fromOne = fromSave(V1_SAVE, [addOne, timesTen]);
+    const marks = V2.game.family.marks;
+    const fromOne = fromSave(atVersion(1), [addOne, timesTen]);
     expect(fromOne.ok && fromOne.state.family.marks).toBe((marks + 1) * 10);
-    const fromTwo = fromSave(changed('version', 2), [addOne, timesTen]);
+    const fromTwo = fromSave(atVersion(2), [addOne, timesTen]);
     expect(fromTwo.ok && fromTwo.state.family.marks).toBe(marks * 10);
-    const fromThree = fromSave(changed('version', 3), [addOne, timesTen]);
+    const fromThree = fromSave(atVersion(3), [addOne, timesTen]);
     expect(fromThree.ok && fromThree.state.family.marks).toBe(marks);
     expect(migrate({ n: 1 }, 1, [])).toEqual({ n: 1 });
   });
 
   it('never changes the data passed in, even if a step does', () => {
-    const data = copy(V1_SAVE);
+    const data = atVersion(1);
     const before = JSON.stringify(data);
     const careless = (game: unknown): unknown => {
       (game as { family: { marks: number } }).family.marks = 0;
@@ -314,5 +316,78 @@ describe('the check (S3c decision 4)', () => {
     expect(getAt(V1, `${SNIPER_ITEMS}.main-hand.typeId`)).toBe('rifle');
     expect(ITEM_TYPES.rifle?.fills).toContain('off-hand');
     expect(refusal(changed(`${SNIPER_ITEMS}.off-hand`, { id: 999, typeId: 'buckler', upgrade: 0 }))).toBe('item-rules');
+  });
+});
+
+describe('version 1 to 2 (S3e decision 12)', () => {
+  const PLAIN: Readonly<Record<string, string>> = {
+    'plain-sword': 'sword',
+    'plain-rifle': 'rifle',
+    'plain-staff': 'staff',
+    'plain-chest': 'leather-chest',
+    'plain-gloves': 'leather-gloves',
+    'plain-boots': 'leather-boots',
+    'plain-cap': 'cap',
+    'plain-buckler': 'buckler',
+    'plain-necklace': 'necklace',
+  };
+
+  /** The frozen version 1 save with every plain type in it, and upgrades on each. */
+  function withSpares(): { save: typeof V1; plain: Map<number, { typeId: string; upgrade: number }> } {
+    const save = copy(V1);
+    const items = save.game.family.inventory as { id: number; typeId: string; upgrade: number }[];
+    const plain = new Map<number, { typeId: string; upgrade: number }>();
+    Object.keys(PLAIN).forEach((typeId, index) => {
+      const item = { id: 1000 + index, typeId, upgrade: index };
+      items.push(item);
+      plain.set(item.id, { typeId, upgrade: item.upgrade });
+    });
+    return { save, plain };
+  }
+
+  it('turns every plain item into its replacement, with ID and upgrade kept, and no ID twice', () => {
+    const { save, plain } = withSpares();
+    const state = load(save);
+    for (const [id, was] of plain) {
+      expect(state.family.inventory.find((item) => item.id === id)).toEqual({ id, typeId: PLAIN[was.typeId], upgrade: was.upgrade, broken: false });
+    }
+    const ids = [...state.family.inventory, ...state.family.characters.flatMap((character) => SLOTS.flatMap((slot) => character.items[slot] ?? []))].map(({ id }) => id);
+    expect(new Set(ids).size).toBe(ids.length);
+  });
+
+  it('turns a worn plain item into its replacement', () => {
+    const save = copy(V1);
+    const chest = save.game.family.characters[0]?.items.chest;
+    if (!chest) throw new Error('No chest.');
+    chest.typeId = 'plain-chest';
+    const worn = load(save).family.characters[0]?.items.chest;
+    expect(worn).toEqual({ id: chest.id, typeId: 'leather-chest', upgrade: chest.upgrade, broken: false });
+  });
+
+  it('marks every item unbroken', () => {
+    const state = load(V1_SAVE);
+    const worn = state.family.characters.flatMap((character) => SLOTS.flatMap((slot) => character.items[slot] ?? []));
+    expect([...worn, ...state.family.inventory].every(({ broken }) => !broken)).toBe(true);
+  });
+
+  it('refuses a plain type in a version 2 save (rule 9)', () => {
+    const save = copy(V2);
+    const [first] = save.game.family.inventory;
+    if (!first) throw new Error('No item.');
+    first.typeId = 'plain-sword';
+    expect(refusal(save)).toBe('unknown-id');
+  });
+
+  it('refuses a broken item worn in a slot', () => {
+    const save = copy(V2);
+    const held = save.game.family.characters[0]?.items['main-hand'];
+    if (!held) throw new Error('Nothing held.');
+    held.broken = true;
+    expect(refusal(save)).toBe('item-rules');
+  });
+
+  it('loads the frozen version 2 example, the same game as the version 1 example migrated', () => {
+    expect(V2.version).toBe(SAVE_VERSION);
+    expect(toSave(load(V2)).game.family).toEqual(toSave(load(V1_SAVE)).game.family);
   });
 });

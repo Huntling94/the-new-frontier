@@ -4,7 +4,7 @@ import { TICK_RATE } from '../data/sim';
 import { MOVEMENT } from '../data/movement';
 import { EMPTY_SCENARIO, ISLAND_SCENARIO } from '../data/scenarios';
 import { START_ZONE, ZONES } from '../data/zones';
-import { badGates, badPlacements, strayEnemyReferences, unreachableZones } from '../src/checks';
+import { badNpcs, badGates, badPlacements, strayEnemyReferences, unreachableZones } from '../src/checks';
 import { hitEnemy } from '../src/combat';
 import { createGame, step } from '../src/game';
 import { findRoute, isOpen, lineClear } from '../src/grid';
@@ -266,9 +266,19 @@ describe('zone records (D-021)', () => {
 
 describe('world data checks (decision 12)', () => {
   it('pass on the world as it is', () => {
+    expect(badNpcs(ZONES)).toEqual([]);
     expect(unreachableZones(ZONES, START_ZONE)).toEqual([]);
     expect(badGates(ZONES)).toEqual([]);
     expect(badPlacements(ZONES)).toEqual([]);
+  });
+
+  it('let an NPC with no services stand outside a town, and refuse a smith there (D-039, D-044)', () => {
+    const at = { x: LANDE.camp.x, z: LANDE.camp.z };
+    const elder = { id: 'elder', name: 'Elder', at, facing: 0, services: [], quests: [] };
+    const smith = { ...elder, id: 'hedge-smith', services: ['smith'] as const };
+    expect(badNpcs([{ ...LANDE, npcs: [elder] }])).toEqual([]);
+    expect(badNpcs([{ ...LANDE, npcs: [smith] }])).toEqual(['lande holds the smith hedge-smith, but only a town may']);
+    expect(badNpcs([{ ...LANDE, npcs: [elder, elder] }])).toEqual(['elder is placed twice']);
   });
 
   it('find a zone no gate reaches, and a gate to nowhere', () => {

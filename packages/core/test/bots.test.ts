@@ -1,15 +1,17 @@
 import { describe, expect, it } from 'vitest';
 import { BOTS } from '../data/bots';
-import { ISLAND_SCENARIO } from '../data/scenarios';
+import { ISLAND_SCENARIO, TOWN_SCENARIO } from '../data/scenarios';
+import { ZONES } from '../data/zones';
 import { characterOf } from '../src/family';
+import { gateRoute } from '../src/npcs';
 import { autoCommands } from '../src/auto';
 import { botCommands } from '../src/bots';
 import { createGame, step } from '../src/game';
-import type { Command, GameState, MoveCommand } from '../src/state';
+import type { Command, GameEvent, GameState, MoveCommand } from '../src/state';
 import { TICKS } from '../src/time';
 import { FIGHTER, HEALER, SNIPER, itemAt, unitOf } from './helpers';
 
-const ZONES_ANVIL = { x: 6, z: 66 };
+const INTO_TOWN = { x: 16, z: 72 };
 
 function island(seed = 1): GameState {
   return createGame(seed, ISLAND_SCENARIO);
@@ -197,7 +199,7 @@ describe('bots', () => {
     expect(botCommands(thinking(island()), 'careful')).toEqual(first);
   });
 
-  it('walk to the anvil with the island clear and marks to spend', () => {
+  it('walk for the town gate with the island clear and marks to spend', () => {
     const state = thinking(island());
     clearMonsters(state);
     for (const unit of state.bodies) {
@@ -206,15 +208,44 @@ describe('bots', () => {
     }
     state.family.marks = 1000;
     const [move] = moves(botCommands(state, 'careful'));
-    expect(move).toMatchObject(ZONES_ANVIL);
+    expect(move).toMatchObject(INTO_TOWN);
   });
 
-  it('buy from the list only at the anvil', () => {
+  it('buy from the list in order, once at the smith', () => {
+    const state = createGame(1, TOWN_SCENARIO);
+    state.tick = TICKS.autoThink * TICKS.botThink;
+    for (const unit of state.bodies) {
+      unit.x = -40.6;
+      unit.z = unit.id - 4;
+    }
+    const [first] = botCommands(state, 'careful');
+    expect(first).toEqual({ type: 'upgrade', itemId: itemAt(state, SNIPER, 'main-hand').id });
+    expect(itemAt(state, FIGHTER, 'main-hand').upgrade).toBe(0);
+  });
+
+  it('route across zones by breadth-first search over gates (S3e decision 13)', () => {
+    expect(gateRoute('lande', ({ kind }) => kind === 'town')?.map(({ id }) => id)).toEqual(['lande-to-montclaire']);
+    expect(gateRoute('lande-cave', ({ kind }) => kind === 'town')?.map(({ id }) => id)).toEqual(['cave-to-lande', 'lande-to-montclaire']);
+    expect(gateRoute('lande', ({ id }) => id === 'lande')).toEqual([]);
+    expect(gateRoute('lande', () => false)).toBeNull();
+    expect(ZONES.length).toBeGreaterThan(1);
+  });
+
+  it('with an affordable upgrade on the Lande, reach the smith in Montclaire, upgrade, and return to the Lande', () => {
     const state = thinking(island());
     clearMonsters(state);
-    const [first] = botCommands(state, 'careful');
-    expect(first).toEqual({ type: 'upgrade', unitId: SNIPER, slot: 'main-hand' });
-    expect(itemAt(state, FIGHTER, 'main-hand').upgrade).toBe(0);
+    state.family.marks = 200;
+    const rifle = itemAt(state, SNIPER, 'main-hand');
+    const zones = new Set<string>();
+    const events: GameEvent[] = [];
+    while (state.tick < 12000 && !(events.some(({ type }) => type === 'upgraded') && state.zoneId === 'lande')) {
+      events.push(...step(state, botCommands(state, 'careful')));
+      zones.add(state.zoneId);
+    }
+    expect(zones).toContain('montclaire');
+    expect(state.zoneId).toBe('lande');
+    expect(rifle.upgrade).toBeGreaterThan(0);
+    expect(events.filter(({ type }) => type === 'order-refused')).toEqual([]);
   });
 
   it('stop buying at the safe level', () => {

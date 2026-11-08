@@ -28,7 +28,6 @@ import {
   MeshBasicMaterial,
   MeshPhongMaterial,
   Object3D,
-  OctahedronGeometry,
   PlaneGeometry,
   PointLight,
   Points,
@@ -119,7 +118,6 @@ export class ZoneScene {
   private readonly sea: { readonly t: { value: number }; readonly deep: { value: Color }; readonly shallow: { value: Color }; readonly fogC: { value: Color }; readonly glint: { value: Color } };
   private readonly sky: { readonly top: { value: Color }; readonly hor: { value: Color }; readonly sunC: { value: Color }; readonly sunD: { value: Vector3 } };
   private readonly motes: Points;
-  private readonly runes: Mesh[] = [];
   private readonly beacons: Beacon[] = [];
   /** A town's buildings and dressing (S3d), or null for any other ground. */
   private readonly town: Town | null = null;
@@ -232,9 +230,6 @@ export class ZoneScene {
     }
     positions.needsUpdate = true;
     this.motes.position.set(focus.x, 3, focus.z);
-    for (const rune of this.runes) {
-      rune.rotation.y = this.time * 1.4;
-    }
   }
 
   /** Fades any building between the camera and the squad (S3d decision 9). Only towns have buildings. */
@@ -330,10 +325,8 @@ export class ZoneScene {
         placed.rock.push({ x, y, z, s: obstacle.radius / ROCK_RADIUS, ry, c: look.rock });
       } else if (obstacle.kind === 'beacon') {
         this.buildBeacon(x, y, z);
-      } else if (obstacle.kind === 'fountain') {
-        this.town?.buildFountain(obstacle, y);
       } else {
-        this.buildWaystone(x, y, z);
+        this.town?.buildFountain(obstacle, y);
       }
     });
     const { ground } = this.zone;
@@ -492,25 +485,6 @@ export class ZoneScene {
     group.position.set(x, y, z);
     this.scene.add(group);
     this.beacons.push({ coal, halo, beam, lit: basicMaterial(keep, 0xffd089) });
-  }
-
-  private buildWaystone(x: number, y: number, z: number): void {
-    const keep = this.resources;
-    const group = new Group();
-    const stone = new Mesh(
-      keep.keep(new CylinderGeometry(0.5, 1.1, 5, 5)),
-      keep.keep(new MeshPhongMaterial({ color: 0x5c6468, flatShading: true })),
-    );
-    stone.position.y = 2.5;
-    stone.castShadow = true;
-    const rune = new Mesh(keep.keep(new OctahedronGeometry(0.55)), basicMaterial(keep, 0x8fd6c4));
-    rune.position.y = 6;
-    const halo = glowSprite(keep, this.glow, 0x3f7a70, 4.5);
-    halo.position.y = 6;
-    group.add(stone, rune, halo);
-    group.position.set(x, y, z);
-    this.scene.add(group);
-    this.runes.push(rune);
   }
 
   private buildMotes(): Points {

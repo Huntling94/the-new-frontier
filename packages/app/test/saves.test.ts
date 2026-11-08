@@ -121,7 +121,7 @@ describe('automatic saving (S3c decision 6)', () => {
     expect(store.texts).toHaveLength(2);
   });
 
-  it('never saves by itself in a fight or with the squad down, but always after the anvil', async () => {
+  it('never saves by itself in a fight or with the squad down, but always after a smith result', async () => {
     const store = new MemoryStore();
     const saver = new AutoSaver(store, () => undefined, () => undefined);
     const fight = fighting();

@@ -4,16 +4,13 @@ import '@fontsource/alegreya-sans/latin-700.css';
 import '@fontsource/im-fell-english-sc/latin-400.css';
 import '@fontsource/vt323/latin-400.css';
 import {
-  characterOf,
   currentZone,
   ISLAND_SCENARIO,
-  isNearAnvil,
   TOWN_SCENARIO,
-  upgradeOffer,
+  whyNotTalk,
   type BotKind,
   type GameEvent,
   type GameState,
-  type GearSlot,
   type LoadResult,
 } from '@new-frontier/core';
 import { createWorldView, zoneLook, type CameraPose, type WorldView } from '@new-frontier/render';
@@ -46,7 +43,7 @@ import {
   savedTime,
   savingAllowed,
 } from './saves';
-import { Anvil, showVictory, StartScreen, upgradeResult } from './screens';
+import { showVictory, SmithScreen, StartScreen } from './screens';
 import { Session } from './session';
 import { Sound } from './sound';
 import { fitViewport } from './viewport';
@@ -136,32 +133,30 @@ function start(world: WorldView): void {
   /** A gate crossing in progress: fading out on the old zone, or in on the new one. */
   let fade: { phase: 'out' | 'in'; seconds: number } | null = null;
 
-  const anvil = new Anvil(
-    (unitId, slot: GearSlot) => {
-      const offer = upgradeOffer(session.view, unitId, slot);
-      const before = characterOf(session.view, unitId).items[slot]?.typeId ?? null;
-      const events = session.applyNow([{ type: 'upgrade', unitId, slot }]);
+  const smith = new SmithScreen(
+    (commands) => {
+      const events = session.applyNow(commands);
       recent.push(...events);
       for (const event of events) {
-        if (event.type === 'upgraded') {
-          reactions.tally.upgrades += 1;
+        if (event.type === 'upgraded' || event.type === 'repaired') {
+          reactions.tally.upgrades += event.type === 'upgraded' ? 1 : 0;
           sound.play('forge');
         }
-        if (event.type === 'item-destroyed') {
-          reactions.tally.destroyed += 1;
+        if (event.type === 'item-broken') {
+          reactions.tally.broken += 1;
           sound.play('fail');
         }
       }
-      // A save follows every anvil result, fight or not, so a reload never undoes one (D-005, D-024).
-      if (events.some(({ type }) => type === 'upgraded' || type === 'item-destroyed')) {
+      // A save follows every result, so a reload never undoes one (D-024, S3e decision 10).
+      if (events.some(({ type }) => type === 'upgraded' || type === 'item-broken' || type === 'repaired')) {
         void saver?.saveNow(session.view, performance.now(), true);
       }
-      return upgradeResult(session.view, unitId, slot, offer?.chance ?? 0, events, before);
+      return events;
     },
-    () => anvil.hide(),
+    () => smith.hide(),
   );
 
-  // The inventory pauses the game like the anvil, and its commands land at once (S3b decision 20).
+  // The inventory pauses the game, and its commands land at once (S3b decision 20).
   const inventory = new Inventory(
     (commands) => {
       const events = session.applyNow(commands);
@@ -171,52 +166,77 @@ function start(world: WorldView): void {
     },
     () => inventory.hide(),
   );
-  /** A screen that pauses the game is open. */
-  const screenOpen = (): boolean => anvil.open || inventory.open;
+  /** A screen that pauses the game is open. The smith's does not pause (S3e decision 4). */
+  const screenOpen = (): boolean => inventory.open;
+  /** Any screen is open, so the world takes no orders. */
+  const modalOpen = (): boolean => screenOpen() || smith.open;
 
   const hud = new Hud(
     (id) => {
-      if (mode !== 'play' || screenOpen()) return;
+      if (mode !== 'play' || modalOpen()) return;
       session.selectOnly([id]);
       camera.follow = true;
       sound.play('click');
     },
     (place, slot) => {
-      if (mode !== 'play' || screenOpen()) return;
+      if (mode !== 'play' || modalOpen()) return;
       session.act({ kind: 'spell', place, slot }, null);
     },
   );
 
   const input = new Input(canvas, session, world, camera, {
-    playing: () => mode === 'play' && !screenOpen(),
+    playing: () => mode === 'play' && !modalOpen(),
     menu: (action: KeyAction) => {
       if (mode !== 'play') return;
       if (inventory.open) {
         if (action.kind === 'inventory' || action.kind === 'close') inventory.hide();
         return;
       }
-      if (action.kind === 'inventory' && !anvil.open && fade === null) {
+      if (smith.open) {
+        // Only closing works while talking to the smith.
+        if (action.kind === 'close') smith.hide();
+        return;
+      }
+      if (action.kind === 'inventory' && fade === null) {
         // Anywhere, in fields and dungeons too (D-040).
         input.letGo();
         inventory.show(session.view);
         sound.play('click');
         return;
       }
-      if (anvil.open) {
-        // Only closing works while the anvil is open, as in the squad test.
-        if (action.kind === 'anvil' || action.kind === 'close') anvil.hide();
-        return;
-      }
-      if (action.kind === 'anvil' && !session.view.victory && isNearAnvil(session.view)) {
-        input.letGo();
-        anvil.show(session.view);
-        sound.play('click');
-      }
       if (action.kind === 'help') hud.toggleHelp();
       if (action.kind === 'mute') sound.toggleMute();
     },
     cue: () => sound.play('click'),
+    talk: (index) => tryTalk(index),
   });
+
+  /** Opens the NPC's screen. Only the smith has one so far (D-044). */
+  const openNpc = (npcId: string): void => {
+    const npc = currentZone(session.view).npcs.find(({ id }) => id === npcId);
+    session.talking = null;
+    if (!npc?.services.includes('smith')) return;
+    input.letGo();
+    smith.show(session.view, `${npc.name}, the smith`);
+    sound.play('click');
+  };
+
+  /** A right click on an NPC: talk now if in reach, or walk over and talk on arriving (S3e decision 2). */
+  function tryTalk(index: number): void {
+    const npc = currentZone(session.view).npcs[index];
+    if (!npc) return;
+    const reason = whyNotTalk(session.view, npc.id);
+    if (reason === 'in-fight') {
+      sound.play('fail');
+      hud.log({ text: 'Not during a fight. Wait until no enemy is awake.', tone: 'bad' });
+    } else if (reason === 'not-near-npc') {
+      session.walkToTalk(npc.id, npc.at);
+      sound.play('click');
+      camera.follow = true;
+    } else if (reason === null) {
+      openNpc(npc.id);
+    }
+  }
 
   // Saves (S3c): the HUD says when the game last saved, and a failed save says so once.
   const savedLine = element('saved');
@@ -285,7 +305,7 @@ function start(world: WorldView): void {
     onNew: () => {
       void (async () => {
         if (storedText !== null && !(await startScreen.ask('Start a new game? It replaces your saved game.', 'Replace it'))) return;
-        begin(null, inTown ? `Head out to ${zoneLook('lande').name}` : 'Clear the camps, then visit the anvil');
+        begin(null, inTown ? `Head out to ${zoneLook('lande').name}` : 'Clear the camps, then visit the smith');
         void saver?.saveNow(session.view, performance.now(), true);
       })();
     },
@@ -400,7 +420,7 @@ function start(world: WorldView): void {
       camera.z = centre.z;
     }
     if (fade?.phase === 'in' && fade.seconds >= FADE.inSeconds) fade = null;
-    // The anvil and inventory pause the game: no ticks run while one is open (decision 4), nor while fading out.
+    // The inventory pauses the game: no ticks run while it is open (decision 4), nor while fading out.
     const running = mode !== 'start' && !screenOpen() && fade?.phase !== 'out';
     const ticks = running ? clock.advance(real, input.wantsSlow) : 0;
     for (let index = 0; index < ticks; index += 1) {
@@ -421,6 +441,12 @@ function start(world: WorldView): void {
         break;
       }
     }
+    if (mode === 'play' && session.talking !== null && !modalOpen() && fade === null) {
+      // Walking to talk ends on arriving in reach, or if a fight starts on the way.
+      const reason = whyNotTalk(session.view, session.talking);
+      if (reason === null) openNpc(session.talking);
+      else if (reason !== 'not-near-npc') session.talking = null;
+    }
     if (mode !== 'start') saver?.consider(session.view, now);
     fadeLayer.style.opacity = !fade ? '0' : String(fade.phase === 'out' ? Math.min(fade.seconds / FADE.outSeconds, 1) : Math.max(1 - fade.seconds / FADE.inSeconds, 0));
     // While fading out the canvas keeps its last picture of the zone being left.
@@ -431,7 +457,9 @@ function start(world: WorldView): void {
     for (const note of session.notes.splice(0)) hud.log(note);
     world.setCamera(mode === 'start' ? orbitPose() : moveCamera(running ? dt : 0));
     if (running) session.frame(dt);
-    world.frame(session.view, clock.alpha, running ? dt : 0, { selected: session.selected, move: session.move, box: input.box });
+    const npcHover = input.hoveredNpc();
+    canvas.style.cursor = npcHover === null ? '' : 'pointer';
+    world.frame(session.view, clock.alpha, running ? dt : 0, { selected: session.selected, move: session.move, box: input.box, npcHover });
     hud.ageBanner(dt);
     hudIn -= dt;
     if (mode !== 'start' && hudIn <= 0) {
@@ -441,7 +469,7 @@ function start(world: WorldView): void {
         autoIds: session.autoIds,
         slowMeter: clock.meter,
         slowed: running && clock.slowed,
-        paused: screenOpen(),
+        paused: modalOpen(),
       });
     }
     if (mode === 'won' && victoryIn > 0) {
@@ -508,6 +536,7 @@ function exposeHook(world: WorldView, camera: Camera, recent: readonly GameEvent
       screenOf: world.screenOf,
       heightAt: world.heightAt,
       pickables: () => world.pickables(session.view),
+      npcHighlighted: () => world.npcHighlighted(),
       rebuildZone: () => world.rebuildZone(session.view),
       memory: world.memory,
       floating: world.floating,

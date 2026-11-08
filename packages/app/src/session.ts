@@ -37,6 +37,8 @@ export class Session {
   readonly autoIds = new Set<number>();
   readonly bot: BotKind | null;
   move: MoveMark | null = null;
+  /** The NPC the squad is walking to talk to, until it arrives or gets another order (S3e decision 2). */
+  talking: string | null = null;
   /** Log lines about the player's own orders, which the page shows and clears. */
   readonly notes: LogLine[] = [];
   private pending: Command[] = [];
@@ -56,6 +58,7 @@ export class Session {
     this.state = state;
     this.pending = [];
     this.move = null;
+    this.talking = null;
     this.autoIds.clear();
     this.selected.clear();
     this.selectAll();
@@ -93,7 +96,7 @@ export class Session {
 
   /**
    * Applies commands now, with no time passing, while the game is paused for the
-   * anvil (S2.3b decision 4).
+   * inventory, or at the smith, whose screen does not pause (S2.3b decision 4, S3e decision 4).
    */
   applyNow(commands: readonly Command[]): GameEvent[] {
     return applyCommands(this.state, commands);
@@ -119,13 +122,21 @@ export class Session {
 
   /** Right click on the ground, or `Ctrl` and a left click to attack-move (D-034). */
   moveTo(point: Point, attack: boolean): void {
+    this.talking = null;
     const unitIds = orderedIds(this.state, this.selected);
     this.release(unitIds);
     this.pending.push({ type: 'move', unitIds, x: point.x, z: point.z, attack });
     this.move = { x: point.x, z: point.z, attack, age: 0 };
   }
 
+  /** The selected walk to an NPC, like an order to a point, and talk on arriving (S3e decision 2). */
+  walkToTalk(npcId: string, at: Point): void {
+    this.moveTo(at, false);
+    this.talking = npcId;
+  }
+
   target(enemyId: number): void {
+    this.talking = null;
     const unitIds = orderedIds(this.state, this.selected);
     this.release(unitIds);
     this.pending.push({ type: 'target', unitIds, enemyId });
@@ -158,11 +169,13 @@ export class Session {
         this.selectAll();
         break;
       case 'regroup':
+        this.talking = null;
         this.selectAll();
         this.autoIds.clear();
         this.pending.push({ type: 'regroup' });
         break;
       case 'scatter':
+        this.talking = null;
         this.autoIds.clear();
         this.pending.push({ type: 'scatter' });
         break;
@@ -176,6 +189,7 @@ export class Session {
           this.release(ids);
           this.notes.push({ text: 'Auto-combat off', tone: 'blue' });
         } else {
+          this.talking = null;
           for (const id of ids) this.autoIds.add(id);
           this.notes.push({ text: 'Auto-combat on', tone: 'blue' });
         }

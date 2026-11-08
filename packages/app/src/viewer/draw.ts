@@ -54,7 +54,6 @@ const OBSTACLE_COLOURS = {
   stone: '#9a96a0',
   rock: '#7c786c',
   beacon: '#d8b878',
-  waystone: '#8fd6c4',
   fountain: '#7fb8d8',
 };
 

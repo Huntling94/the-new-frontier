@@ -1,5 +1,5 @@
 import type { Point } from '@new-frontier/core';
-import type { Box, WorldView } from '@new-frontier/render';
+import type { Box, Pickable, WorldView } from '@new-frontier/render';
 import { orbit, resetView, snapTo, zoomBy, type Camera } from './camera';
 import { altAction, CLAIMED, followPoint, pressAction, type KeyAction } from './controls';
 import { FEEL } from './feel';
@@ -15,13 +15,15 @@ const RIGHT = 2;
 export interface InputGate {
   /** The squad can be commanded: a run has started, and nothing is paused. */
   playing(): boolean;
-  /** The anvil, inventory, close, help and mute keys, which work outside play too. */
+  /** The inventory, close, help and mute keys, which work outside play too. */
   menu(action: KeyAction): void;
   /** A click sound, played on the press (S2.3b decision 3). */
   cue(): void;
+  /** A right click on an NPC, by its place in the zone's list (S3e decision 2). */
+  talk(index: number): void;
 }
 
-const MENU_KEYS = new Set<KeyAction['kind']>(['anvil', 'inventory', 'close', 'help', 'mute']);
+const MENU_KEYS = new Set<KeyAction['kind']>(['inventory', 'close', 'help', 'mute']);
 
 /** Mouse and keyboard, from D-003, D-013, D-031, D-034 and D-035. */
 export class Input {
@@ -74,9 +76,29 @@ export class Input {
     return this.held('ShiftLeft') || this.held('ShiftRight');
   }
 
-  /** Lets go of every key and drag, as when the anvil opens. */
+  /** Lets go of every key and drag, as when a screen opens. */
   letGo(): void {
     this.release();
+  }
+
+  /**
+   * The NPC under the pointer, by its place in the zone's list, unless a squad member
+   * stands nearer the pointer, so a character beside the smith can still be clicked.
+   */
+  npcUnder(x: number, y: number): number | null {
+    const { units, npcs } = this.world.pickables(this.session.view);
+    const npc = pickNearest(npcs, x, y, P.npcRadius);
+    const unit = pickNearest(units, x, y, P.characterRadius);
+    if (npc === null || unit === null) return npc;
+    const away = (screen: Pickable['screen']): number => Math.hypot(screen.x - x, screen.y - y);
+    const npcAt = npcs.find(({ id }) => id === npc)?.screen;
+    const unitAt = units.find(({ id }) => id === unit)?.screen;
+    return npcAt && unitAt && away(unitAt) < away(npcAt) ? null : npc;
+  }
+
+  /** What the pointer is over now: nothing while a drag is on. */
+  hoveredNpc(): number | null {
+    return this.gate.playing() && !this.box && !this.orbiting ? this.npcUnder(this.mouse.x, this.mouse.y) : null;
   }
 
   cursorGround(): Point | null {
@@ -206,6 +228,11 @@ export class Input {
     const enemy = pickNearest(enemies, event.clientX, event.clientY, P.enemyRadius);
     if (enemy !== null) {
       this.order(() => this.session.target(enemy));
+      return;
+    }
+    const npc = this.npcUnder(event.clientX, event.clientY);
+    if (npc !== null) {
+      this.gate.talk(npc);
       return;
     }
     const ground = this.world.groundAt(event.clientX, event.clientY);

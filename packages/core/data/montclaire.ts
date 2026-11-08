@@ -1,6 +1,6 @@
 import type { Place, Street } from '../src/grid';
 import type { Obstacle, Point } from '../src/state';
-import type { Lot } from '../src/world';
+import type { Lot, NpcData } from '../src/world';
 
 /**
  * Montclaire, the first town (S3d decision 2): hand-placed from the maintainer's sketch
@@ -74,8 +74,15 @@ const WEST = Math.PI;
  * street, facing it from the central block, and the inn beside the gate street.
  * Each door stands just inside the street's east edge.
  */
+const SMITHY_DOOR: Point = { x: -40.6, z: -4 };
+
 export const MONTCLAIRE_LOTS: readonly Lot[] = [
-  { id: 'smithy', door: { x: -40.6, z: -4 }, facing: WEST },
+  { id: 'smithy', door: SMITHY_DOOR, facing: WEST },
   { id: 'shop', door: { x: -42.2, z: 13 }, facing: WEST },
   { id: 'inn', door: { x: -13, z: 47 }, facing: WEST },
+];
+
+/** The smith stands at the smithy's door (D-044). The maintainer asked for a name, so NPCs can be told apart; the naming session may change it (D-038). */
+export const MONTCLAIRE_NPCS: readonly NpcData[] = [
+  { id: 'smith', name: 'Gaspard', at: SMITHY_DOOR, facing: WEST, services: ['smith'], quests: [] },
 ];

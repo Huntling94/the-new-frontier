@@ -67,6 +67,27 @@ export function badPlacements(zones: readonly ZoneData[]): string[] {
   return problems;
 }
 
+/** Every NPC stands on a walkable cell with its own ID, and a smith stays in a town (D-039, D-044). */
+export function badNpcs(zones: readonly ZoneData[]): string[] {
+  const problems: string[] = [];
+  const seen = new Set<string>();
+  for (const zone of zones) {
+    for (const npc of zone.npcs) {
+      if (seen.has(npc.id)) {
+        problems.push(`${npc.id} is placed twice`);
+      }
+      seen.add(npc.id);
+      if (!isOpen(gridFor(zone), npc.at.x, npc.at.z)) {
+        problems.push(`${zone.id}'s NPC ${npc.id} stands off walkable ground`);
+      }
+      if (npc.services.includes('smith') && zone.kind !== 'town') {
+        problems.push(`${zone.id} holds the smith ${npc.id}, but only a town may`);
+      }
+    }
+  }
+  return problems;
+}
+
 /** Nothing outside the live group names an enemy that is not in it, such as one from a closed zone. */
 export function strayEnemyReferences(view: GameView): string[] {
   const live = new Set(view.live.enemies.map(({ id }) => id));

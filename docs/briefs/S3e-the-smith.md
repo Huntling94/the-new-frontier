@@ -13,8 +13,8 @@ Montclaire exists (S3d) but nothing happens there. The smith is the first step o
 
 **The smith**
 
-1. **NPCs are definitions placed on a zone** (D-029, D-044): an ID, a name, a point in the zone, a list of services and a list of quests. Any zone can hold one, and either list may be empty. This brief builds the one service it needs, `smith`, and leaves the quest list empty; the other services arrive with their own briefs. The smith is the first NPC, standing at the door of the smithy lot S3d kept, a placeholder name until the naming session (D-038). A data check holds the smith to towns (D-039).
-2. **Left-click an NPC to talk** (the maintainer, 8 Nov 2026). Hovering over an NPC changes the cursor and highlights the NPC, so it reads as something to click before you click it. A left drag that starts on an NPC is still a box-select, and a right click on one is an ordinary move. The selected characters walk to the NPC like an order to a point. The smith's screen opens when a living character in the active three is within reach, the anvil's reach today. Talking is refused while any enemy is awake (D-044), as equipping is.
+1. **NPCs are definitions placed on a zone** (D-029, D-044): an ID, a name, a point in the zone, a list of services and a list of quests. Any zone can hold one, and either list may be empty. This brief builds the one service it needs, `smith`, and leaves the quest list empty; the other services arrive with their own briefs. The smith is the first NPC, standing at the door of the smithy lot S3d kept. Named Gaspard at the maintainer's request after playing it, so NPCs can be told apart, and open to the naming session (D-038). A data check holds the smith to towns (D-039).
+2. **Right-click an NPC to talk** (the maintainer, 8 Nov 2026, changed from a left click after playing it). Hovering over an NPC changes the cursor and highlights the NPC, so it reads as something to click before you click it. A left click or left drag on an NPC does what it does on open ground, so a drag is still a box-select. The selected characters walk to the NPC like an order to a point. The smith's screen opens when a living character in the active three is within reach, the anvil's reach today. Talking is refused while any enemy is awake (D-044), as equipping is.
 3. **The field anvil is removed** from the Lande's data and look (D-039). `Y`, the anvil's key (D-031), stops doing anything, since talking is by click (the maintainer, 8 Nov 2026).
 4. **The smith's screen does not pause the game.** Towns hold no monsters (S3d decision 1), and no one can talk during a fight (D-044), so nothing can happen while it is open. The inventory's own pause changes in S3f.
 
@@ -42,7 +42,7 @@ Montclaire exists (S3d) but nothing happens there. The smith is the first step o
 
 **In:**
 
-- NPCs as data, talking by left click with a hover highlight, and the smith at Montclaire's smithy.
+- NPCs as data, talking by right click with a hover highlight, and the smith at Montclaire's smithy.
 - The smith's screen: upgrade any weapon or armour item, the odds shown, broken items and repair.
 - Removing the field anvil, the plain item types and quality.
 - The save migration from version 1 to 2.
@@ -74,7 +74,7 @@ Montclaire exists (S3d) but nothing happens there. The smith is the first step o
    - A bot on the Lande with an affordable upgrade reaches the smith in Montclaire, upgrades, and returns to the Lande.
 3. `pnpm sim:report --seeds 100`: the careful and sloppy bots each finish 100 of 100 with no stalls, and auto-combat clears all 100. The longer run times and moved hashes are recorded, before and after.
 4. `pnpm test:e2e` adds flows:
-   - Hover over the smith and see it highlighted, left-click to talk, upgrade an inventory item to +5 on a seed where it succeeds, and reload: it stands.
+   - Hover over the smith and see it highlighted, right-click to talk, upgrade an inventory item to +5 on a seed where it succeeds, and reload: it stands.
    - On a seed where +4 to +5 fails, see the item broken in the inventory, try to equip it and read why not, then repair it to +4.
    - A version 1 save from S3c, with a spare in it, loads and shows the replacement item.
 5. `docs/DATA-MODEL.md` moves NPC to Partial, changes item and item type, drops the spare from the glossary, and names the migration test.
@@ -95,3 +95,29 @@ Montclaire exists (S3d) but nothing happens there. The smith is the first step o
 - Any standing trigger in `CLAUDE.md` fires.
 
 ## Outcome (builder fills in)
+
+**Built.** The maintainer walks to Gaspard, the smith at Montclaire's smithy, and upgrades any weapon or armour from the inventory or worn. A miss breaks the item, and he repairs it to +4. The field anvil, `Y`, the plain types and quality are gone. Saves are version 2, and bots walk to town and back.
+
+**Changed in play (the maintainer, 8 Nov 2026).** Talking moved from left click to right click, and the smith got a name, shown above him. Decisions 1 and 2 are amended to say so.
+
+**Added while building.** Buildings fade for NPCs as well as the squad, because the smithy's roof hid the smith.
+
+**Also fixed, at the maintainer's request.** The town browser test timed out on CI at `91b5901`, likely from a long walk under software rendering, though that was not confirmed. Its first crossing now waits 60 seconds, and checks the right click gave a move order first. The cave test is unchanged.
+
+**Before and after (decision 15), 100 seeds.**
+
+| | Before | After |
+|---|---|---|
+| Careful bot | 100 of 100, 2.5 game minutes, 10.3 upgrades | 100 of 100, 2.7 game minutes, 10.2 upgrades |
+| Sloppy bot | 100 of 100, 2.6 game minutes, 10.3 upgrades | 100 of 100, 2.8 game minutes, 10.2 upgrades |
+| Auto-combat | clear 100 | clear 100 |
+| Spell tour hash | `6e574ca1` | `d924a66d` |
+| Squad tour hash | `c987f189` | `8f5ea15f` |
+
+- Every hash moved, because each item now has `broken`. No bot stalled or had an order refused.
+- Across 20 seeds each, with a stand-in stone at the anvil's spot, auto-combat matches tick for tick, ignoring upgrade commands and events. The bots differ only from the point they head for town, one trip a run. So the anvil stone and the walk to town explain the changes.
+- The spell tour no longer upgrades, since the Lande has no smith.
+
+**Checks.** `pnpm check` (492 unit tests) and `pnpm test:e2e` (32 browser tests) pass locally. "Four rotations" failed once and then passed 3 of 3 alone.
+
+**Played by the maintainer.** Walking to town, talking and upgrading. Answers: the risk was clear enough for now, and the walk back was fine ("more realism"). **He did not see a break in play:** the marks ran out before +4 to +5, which costs 848 on armour, and 2,106 for the whole climb from +0. He approved landing without it; the browser test covers break and repair. So whether breaking feels like a loss worth fearing is unanswered.

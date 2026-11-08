@@ -5,8 +5,8 @@ import { characterOf, classOf } from './family';
 import { spellsKnown } from './items';
 import type { BotKind, Command, GameView, Point, SpellId } from './state';
 import { TICKS } from './time';
-import { isNearAnvil, upgradeOffer } from './upgrades';
-import { zoneOf } from './world';
+import { gateRoute, isNearSmith, npcOffering } from './npcs';
+import { upgradeOffer } from './upgrades';
 
 type EnemyView = GameView['live']['enemies'][number];
 
@@ -44,32 +44,57 @@ function sustain(view: GameView): Command[] {
 function nextUpgrade(view: GameView): Command | null {
   for (const { place, slot } of BOTS.upgrades) {
     const unitId = view.family.active[place];
-    const offer = unitId === undefined ? null : upgradeOffer(view, unitId, slot);
-    const wanted = unitId !== undefined && (characterOf(view, unitId).items[slot]?.upgrade ?? BOTS.upgradeBelow) < BOTS.upgradeBelow;
-    if (unitId !== undefined && offer && wanted && view.family.marks >= offer.cost) {
-      return { type: 'upgrade', unitId, slot };
+    const item = unitId === undefined ? null : characterOf(view, unitId).items[slot];
+    const offer = item ? upgradeOffer(view, item.id) : null;
+    if (item && offer && item.upgrade < BOTS.upgradeBelow && view.family.marks >= offer.cost) {
+      return { type: 'upgrade', itemId: item.id };
     }
   }
   return null;
 }
 
-/** With the zone clear: the anvil while there is money, and then the boss. */
+/** One leg of a walk across zones: to the first gate on the route, then the zone's own A* (S3e decision 13). */
+function towardsZone(view: GameView, wanted: Parameters<typeof gateRoute>[1]): Command[] {
+  const [gate] = gateRoute(view.zoneId, wanted) ?? [];
+  return gate ? [moveAll(view, gate.area, false)] : [];
+}
+
+/** To the smith if one stands here, or else along the gates to a town that has one. */
+function towardsSmith(view: GameView): Command[] {
+  const smith = npcOffering(view, 'smith');
+  return smith
+    ? [moveAll(view, smith.at, false)]
+    : towardsZone(view, ({ npcs }) => npcs.some(({ services }) => services.includes('smith')));
+}
+
+/** With the zone clear: to the smith while there is money, and then the boss. */
 function headForBoss(view: GameView): Command[] {
   const upgrade = nextUpgrade(view);
-  if (upgrade && isNearAnvil(view)) {
+  if (upgrade && isNearSmith(view)) {
     return [upgrade];
   }
   const units = livingIn(view);
   if (units.some((unit) => unit.dest)) {
     return [];
   }
-  const centre = centreIn(units);
-  const { anvil } = zoneOf(view);
-  if (upgrade && anvil) {
-    return [moveAll(view, anvil, false)];
+  if (upgrade) {
+    return towardsSmith(view);
   }
+  const centre = centreIn(units);
   const { bossStart, bossApproach } = BOTS;
   return [moveAll(view, centre.z > bossStart.z ? bossStart : bossApproach, false)];
+}
+
+/** In a zone with no boss, such as town: spend what there is at the smith, then walk back to the boss's zone. */
+function travelLayer(view: GameView): Command[] {
+  const upgrade = nextUpgrade(view);
+  if (upgrade && isNearSmith(view)) {
+    return [upgrade];
+  }
+  if (livingIn(view).some((unit) => unit.dest)) {
+    return [];
+  }
+  return upgrade ? towardsSmith(view) : towardsZone(view, ({ id }) => id === BOTS.fightZone);
 }
 
 function roamLayer(view: GameView): Command[] {
@@ -137,9 +162,12 @@ function bossLayer(view: GameView, kind: BotKind, boss: EnemyView): Command[] {
 
 /** A player that acts only through commands (S2.2c). Roams as auto-combat does, then fights. */
 export function botCommands(view: GameView, kind: BotKind): Command[] {
-  const boss = view.live.enemies.find((enemy) => enemy.boss);
-  if (view.tick % TICKS.botThink !== 0 || view.squadDown || view.victory || !boss) {
+  if (view.tick % TICKS.botThink !== 0 || view.squadDown || view.victory) {
     return [];
+  }
+  const boss = view.live.enemies.find((enemy) => enemy.boss);
+  if (!boss) {
+    return [...sustain(view), ...travelLayer(view)];
   }
   return boss.awake
     ? bossLayer(view, kind, boss)

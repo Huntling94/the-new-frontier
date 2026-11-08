@@ -121,7 +121,7 @@ export function download(text: string, name: string): void {
 
 /**
  * Saves the game when no fight is on, at most once every 15 seconds, and at once when
- * asked: on arriving through a gate, on hiding the page, and after every anvil result
+ * asked: on arriving through a gate, on hiding the page, and after every smith result
  * (S3c decision 6).
  */
 export class AutoSaver {

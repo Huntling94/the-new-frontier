@@ -36,7 +36,7 @@ export function createItem(state: GameState, typeId: string): Item {
   itemType(typeId);
   const id = state.nextItemId;
   state.nextItemId += 1;
-  return { id, typeId, upgrade: 0 };
+  return { id, typeId, upgrade: 0, broken: false };
 }
 
 /** Every slot empty. */
@@ -126,7 +126,7 @@ function toInventory(state: GameState, character: Character, slot: GearSlot): It
 }
 
 /** Works out the stats again for a character with a body in the field. */
-function refresh(state: GameState, character: Character): void {
+export function refresh(state: GameState, character: Character): void {
   const body = state.bodies.find(({ id }) => id === character.id);
   if (body) {
     recalculate(character, body);
@@ -150,6 +150,9 @@ export function applyEquip(state: GameState, command: EquipCommand, events: Game
   const item = state.family.inventory[index];
   if (!item) {
     return 'unknown-item';
+  }
+  if (item.broken) {
+    return 'broken';
   }
   if (!itemType(item.typeId).fits.includes(command.slot)) {
     return 'wrong-slot';
