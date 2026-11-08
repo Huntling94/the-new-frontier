@@ -40,6 +40,7 @@ import {
   type Sprite,
   type Texture,
 } from 'three';
+import { Basin } from './basin';
 import { buildGroundGeometry } from './ground-geometry';
 import { basicMaterial, glowSprite, makeGlowTexture, makeShapes, Resources, type Shapes } from './kit';
 import { zoneLook, type Light, type ZoneLook } from './looks';
@@ -119,6 +120,8 @@ export class ZoneScene {
   private readonly beacons: Beacon[] = [];
   /** A town's buildings and dressing (S3d), or null for any other ground. */
   private readonly town: Town | null = null;
+  /** A basin's land, water and rock (M1), or null for any other ground. */
+  private readonly basin: Basin | null = null;
   private dawn = DUSK;
   private time = 0;
 
@@ -147,8 +150,9 @@ export class ZoneScene {
       this.buildCave(zone.ground, groundMaterial);
     } else if (zone.ground.shape === 'streets') {
       this.town = new Town(view, zone, zone.ground, keep, this.look, this.scene);
+    } else {
+      this.basin = new Basin(view, zone, zone.ground, keep, this.look, this.scene);
     }
-    // A basin draws nothing yet: its look is the render half of M1, in a separate session.
 
     this.sea = {
       t: { value: 0 },
@@ -183,14 +187,16 @@ export class ZoneScene {
     );
     sky.frustumCulled = false;
     // A walled zone is underground: no sea and no sky, only the dark.
-    if (zone.ground.shape !== 'walled') this.scene.add(sea, sky);
-    else this.scene.background = new Color(this.look.dusk.fog);
+    // A basin is ringed by land, so it has the sky and no sea.
+    if (zone.ground.shape === 'walled') this.scene.background = new Color(this.look.dusk.fog);
+    else if (zone.ground.shape === 'basin') this.scene.add(sky);
+    else this.scene.add(sea, sky);
 
     this.buildProps();
     for (const gate of zone.gates) this.buildGate(gate.x, gate.z, gate.radius);
     this.motes = this.buildMotes();
     // Underground, motes against the dark read as stars, so only open ground has them.
-    if (zone.ground.shape === 'island') this.scene.add(this.motes);
+    if (zone.ground.shape === 'island' || zone.ground.shape === 'basin') this.scene.add(this.motes);
     this.applyLight(this.dawn);
   }
 
@@ -203,6 +209,7 @@ export class ZoneScene {
   update(dt: number, focus: { x: number; z: number }, squad: { x: number; z: number }): void {
     this.time += dt;
     this.sea.t.value = this.time;
+    this.basin?.update(dt);
 
     this.sun.position.set(focus.x + 60, 130, focus.z + 70);
     this.sun.target.position.set(focus.x, 0, focus.z);
@@ -221,6 +228,7 @@ export class ZoneScene {
   /** Fades any building between the camera and the squad (S3d decision 9). Only towns have buildings. */
   occlude(eye: Vector3, seen: readonly Seen[], dt: number): void {
     this.town?.occlude(eye, seen, dt);
+    this.basin?.occlude(eye, seen);
   }
 
   /** How many buildings are faded, for tests. */
@@ -251,7 +259,7 @@ export class ZoneScene {
     this.sky.sunC.value.copy(this.sun.color).multiplyScalar(0.25 + t * 0.9);
     this.sun.intensity = (dusk.sunIntensity + (sunrise.sunIntensity - dusk.sunIntensity) * t) * LEGACY_LIGHT;
     this.hemisphere.intensity = (dusk.hemisphere + (sunrise.hemisphere - dusk.hemisphere) * t) * LEGACY_LIGHT;
-    this.lantern.intensity = (1.1 + (0.2 - 1.1) * t) * LEGACY_LIGHT * LANTERN.lift;
+    this.lantern.intensity = (1.1 + (0.2 - 1.1) * t) * LEGACY_LIGHT * LANTERN.lift * (this.look.lantern ?? 1);
   }
 
   private buildFoam(ground: IslandData): Mesh {
@@ -298,6 +306,7 @@ export class ZoneScene {
       rock: [],
       tuft: [],
     };
+    const { ground } = this.zone;
     this.zone.obstacles.forEach((obstacle, index) => {
       const { x, z } = obstacle;
       const y = this.heightAt(x, z);
@@ -308,6 +317,8 @@ export class ZoneScene {
         placed.stone.push({ x, y, z, s, ry, c: shade });
         placed.cap.push({ x, y, z, s, ry, c: look.rock });
       } else if (obstacle.kind === 'rock') {
+        // A basin draws its own rocks, as runs of crags.
+        if (ground.shape === 'basin') return;
         placed.rock.push({ x, y, z, s: obstacle.radius / ROCK_RADIUS, ry, c: look.rock });
       } else if (obstacle.kind === 'beacon') {
         this.buildBeacon(x, y, z);
@@ -315,7 +326,6 @@ export class ZoneScene {
         this.town?.buildFountain(obstacle, y);
       }
     });
-    const { ground } = this.zone;
     for (let index = 0; ground.shape === 'island' && index < TUFTS; index += 1) {
       const angle = hash(index, 5) * TAU;
       const share = Math.sqrt(0.002 + hash(index, 6) * 0.778);

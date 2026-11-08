@@ -1,6 +1,6 @@
 # Brief M1 — Carrefour du Colosse
 
-**Status:** agreed 9 Nov 2026
+**Status:** built 9 Nov 2026; closes when CI is green on `master`
 **Read first:** `STATE.md`, `ARCHITECTURE.md`, `docs/DATA-MODEL.md`, briefs S3a, S3d and S3f, D-019, D-021, D-022, D-023, D-030, D-038, D-050, D-052, D-053.
 **Depends on:** S3f closed. It does not depend on S3g or S3h, and touches none of their work.
 **Goal:** the maintainer leaves Lande de Montclaire by a new gate, arrives at the east tip of a walled basin, and fights westward along its road to the far flank, with the squad never squeezing or giving up on the way.
@@ -155,4 +155,35 @@ Game units, centred on (0, 0), with x running east and z running south. One sket
 
 ## Outcome (builder fills in)
 
-Departures, bugs found, final numbers, and the closing note.
+Built in two halves, rules then look, on 9 Nov 2026. The maintainer approved the plan in the viewer before any `render` work, and approved the look in the running game.
+
+| Done means | Result |
+|---|---|
+| 1 | `pnpm check` passes: 556 tests, lint, types and the legacy guard |
+| 2 | 23 tests in `packages/core/test/colosse.test.ts` cover the data checks, blocked ground, the road's width, routes with no `unit-gave-up`, and saves. 4 more in `packages/render/test/basin.test.ts` prove the land stays under the floor inside the outline, is highest beside the lake, and that drawing the zone changes no state |
+| 3 | 62 runs, 193,013 per-tick digests of commands, events and all state bar the new record, identical old code against new. The 100-seed report matches S3f's Outcome (1.8 min, 10.4 upgrades, 40.2 marks, 7.8 potions, auto clear 100). The hashes move only because of the new record: spell tour 74be8540 to 80291be7, squad tour eea90d82 to b432cfc3 |
+| 4 | Longest route, east tip to west flank: 1.25 ms (Node 24, 500-run means, 5 repeats), under the 2 ms limit. Grid build 62 ms median, 78 ms first |
+| 5 | `pnpm test:e2e` adds the flow: cross from the Lande, walk west, cross back. All 33 browser tests pass; the new one also passed 4 repeats alone. It walks only 12 units west, short of the first pack, so no fight decides it |
+| 6 | Every pack alive (38 monsters), camera turning through 5.4 full circles in 20 seconds, headless Chromium on an RTX 2080 Ti (Direct3D 11) at 1280 by 720, seed 1, frame limit off, three runs at each of three views, production build, game clock held: slowest 5% of frames 3.9 to 7.6 ms over the middle zoomed out, 5.1 to 5.5 ms over the middle at the default zoom, 2.4 to 3.0 ms over the east lavender. Inside 16.7 ms |
+| 7 | `docs/DATA-MODEL.md` adds `basin` and names the zone. D-057 is in the register. `ARCHITECTURE.md` gains a Basins section |
+| 8 | Tracked files, changed files and the built site hold no secrets, local paths or unintended personal information |
+| 9 | Pending: the maintainer approves the exact file list and diff before each commit |
+| 10 | Pending: CI on `master` after the approved push |
+| 11 | The maintainer played it and said it looks good, 9 Nov 2026. The other three play questions (a place and a crossroads, the road walked twice, 240 by 240 for later fields) were not answered separately |
+
+**Departures**
+
+- The east tip was widened at the plan stage (decision 8): the traced tip was 3.1 wide at the gate and under 10.6 for the last 10 units. The road's narrowest is now 13.2 open units on the grid.
+- The Lande's new gate is at (-68, 54), on the rim's south-west. A first try further north was walked into by bots, which changed several of the 62 runs.
+- The grid covers x -120 to 120 and z -72 to 72, the walkable ground, not the whole 240 square. The ranges, the lake and the land beyond are `render` only.
+- The sea is not drawn here: the zone is ringed by land.
+- The river's look runs on past the end of the rules' river, through the southern range.
+
+**Added beyond the brief**
+
+- Rock between the camera and a living character dissolves in a soft circle, as a town's buildings fade. Without it the ranges hide the squad when the camera turns.
+- `ZoneLook` gains an optional lantern strength, set to 12% here, because the full lantern left a yellow pool on the pale floor.
+
+**Bugs found:** the new browser test first read the squad before its move order had landed, and failed. It now waits for the order, as the cave test does.
+
+**Closing note:** the floor is flat to the eye as well as in the rules. The maintainer asked whether it could be uneven and left that for the graphics upgrade (S5).

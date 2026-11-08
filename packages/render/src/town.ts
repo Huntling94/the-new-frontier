@@ -68,7 +68,7 @@ const LOT_SIZES: Readonly<Record<string, { w: number; d: number; h: number }>> =
 };
 
 /** A repeatable pseudo-random value from 0 to 1, so the town is the same on every visit. */
-function hash(a: number, b: number): number {
+export function hash(a: number, b: number): number {
   const s = Math.sin(a * 127.1 + b * 311.7) * 43758.5453;
   return s - Math.floor(s);
 }
@@ -81,7 +81,7 @@ function pick<T>(list: readonly T[], value: number): T {
  * A geometry with one colour on every vertex, so many parts can share one material. It
  * comes back without an index, so parts of any shape can be merged into one.
  */
-function painted(shape: BufferGeometry, colour: number): BufferGeometry {
+export function painted(shape: BufferGeometry, colour: number): BufferGeometry {
   const geometry = shape.index ? shape.toNonIndexed() : shape;
   if (geometry !== shape) shape.dispose();
   const c = new Color(colour);

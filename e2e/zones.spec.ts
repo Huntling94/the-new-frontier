@@ -45,3 +45,46 @@ test('the squad walks into the cave, round its wall with one right click, and ba
   await crossInto(page, 'lande');
   expect(errors).toEqual([]);
 });
+
+/** The Lande's gate to Carrefour du Colosse, a point on the road west of the arrival but short of the first pack, so no fight decides the test, and the way back. */
+const INTO_COLOSSE = { x: -68, z: 54 };
+const WEST_ON_ROAD = { x: 88, z: 6 };
+const COLOSSE_WAY_OUT = { x: 112, z: 13 };
+
+/** Looks straight at a ground point, with follow off. */
+async function lookAt(page: Page, point: { x: number; z: number }): Promise<void> {
+  await page.evaluate(({ x, z }) => {
+    const { camera } = window.__tnf;
+    camera.follow = false;
+    camera.x = x;
+    camera.z = z;
+  }, point);
+  await page.waitForTimeout(250);
+}
+
+test('the squad crosses from the Lande to Carrefour du Colosse, walks west, and crosses back (M1)', async ({ page }) => {
+  test.setTimeout(120_000);
+  const errors = watchErrors(page);
+  await openGame(page, 'seed=1&speed=4');
+
+  await lookAt(page, INTO_COLOSSE);
+  await rightClickGround(page, [INTO_COLOSSE]);
+  await crossInto(page, 'carrefour-du-colosse', 40_000);
+  await expect(page.locator('#ban')).toContainText('Carrefour du Colosse');
+  const atArrival = await page.evaluate(() => window.__tnf.view.bodies[0]?.x ?? 0);
+
+  await lookAt(page, WEST_ON_ROAD);
+  const from = await page.evaluate(() => window.__tnf.events.length);
+  await rightClickGround(page, [WEST_ON_ROAD]);
+  // The order lands on the next tick, and then everyone walks until they arrive.
+  await page.waitForFunction((count) => window.__tnf.events.slice(count).some(({ order }) => order === 'move'), from);
+  await page.waitForFunction(() => window.__tnf.view.bodies.every((unit) => unit.dest === null), undefined, { timeout: 30_000 });
+  const since = await page.evaluate((count) => window.__tnf.events.slice(count).map(({ type }) => type), from);
+  expect(since).not.toContain('unit-gave-up');
+  expect(await page.evaluate(() => window.__tnf.view.bodies[0]?.x ?? 0)).toBeLessThan(atArrival - 6);
+
+  await lookAt(page, COLOSSE_WAY_OUT);
+  await rightClickGround(page, [COLOSSE_WAY_OUT]);
+  await crossInto(page, 'lande', 30_000);
+  expect(errors).toEqual([]);
+});

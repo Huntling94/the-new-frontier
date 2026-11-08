@@ -88,6 +88,8 @@ export interface ZoneLook {
   readonly tuft: number;
   /** The glow over a gate. */
   readonly gate: number;
+  /** The squad's lantern, as a share of full strength. Full if not given. */
+  readonly lantern?: number;
   readonly dusk: Light;
   readonly sunrise: Light;
 }
@@ -196,7 +198,39 @@ const TOWN: ZoneLook = {
   sunrise: AFTERNOON,
 };
 
-const ZONES: Readonly<Record<string, ZoneLook>> = { lande: HEATH, 'lande-cave': CAVE, montclaire: TOWN };
+/** Clear, dry mountain light. */
+const HIGH_AIR: Light = {
+  skyTop: 0x4f86bc,
+  horizon: 0xdfe3dc,
+  fog: 0xc8ced0,
+  sun: 0xfff0dc,
+  sunIntensity: 0.76,
+  hemisphere: 0.46,
+  deep: 0x6aa6ac,
+  shallow: 0xa9d6d2,
+  glint: 0xffffff,
+};
+
+/** Carrefour du Colosse: a dry limestone basin under grey ranges (M1 decision 11). */
+const LIMESTONE: ZoneLook = {
+  name: 'Carrefour du Colosse',
+  lowland: 0xa89c80,
+  highland: 0xb8ad94,
+  rock: 0x8c8678,
+  stone: 0xb0a890,
+  tuft: 0xa77fcf,
+  gate: 0x8fd6c4,
+  lantern: 0.12,
+  dusk: HIGH_AIR,
+  sunrise: HIGH_AIR,
+};
+
+const ZONES: Readonly<Record<string, ZoneLook>> = {
+  lande: HEATH,
+  'lande-cave': CAVE,
+  montclaire: TOWN,
+  'carrefour-du-colosse': LIMESTONE,
+};
 
 export function zoneLook(zoneId: string): ZoneLook {
   return ZONES[zoneId] ?? HEATH;
@@ -239,6 +273,62 @@ const PROVENCE: TownLook = {
 
 export function townLook(): TownLook {
   return PROVENCE;
+}
+
+/** What a basin's ground, water and rock are made of (M1 decision 11). */
+export interface BasinLook {
+  readonly floor: number;
+  readonly floorPale: number;
+  readonly floorOchre: number;
+  /** The heath's tint, strongest at the east tip. */
+  readonly floorMauve: number;
+  readonly crack: number;
+  readonly road: number;
+  readonly damp: number;
+  readonly shade: number;
+  readonly scree: number;
+  readonly rangeLow: number;
+  readonly rangeHigh: number;
+  readonly rangeWarm: number;
+  readonly plateauTop: number;
+  /** The grey-green of a lavender bush under its flowers. */
+  readonly sage: number;
+  /** Walls and rocks, a few shades of limestone. */
+  readonly rock: readonly number[];
+  readonly lavender: readonly number[];
+  readonly scrub: readonly number[];
+  readonly waterDeep: number;
+  readonly waterPale: number;
+  readonly waterGlint: number;
+  readonly doorParts: { readonly rock: number; readonly door: number; readonly iron: number };
+}
+
+const DRY_LIMESTONE: BasinLook = {
+  floor: 0xa59a80,
+  floorPale: 0xbcb299,
+  floorOchre: 0x9a8560,
+  floorMauve: 0x8f7fa0,
+  crack: 0x5e5546,
+  road: 0xc7b78f,
+  damp: 0x5e6a58,
+  shade: 0x3e382e,
+  scree: 0x98907c,
+  rangeLow: 0x77767a,
+  rangeHigh: 0xa6a6aa,
+  rangeWarm: 0x8c8064,
+  plateauTop: 0x968c6c,
+  sage: 0x79846a,
+  rock: [0x8d877a, 0x7d786e, 0xa09889, 0xb0a998],
+  lavender: [0xa884dc, 0x9a78c4, 0xb596e0],
+  scrub: [0xa39a68, 0x8f8a58, 0xb5aa7a],
+  waterDeep: 0x7fb4b8,
+  waterPale: 0xbfe2dc,
+  waterGlint: 0xffffff,
+  doorParts: { rock: 0xa89f8c, door: 0x5e4a38, iron: 0x3c3c42 },
+};
+
+export function basinLook(): BasinLook {
+  return DRY_LIMESTONE;
 }
 
 /** A spell's flash on the ground when it is cast. Spells not listed show nothing extra. */
