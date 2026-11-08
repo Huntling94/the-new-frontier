@@ -8,7 +8,7 @@ Stage S2, Foundation, is done: the game plays from a public URL, with tests and 
 
 ## Next
 
-1. S3e, the smith (drafted, D-042 and D-043).
+1. S3e, the smith (agreed, D-042 to D-044). Then the shop, the Enhancer, a first quest giver, and the bank once items drop (D-044 to D-048).
 2. The two S3c play questions, on what Continue brought back and whether saving was clear, were not answered separately.
 
 ## Open

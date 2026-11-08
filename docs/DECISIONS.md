@@ -15,7 +15,7 @@ Every design and architecture decision, in one place. Entries are never rewritte
 | [D-009](#d-009) | TypeScript, three.js and a headless game core | Accepted | 7 Nov 2026 |
 | [D-010](#d-010) | MIT for new code; the 2019 files stay outside it | Accepted | 7 Nov 2026 |
 | [D-011](#d-011) | A world of safe cities and unsafe zones, and the goal is to help the frontier | Accepted, extended by D-021 | 7 Nov 2026 |
-| [D-012](#d-012) | The marketplace is NPC shops | Accepted | 7 Nov 2026 |
+| [D-012](#d-012) | The marketplace is NPC shops | Accepted, extended by D-045 | 7 Nov 2026 |
 | [D-013](#d-013) | The full control set, as approved in the squad test | Accepted, changed by D-031 and D-034 | 7 Nov 2026 |
 | [D-014](#d-014) | Commits: contributor and route | Accepted | 7 Nov 2026 |
 | [D-015](#d-015) | The game core is deterministic and driven by commands | Accepted, extended by D-021 and D-022 | 7 Nov 2026 |
@@ -30,9 +30,9 @@ Every design and architecture decision, in one place. Entries are never rewritte
 | [D-024](#d-024) | Saves are automatic, versioned and arrive in S3 | Accepted, extended by D-032 | 7 Nov 2026 |
 | [D-025](#d-025) | The family holds the store, and gear moves onto characters | Accepted | 7 Nov 2026 |
 | [D-026](#d-026) | Attributes and stats are calculated in a fixed order | Accepted | 7 Nov 2026 |
-| [D-027](#d-027) | Arts decide what a character can use | Accepted | 7 Nov 2026 |
-| [D-028](#d-028) | Seven gear slots to start, on shared item types | Accepted, changed by D-042 | 7 Nov 2026 |
-| [D-029](#d-029) | Definitions and instances, and a data model document | Accepted | 7 Nov 2026 |
+| [D-027](#d-027) | Arts decide what a character can use | Accepted, extended by D-048 | 7 Nov 2026 |
+| [D-028](#d-028) | Seven gear slots to start, on shared item types | Accepted, changed by D-042, extended by D-046 | 7 Nov 2026 |
+| [D-029](#d-029) | Definitions and instances, and a data model document | Accepted, extended by D-044 | 7 Nov 2026 |
 | [D-030](#d-030) | Graphics come in two steps | Accepted | 7 Nov 2026 |
 | [D-031](#d-031) | Spell keys in a grid, one row per character | Accepted, changed by D-034 | 7 Nov 2026 |
 | [D-032](#d-032) | Saves go through a storage interface | Accepted | 7 Nov 2026 |
@@ -42,11 +42,16 @@ Every design and architecture decision, in one place. Entries are never rewritte
 | [D-036](#d-036) | Auto-combat fights bosses | Accepted | 7 Nov 2026 |
 | [D-037](#d-037) | The camera follows a character selected alone | Accepted | 7 Nov 2026 |
 | [D-038](#d-038) | The world borrows the 2019 shape, with original names and places | Accepted | 8 Nov 2026 |
-| [D-039](#d-039) | Upgrades come only from a smith in a town | Accepted, changed by D-042, extended by D-043 | 8 Nov 2026 |
+| [D-039](#d-039) | Upgrades come only from a smith in a town | Accepted, changed by D-042, extended by D-043, extended by D-044 | 8 Nov 2026 |
 | [D-040](#d-040) | `Alt` + `E` opens the inventory | Accepted | 8 Nov 2026 |
 | [D-041](#d-041) | The store is called the inventory | Accepted | 8 Nov 2026 |
 | [D-042](#d-042) | A failed upgrade breaks the item, and the smith repairs it | Accepted | 8 Nov 2026 |
-| [D-043](#d-043) | Montclaire comes first as a place to walk, and its systems arrive one at a time | Accepted | 8 Nov 2026 |
+| [D-043](#d-043) | Montclaire comes first as a place to walk, and its systems arrive one at a time | Accepted, extended by D-044 | 8 Nov 2026 |
+| [D-044](#d-044) | NPCs are placed in zones and offer a list of services | Accepted | 8 Nov 2026 |
+| [D-045](#d-045) | A shop sells from its own list of offers | Accepted | 8 Nov 2026 |
+| [D-046](#d-046) | Enhancements are random, and an item can hold several | Accepted | 8 Nov 2026 |
+| [D-047](#d-047) | The bank is shared across towns | Accepted | 8 Nov 2026 |
+| [D-048](#d-048) | A character knows several arts, with one active at a time | Accepted | 8 Nov 2026 |
 
 ## D-001
 
@@ -374,3 +379,52 @@ Right click, right drag, middle drag, the wheel, left click and left drag, `Spac
 - The field anvil stays until the smith's brief, as D-039 allows.
 
 **Why:** the maintainer's direction, 8 Nov 2026. The town is the hub of the core loop, so it should exist early and grow, and each slice is small enough to see running and learn from.
+
+## D-044
+
+**NPCs are placed in zones and offer a list of services.** This extends D-029, D-039 and D-043.
+
+- **An NPC is a definition placed on a zone:** an ID, a name, a point in the zone, a list of services and a list of quests. A lot is one way to give it a place, and is not required.
+- **Any zone can hold one,** town or not. Either list may be empty, so an NPC can give quests and sell nothing.
+- **A service is a type on that list.** The first are `smith`, `enhancer`, `bank` and `shop`. A later kind of NPC is one more type. The smith stays in towns (D-039).
+- **No talking during a fight.** Talking is refused while any enemy is awake, as equipping is.
+- **Unlocks come from quest progress.** Anything an NPC holds back names a quest that must be finished, in the shared requirement shape. Only quest progress is saved, so no separate list of unlocks exists.
+
+**Why:** the maintainer's direction, 8 Nov 2026. One seller can also give quests and reward them with stock, and a new kind of NPC should not need a new structure.
+
+## D-045
+
+**A shop sells from its own list of offers.** This extends D-012.
+
+- **Item types stay global, and an offer points at one.** Several NPCs can sell the same item, each from its own selection.
+- **Lists are written by hand,** so a new item never reaches a shop by accident.
+- **An offer's requirement is about the family,** such as a quest finished. Level and art limits stay on the item type, and stop a character equipping it, not the family buying it.
+- **The first seller sells Sniper weapons only.** Pistols, rifles and shotguns are the Sniper's weapon categories. The shop's list releases rifles first, and the others are added when the arts that use them exist.
+
+**Why:** the maintainer's direction, 8 Nov 2026. Selling the same item from different NPCs must not mean defining it twice, and a list controls what is released.
+
+## D-046
+
+**Enhancements are random, and an item can hold several.** This settles what D-028 left open: boosts vary between items.
+
+- **An enhancement is a random boost to a named stat,** such as attack speed or attack damage, made by the Enhancer and stored on that one item.
+- **An item can hold more than one.** How many, which stats, how large, what it costs and what a further attempt does are rules for the Enhancer's brief.
+- **Results come from the game's seeded generator,** and a save follows each one (D-024), so a reload cannot undo a roll.
+
+**Why:** the maintainer's direction, 8 Nov 2026.
+
+## D-047
+
+**The bank is shared across towns.** The bank belongs to the family, and any banker reaches the same store. An item can then be in one of three places: the inventory, a character's slot or the bank, and still only one at a time. The inventory has a limited number of slots. The limit and what happens when it is full are rules for the bank's brief, which waits until items drop as loot.
+
+**Why:** the maintainer's direction, 8 Nov 2026. A bank per town would add hauling without adding decisions.
+
+## D-048
+
+**A character knows several arts, with one active at a time.** This extends D-027.
+
+- **The active art decides the spells.** Changing art changes the spells, and a spell's weapon comes from its art.
+- **Arts can be switched anywhere,** in a town or out in a zone.
+- Whether a switch is allowed during a fight, and what happens to a weapon the new art does not permit, are rules for the arts brief.
+
+**Why:** the maintainer's direction, 8 Nov 2026.
