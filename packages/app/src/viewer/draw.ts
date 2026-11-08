@@ -1,17 +1,13 @@
 import {
   cardOf,
   characterOf,
-  COLOSSE_DOOR,
-  COLOSSE_LAKE,
-  COLOSSE_LAKE_ROUTE,
-  COLOSSE_ROAD,
-  COLOSSE_SOUTH_ROUTE,
   currentZone,
   rimRadiusAt,
   zoneGrid,
   type GameView,
   type Point,
 } from '@new-frontier/core';
+import { basinSetting, type BasinSetting } from '@new-frontier/render';
 
 /** Something brief to show on the map: a word or number, and perhaps a ring. */
 export interface Mark {
@@ -244,7 +240,7 @@ function drawGround(context: CanvasRenderingContext2D, game: GameView, toX: (x: 
     context.fillStyle = WALL_COLOUR;
     box(ground.bounds);
     context.fillStyle = LAKE_COLOUR;
-    trace(COLOSSE_LAKE);
+    trace(basinSetting(game.zoneId).lake);
     context.fill();
     context.fillStyle = GROUND_COLOUR;
     trace(ground.outline);
@@ -257,7 +253,7 @@ function drawGround(context: CanvasRenderingContext2D, game: GameView, toX: (x: 
     context.lineCap = 'round';
     context.lineJoin = 'round';
     for (const { id, points, width } of ground.walls) {
-      context.strokeStyle = id === 'river' || id === 'pool' ? LAKE_COLOUR : WALL_COLOUR;
+      context.strokeStyle = basinSetting(game.zoneId).waterIds.includes(id) ? LAKE_COLOUR : WALL_COLOUR;
       context.lineWidth = toX(width) - toX(0);
       context.beginPath();
       for (const point of points) context.lineTo(toX(point.x), toY(point.z));
@@ -271,7 +267,7 @@ function drawGround(context: CanvasRenderingContext2D, game: GameView, toX: (x: 
 }
 
 /** The basin's plan: the main road, the two side routes and the closed dungeon door (M1 appendix). */
-function drawPlan(context: CanvasRenderingContext2D, toX: (x: number) => number, toY: (z: number) => number): void {
+function drawPlan(context: CanvasRenderingContext2D, { road, ways, door }: BasinSetting, toX: (x: number) => number, toY: (z: number) => number): void {
   context.save();
   context.setLineDash(PLAN_DASH);
   context.lineWidth = 2;
@@ -282,13 +278,12 @@ function drawPlan(context: CanvasRenderingContext2D, toX: (x: number) => number,
     for (const point of points) context.lineTo(toX(point.x), toY(point.z));
     context.stroke();
   };
-  line(COLOSSE_ROAD, ROAD_COLOUR, 3);
-  line(COLOSSE_LAKE_ROUTE, SIDE_ROUTE_COLOUR, 2);
-  line(COLOSSE_SOUTH_ROUTE, SIDE_ROUTE_COLOUR, 2);
+  line(road, ROAD_COLOUR, 3);
+  for (const way of ways) line(way, SIDE_ROUTE_COLOUR, 2);
   context.restore();
   context.fillStyle = ROAD_COLOUR;
-  context.fillRect(toX(COLOSSE_DOOR.x) - CORNER_RADIUS * 2, toY(COLOSSE_DOOR.z) - CORNER_RADIUS * 3, CORNER_RADIUS * 4, CORNER_RADIUS * 6);
-  context.fillText('door (look only)', toX(COLOSSE_DOOR.x), toY(COLOSSE_DOOR.z) + CORNER_RADIUS * 6);
+  context.fillRect(toX(door.x) - CORNER_RADIUS * 2, toY(door.z) - CORNER_RADIUS * 3, CORNER_RADIUS * 4, CORNER_RADIUS * 6);
+  context.fillText('door (look only)', toX(door.x), toY(door.z) + CORNER_RADIUS * 6);
 }
 
 /** Each unit's live route: a dashed line from the unit through its corners (decision 14). */
@@ -340,7 +335,7 @@ export function drawGame(
   if (zone.ground.shape === 'basin') {
     context.font = `${String(UNIT_RADIUS * 1.2)}px system-ui, sans-serif`;
     context.textAlign = 'center';
-    drawPlan(context, toX, toY);
+    drawPlan(context, basinSetting(zone.id), toX, toY);
   }
   for (const gate of zone.gates) {
     drawRing(context, toX(gate.x), toY(gate.z), gate.radius * scale, GATE_COLOUR);

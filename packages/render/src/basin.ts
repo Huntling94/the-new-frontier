@@ -1,9 +1,4 @@
 import {
-  COLOSSE_DOOR,
-  COLOSSE_LAKE,
-  COLOSSE_LAKE_ROUTE,
-  COLOSSE_ROAD,
-  COLOSSE_SOUTH_ROUTE,
   zoneGrid,
   type GameView,
   type Point,
@@ -33,6 +28,7 @@ import {
   type Scene,
 } from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
+import { basinSetting, type BasinSetting } from './basin-setting';
 import { insideRing, landHeight, lineDistance, ringDistance, smooth, UNDER_FLOOR, type BasinPlan, type Strip } from './basin-shape';
 import type { Resources } from './kit';
 import { basinLook, type BasinLook, type ZoneLook } from './looks';
@@ -40,15 +36,6 @@ import { hash, painted, type Seen } from './town';
 
 type Ground = Extract<ZoneView['ground'], { readonly shape: 'basin' }>;
 
-/** The river runs on past the rules' end of it, down through the southern range. Look only. */
-const RIVER_ONWARD: readonly Point[] = [
-  { x: -105, z: 71 },
-  { x: -121, z: 86 },
-  { x: -146, z: 118 },
-];
-/** Where the closed south road meets the edge of the basin (decision 7). */
-const SOUTH_ROAD_END: Point = { x: 11, z: 67 };
-const SOUTH_ROAD_ONWARD: Point = { x: 18, z: 130 };
 /** The portal stands this far west of the door's point, cut into the range. */
 const DOOR_SET_BACK = 6;
 
@@ -59,20 +46,10 @@ const FLOOR_TEXTURE_WIDTH = 2048;
 const FLOOR_LIFT = 0;
 const WATER_LIFT = 0.05;
 const LAKE_SURFACE = -1.2;
-const HEIGHTS: Readonly<Record<string, number>> = {
-  'long-wall': 5.4,
-  'plateau-spur-west': 5,
-  'plateau-spur-east': 5.2,
-  'arch-wall': 5.4,
-  'west-rocks': 3.8,
-  'short-wall': 3.6,
-  'rock-by-the-long-wall': 3.6,
-  'south-west-rock': 3.6,
-};
 const PLATEAU_HEIGHT = 9.5;
 const RIDGE_HEIGHT = 4.6;
 const CRAG = { spacing: 0.72, swell: 1.12 };
-const LAVENDER = { step: 1.9, from: -38, to: 112, roadClear: 4.5 };
+const LAVENDER = { step: 1.9, roadClear: 4.5 };
 const SCRUB = { step: 3.1, share: 0.42 };
 const PEBBLE = { step: 7, share: 0.5 };
 
@@ -153,13 +130,14 @@ function along(points: readonly Point[], spacing: number): { x: number; z: numbe
 }
 
 /**
- * A basin's look (M1 decisions 5 to 7 and 11): a dry limestone floor with lavender
+ * A basin's look, from its setting (M1 decisions 5 to 7 and 11): a dry limestone floor with lavender
  * thinning out from the east, grey ranges highest beside a pale lake, rock walls and a
  * plateau given height, the river and pool, a closed door and a blocked road. It reads the
  * layout and changes nothing in the rules.
  */
 export class Basin {
   private readonly look: BasinLook = basinLook();
+  private readonly setting: BasinSetting;
   private readonly plan: BasinPlan;
   private readonly level: number;
   private readonly waterUniforms;
@@ -177,6 +155,7 @@ export class Basin {
   private readonly rockMaterial: MeshPhongMaterial;
 
   constructor(view: GameView, zone: ZoneView, ground: Ground, keep: Resources, zoneLook: ZoneLook, scene: Scene) {
+    this.setting = basinSetting(zone.id);
     this.zone = zone;
     this.ground = ground;
     this.keep = keep;
@@ -191,22 +170,22 @@ export class Basin {
       glint: { value: new Color(this.look.waterGlint) },
       fogC: { value: new Color(zoneLook.sunrise.fog) },
     };
-    const river = ground.walls.find(({ id }) => id === 'river');
-    const pool = ground.walls.find(({ id }) => id === 'pool');
-    const water: Strip[] = [];
-    if (river) water.push({ points: river.points, half: river.width / 2 }, { points: RIVER_ONWARD, half: river.width / 2 });
-    if (pool) water.push({ points: pool.points, half: pool.width / 2 });
-    const doorPass = [COLOSSE_DOOR, { x: COLOSSE_DOOR.x - DOOR_SET_BACK, z: COLOSSE_DOOR.z }];
+    const { door, closedRoad, lake, waterIds, waterOnward } = this.setting;
+    const water: Strip[] = [
+      ...ground.walls.filter(({ id }) => waterIds.includes(id)).map(({ points, width }) => ({ points, half: width / 2 })),
+      ...waterOnward,
+    ];
+    const doorPass = [door, { x: door.x - DOOR_SET_BACK, z: door.z }];
     const gate = zone.gates[0];
     const eastPass = gate ? [{ x: gate.x, z: gate.z }, { x: gate.x + 110, z: gate.z - 6 }] : [];
     this.plan = {
       outline: ground.outline,
-      lake: COLOSSE_LAKE,
+      lake,
       water,
       passes: [
         { points: doorPass, half: 6.5, shoulder: 4 },
         { points: eastPass, half: 9 },
-        { points: [SOUTH_ROAD_END, SOUTH_ROAD_ONWARD], half: 8 },
+        { points: [closedRoad.end, closedRoad.onward], half: 8 },
       ].filter(({ points }) => points.length > 0),
     };
     this.rockMaterial = this.cutAway(keep.keep(new MeshPhongMaterial({ flatShading: true, shininess: 4 })));
@@ -411,7 +390,7 @@ export class Basin {
       context.fillRect(x - radius, z - radius, radius * 2, radius * 2);
     }
     // The mauve of the heath, carried in from the east and thinning west.
-    const east = context.createLinearGradient(LAVENDER.to, 0, LAVENDER.from, 0);
+    const east = context.createLinearGradient(this.setting.lavender.to, 0, this.setting.lavender.from, 0);
     east.addColorStop(0, css(look.floorMauve, 0.5));
     east.addColorStop(1, css(look.floorMauve, 0));
     context.fillStyle = east;
@@ -464,13 +443,12 @@ export class Basin {
         context.stroke();
       }
     };
-    worn(COLOSSE_ROAD, 7, 1);
-    worn(COLOSSE_LAKE_ROUTE, 3.6, 0.55);
-    worn([...COLOSSE_SOUTH_ROUTE, SOUTH_ROAD_END], 3.6, 0.55);
+    worn(this.setting.road, 7, 1);
+    for (const way of this.setting.ways) worn(way, 3.6, 0.55);
 
     // Damp ground by the water, and shade at the foot of every wall.
     for (const { id, points, width } of walls) {
-      const isWater = id === 'river' || id === 'pool';
+      const isWater = this.setting.waterIds.includes(id);
       if (isWater) this.softEdge(context, () => this.curve(context, points), width + 6, look.damp, 0.16);
       else this.softEdge(context, () => this.curve(context, points), width + 4.5, look.shade, 0.1);
     }
@@ -491,7 +469,7 @@ export class Basin {
   private buildWater(water: readonly Strip[]): void {
     const keep = this.keep;
     const material = keep.keep(new ShaderMaterial({ uniforms: this.waterUniforms, vertexShader: WATER_VERTEX, fragmentShader: WATER_FRAGMENT }));
-    const lakeShape = new Shape(COLOSSE_LAKE.map(({ x, z }) => new Vector2(x, -z)));
+    const lakeShape = new Shape(this.setting.lake.map(({ x, z }) => new Vector2(x, -z)));
     const lake = new Mesh(keep.keep(new ShapeGeometry(lakeShape).rotateX(-Math.PI / 2)), material);
     lake.position.y = this.level + LAKE_SURFACE;
     this.scene.add(lake);
@@ -551,7 +529,7 @@ export class Basin {
   private buildRock(): void {
     const crags: Placed[] = [];
     this.ground.walls.forEach(({ id, points, width }, index) => {
-      const height = HEIGHTS[id];
+      const height = this.setting.wallHeights[id];
       if (height !== undefined) this.wallCrags(points, width, height, 61 + index * 11, crags);
     });
     this.zone.obstacles.forEach(({ kind, x, z, radius }, index) => {
@@ -572,7 +550,7 @@ export class Basin {
       }
     });
     for (const { id, outline } of this.ground.blocked) {
-      if (id === 'central-plateau') this.buildPlateau(outline);
+      if (id === this.setting.plateauId) this.buildPlateau(outline);
       else this.fillRidge(outline, crags);
     }
     this.dressPlateau(crags);
@@ -582,11 +560,15 @@ export class Basin {
 
   /** Loose stones on the plateau's top, so it is not a bare lid. */
   private dressPlateau(into: Placed[]): void {
-    const top = this.ground.blocked.find(({ id }) => id === 'central-plateau');
+    const top = this.ground.blocked.find(({ id }) => id === this.setting.plateauId);
     if (!top) return;
+    const west = Math.min(...top.outline.map(({ x }) => x)) - 1;
+    const north = Math.min(...top.outline.map(({ z }) => z)) - 1;
+    const wide = Math.max(...top.outline.map(({ x }) => x)) + 1 - west;
+    const deep = Math.max(...top.outline.map(({ z }) => z)) + 1 - north;
     for (let index = 0; index < 90; index += 1) {
-      const x = 2 + hash(index, 101) * 25;
-      const z = 15 + hash(index, 102) * 28;
+      const x = west + hash(index, 101) * wide;
+      const z = north + hash(index, 102) * deep;
       if (!insideRing(x, z, top.outline) || ringDistance(x, z, top.outline) < 4.5) continue;
       const size = 0.25 + hash(index, 103) * 0.55;
       into.push({ x, y: this.level + PLATEAU_HEIGHT + 0.05, z, sx: size, sy: size * (1 + hash(index, 104)), sz: size, ry: hash(index, 105) * 6.28, colour: this.colourOf(this.look.rock, hash(index, 106)) });
@@ -715,10 +697,10 @@ export class Basin {
         const px = x + hash(x, z) * LAVENDER.step;
         const pz = z + hash(z, x) * LAVENDER.step;
         if (!this.open(px, pz)) continue;
-        const share = smooth((px - LAVENDER.from) / (LAVENDER.to - LAVENDER.from));
+        const share = smooth((px - this.setting.lavender.from) / (this.setting.lavender.to - this.setting.lavender.from));
         const drift = hash(Math.floor(px / 7), Math.floor(pz / 7));
         if (hash(px + 7, pz) > share * (0.35 + drift) * 1.05) continue;
-        if (lineDistance(px, pz, COLOSSE_ROAD) < LAVENDER.roadClear) continue;
+        if (lineDistance(px, pz, this.setting.road) < LAVENDER.roadClear) continue;
         const size = 0.8 + hash(pz, px + 3) * 0.6;
         const tint = new Color(1, 1, 1).multiplyScalar(0.88 + hash(px + 2, pz + 5) * 0.2).getHex();
         lavender.push({ x: px, y: this.level, z: pz, sx: size, sy: size, sz: size, ry: hash(px, pz + 9) * 6.28, colour: tint });
@@ -728,7 +710,7 @@ export class Basin {
       for (let x = bounds.minX; x < bounds.maxX; x += SCRUB.step) {
         const px = x + hash(x, z + 1) * SCRUB.step;
         const pz = z + hash(z, x + 1) * SCRUB.step;
-        if (hash(px, pz + 13) > SCRUB.share || !this.open(px, pz) || lineDistance(px, pz, COLOSSE_ROAD) < 3) continue;
+        if (hash(px, pz + 13) > SCRUB.share || !this.open(px, pz) || lineDistance(px, pz, this.setting.road) < 3) continue;
         const size = 0.5 + hash(px + 1, pz) * 0.6;
         scrub.push({ x: px, y: this.level, z: pz, sx: size, sy: size, sz: size, ry: hash(pz, px) * 6.28, colour: this.colourOf(look.scrub, hash(px + 4, pz + 2), 0.12) });
       }
@@ -792,12 +774,12 @@ export class Basin {
         painted(new CylinderGeometry(1, 0.5, 0.7, 7).translate(side * 9.4, 3.4, 2.2), iron),
       ]),
     ];
-    this.solid(parts, { x: COLOSSE_DOOR.x - DOOR_SET_BACK, z: COLOSSE_DOOR.z }, Math.PI / 2);
+    this.solid(parts, { x: this.setting.door.x - DOOR_SET_BACK, z: this.setting.door.z }, Math.PI / 2);
   }
 
   /** The road south, closed for now (decision 7): a rockfall at the basin's edge, and a barrier before it. */
   private buildClosedRoad(): void {
-    const { x, z } = SOUTH_ROAD_END;
+    const { x, z } = this.setting.closedRoad.end;
     const stones: Placed[] = [];
     for (let index = 0; index < 26; index += 1) {
       const across = -9 + (index % 13) * 1.5 + (hash(index, 91) - 0.5);

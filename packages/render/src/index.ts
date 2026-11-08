@@ -1,3 +1,5 @@
+export { basinSetting } from './basin-setting';
+export type { BasinSetting } from './basin-setting';
 export { createWorldView } from './world-view';
 export type { Box, CameraPose, Pickable, ScreenPoint, ScreenState, Vec3, WorldView } from './world-view';
 export type { Marks } from './entities';

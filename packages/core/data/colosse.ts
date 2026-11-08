@@ -9,15 +9,15 @@ import type { Obstacle, PackData, Point } from '../src/state';
  */
 
 /**
- * The grid covers the walkable ground, which spans x -114 to 118 and z -68 to 68. The
- * mountains, the lake and the sea fill out the 240 by 240 footprint in `render`.
+ * The grid covers the walkable ground, which spans x -114 to 120 and z -68 to 68. The
+ * mountains and the lake fill out the 240 by 240 footprint in `render`.
  */
 export const COLOSSE_BOUNDS = { minX: -120, maxX: 120, minZ: -72, maxZ: 72 };
 
 /**
  * The basin's outline, east tip first. Traced by eye, with the east tip widened at the
  * plan stage (decision 8): the tip's two edges ran 10.3 apart about 10 units in from the
- * gate, and now run at least 13 apart along the whole road.
+ * gate. The road is now at least 11.5 wide along its whole length.
  */
 export const COLOSSE_OUTLINE: readonly Point[] = [
   { x: -47, z: -68 },
@@ -65,23 +65,6 @@ export const COLOSSE_OUTLINE: readonly Point[] = [
   { x: -32, z: -23 },
   { x: -30, z: -35 },
   { x: -34, z: -48 },
-];
-
-/** The pale mountain lake beyond the outline. Look only: nothing in the rules reads it. */
-export const COLOSSE_LAKE: readonly Point[] = [
-  { x: -55, z: -109 },
-  { x: -45, z: -112 },
-  { x: -10, z: -110 },
-  { x: 35, z: -105 },
-  { x: 58, z: -97 },
-  { x: 50, z: -92 },
-  { x: 15, z: -84 },
-  { x: -5, z: -77 },
-  { x: -13, z: -67 },
-  { x: -25, z: -64 },
-  { x: -38, z: -65 },
-  { x: -47, z: -72 },
-  { x: -52, z: -95 },
 ];
 
 /** Ground no one may stand on: a plateau in the middle, and a ridge in the neck. */
@@ -219,13 +202,10 @@ export const COLOSSE_SOUTH_ROUTE: readonly Point[] = [
   { x: 11, z: 61 },
 ];
 
-/** The closed dungeon door at the west end. `render` draws it, and no gate leads through it (decision 6). */
-export const COLOSSE_DOOR: Point = { x: -112, z: 21 };
-
 /** Eight packs, placed by hand, at levels rising westward (decisions 9 and 10). Levels are starting points. */
 export const COLOSSE_PACKS: readonly PackData[] = [
   {
-    x: 72,
+    x: 73,
     z: 18,
     level: 6,
     mobs: [

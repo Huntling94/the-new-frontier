@@ -1,8 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
   COLOSSE_BLOCKED,
-  COLOSSE_DOOR,
-  COLOSSE_LAKE,
   COLOSSE_LAKE_ROUTE,
   COLOSSE_OBSTACLES,
   COLOSSE_OUTLINE,
@@ -10,13 +8,13 @@ import {
   COLOSSE_SOUTH_ROUTE,
   COLOSSE_WALLS,
 } from '../data/colosse';
-import { MONSTERS } from '../data/enemies';
+import { MONSTER_RULES, MONSTERS } from '../data/enemies';
 import { MOVEMENT } from '../data/movement';
 import { COLOSSE_SCENARIO, EMPTY_SCENARIO, ISLAND_SCENARIO } from '../data/scenarios';
 import { START_ZONE, ZONES } from '../data/zones';
 import { badGates, badPlacements, unreachableZones } from '../src/checks';
 import { createGame, step } from '../src/game';
-import { buildGrid, canReach, isOpen, type Grid } from '../src/grid';
+import { buildGrid, canReach, isOpen, isOpenForEnemy, type Grid } from '../src/grid';
 import { fromSave, toSave } from '../src/save';
 import type { GameEvent, GameState, Point, Scenario } from '../src/state';
 import { gridFor, zoneData, type Ground } from '../src/world';
@@ -205,7 +203,6 @@ describe('Carrefour du Colosse (M1)', () => {
       expect(isOpen(grid, beyond.x, beyond.z)).toBe(false);
     }
     expect(isOpen(grid, end.x, end.z)).toBe(true);
-    for (const lake of COLOSSE_LAKE) expect(isOpen(grid, lake.x, lake.z)).toBe(false);
     for (const inLake of [{ x: 0, z: -100 }, { x: 30, z: -100 }, { x: -30, z: -90 }]) {
       expect(isOpen(grid, inLake.x, inLake.z)).toBe(false);
     }
@@ -233,11 +230,15 @@ describe('Carrefour du Colosse (M1)', () => {
   it('has a main road wide enough for the triangle along its whole length, measured on the grid (decision 8)', () => {
     const grid = gridFor(COLOSSE);
     let narrowest = Infinity;
-    for (const { at, across } of samples(COLOSSE_ROAD)) {
-      narrowest = Math.min(narrowest, openAcross(grid, at, across));
+    // The tightest line through each point in any direction, as a neck can lie at an angle to the road.
+    for (const { at } of samples(COLOSSE_ROAD)) {
+      for (let degrees = 0; degrees < 180; degrees += 3) {
+        const angle = (degrees * Math.PI) / 180;
+        narrowest = Math.min(narrowest, openAcross(grid, at, { x: Math.cos(angle), z: Math.sin(angle) }));
+      }
     }
-    // At least 13 units of road, and so at least the 10.6 the triangle needs unsqueezed.
-    expect(narrowest).toBeGreaterThanOrEqual(13);
+    // At least 11.5 units of road, and so at least the 10.6 the triangle needs unsqueezed.
+    expect(narrowest).toBeGreaterThanOrEqual(11.5);
     expect(narrowest).toBeGreaterThanOrEqual(TRIANGLE_NEEDS);
   });
 
@@ -288,9 +289,16 @@ describe('Carrefour du Colosse (M1)', () => {
     expect(events.filter(({ type }) => type === 'unit-arrived').length).toBeGreaterThanOrEqual(ALL.length * 7);
   });
 
-  it('keeps the closed door in the west as look only: it stands off the grid’s open ground, with the road ending before it', () => {
-    expect(COLOSSE.gates.some(({ area }) => Math.hypot(area.x - COLOSSE_DOOR.x, area.z - COLOSSE_DOOR.z) < 10)).toBe(false);
-    expect(Math.hypot(WEST_FLANK.x - COLOSSE_DOOR.x, WEST_FLANK.z - COLOSSE_DOOR.z)).toBeLessThan(5);
+  it('spawns every monster on open ground, wherever in its pack’s square it lands', () => {
+    const grid = gridFor(COLOSSE);
+    const { spread } = MONSTER_RULES;
+    COLOSSE.contents.packs.forEach((pack, index) => {
+      for (let dz = -spread; dz <= spread; dz += 0.25) {
+        for (let dx = -spread; dx <= spread; dx += 0.25) {
+          expect(isOpenForEnemy(grid, pack.x + dx, pack.z + dz), `pack ${String(index)} at ${String(dx)}, ${String(dz)}`).toBe(true);
+        }
+      }
+    });
   });
 });
 

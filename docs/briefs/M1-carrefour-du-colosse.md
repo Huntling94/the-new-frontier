@@ -36,7 +36,7 @@ The game has one field. The first region needs more (D-043), and farming, the co
    - A new gate on the Lande's western edge leads to the east tip, and one at the east tip leads back. Both have empty requirements and no cost: the level step is small. The exact spot on the Lande is shown on the plan. The Lande's other gates, stones and packs do not move.
    - The first dungeon does not exist yet, so the west flank has a closed door in `render` only, with no gate. A gate with nowhere to go would fail the reachability check in `docs/DATA-MODEL.md`.
 7. **The road to the south (G10 on the sketch) is closed for now,** blocked by look at the basin's edge, and kept for the falls. The lake is scenery with no way through. The lake end of the neck is open ground, off the main road.
-8. **The road fits the triangle.** Every stretch of the main road is at least 13 units wide, measured on the grid, and at least 10.6 clear (S3d decision 3). The east tip needs widening at the plan stage: it traces at 10.3, about 10 units in from the gate.
+8. **The road fits the triangle.** Every stretch of the main road is at least 11.5 units wide, measured on the grid at its tightest in any direction (the maintainer, 9 Nov 2026), and at least 10.6 clear (S3d decision 3). The east tip needs widening at the plan stage: it traces at 10.3, about 10 units in from the gate.
 
 **What lives there**
 
@@ -159,8 +159,8 @@ Built in two halves, rules then look, on 9 Nov 2026. The maintainer approved the
 
 | Done means | Result |
 |---|---|
-| 1 | `pnpm check` passes: 556 tests, lint, types and the legacy guard |
-| 2 | 23 tests in `packages/core/test/colosse.test.ts` cover the data checks, blocked ground, the road's width, routes with no `unit-gave-up`, and saves. 4 more in `packages/render/test/basin.test.ts` prove the land stays under the floor inside the outline, is highest beside the lake, and that drawing the zone changes no state |
+| 1 | `pnpm check` passes: 559 tests, lint, types and the legacy guard |
+| 2 | 23 tests in `packages/core/test/colosse.test.ts` cover the data checks, blocked ground, the road's width, routes with no `unit-gave-up`, and saves. 7 more in `packages/render/test/basin.test.ts` prove the land stays under the floor inside the outline, is highest beside the lake, that the lake and door stay off the rules' ground, and that drawing the zone changes no state |
 | 3 | 62 runs, 193,013 per-tick digests of commands, events and all state bar the new record, identical old code against new. The 100-seed report matches S3f's Outcome (1.8 min, 10.4 upgrades, 40.2 marks, 7.8 potions, auto clear 100). The hashes move only because of the new record: spell tour 74be8540 to 80291be7, squad tour eea90d82 to b432cfc3 |
 | 4 | Longest route, east tip to west flank: 1.25 ms (Node 24, 500-run means, 5 repeats), under the 2 ms limit. Grid build 62 ms median, 78 ms first |
 | 5 | `pnpm test:e2e` adds the flow: cross from the Lande, walk west, cross back. All 33 browser tests pass; the new one also passed 4 repeats alone. It walks only 12 units west, short of the first pack, so no fight decides it |
@@ -173,7 +173,8 @@ Built in two halves, rules then look, on 9 Nov 2026. The maintainer approved the
 
 **Departures**
 
-- The east tip was widened at the plan stage (decision 8): the traced tip was 3.1 wide at the gate and under 10.6 for the last 10 units. The road's narrowest is now 13.2 open units on the grid.
+- The east tip was widened at the plan stage (decision 8): the traced tip was 3.1 wide at the gate and under 10.6 for the last 10 units. The road's narrowest is now 11.95 open units on the grid, at the neck where the long wall's west end faces the basin's edge. It was first set at 13, measured only square to the road, which missed that neck; the maintainer accepted 11.95 and set the minimum at 11.5.
+- Pack 1 stands at (73, 18), a unit east of the appendix, so none of its monsters can spawn inside the east spur's tip.
 - The Lande's new gate is at (-68, 54), on the rim's south-west. A first try further north was walked into by bots, which changed several of the 62 runs.
 - The grid covers x -120 to 120 and z -72 to 72, the walkable ground, not the whole 240 square. The ranges, the lake and the land beyond are `render` only.
 - The sea is not drawn here: the zone is ringed by land.
