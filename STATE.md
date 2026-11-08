@@ -9,7 +9,8 @@ Stage S2, Foundation, is done: the game plays from a public URL, with tests and 
 ## Next
 
 1. S3g, drops and the shop, and S3h, farming while away, which each need a brief (D-053 to D-055). Then the Enhancer, a first quest giver, and the bank once items drop (D-044 to D-048).
-2. The two S3c play questions, on what Continue brought back and whether saving was clear, were not answered separately.
+2. M1, Carrefour du Colosse, is agreed and ready to build: the second field, past the Lande (D-057, D-058).
+3. The two S3c play questions, on what Continue brought back and whether saving was clear, were not answered separately.
 
 ## Open
 

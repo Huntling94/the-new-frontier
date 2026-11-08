@@ -495,3 +495,15 @@ Right click, right drag, middle drag, the wheel, left click and left drag, `Spac
 **Evade and block are on the shared combat sheet.** This changes D-049, which removed evade and left block off the sheet. Characters and monsters both carry evade and block, at 0, and neither does anything yet, like the resistances. AR and DR stay as D-049 has them. What evade and block do in a hit is for the brief that brings them to life.
 
 **Why:** the maintainer's direction, 9 Nov 2026, during the S3f build.
+
+## D-057
+
+**Field zones are 240 by 240 units by default.** That is the whole footprint, mountains included. Each field may vary by about a quarter. Towns and dungeons are sized by their own needs. Carrefour du Colosse sets the baseline, with about 14,000 square units of walkable ground and a main road of about 258 units.
+
+**Why:** the maintainer's direction, 9 Nov 2026, from a 3D wireframe of the zone. The size is judged in play when M1 is built.
+
+## D-058
+
+**Each zone has its own brief, one at a time.** Map briefs are numbered M1, M2 and so on, in the order they are built. A zone closes only when the maintainer is happy with how it looks, and more work on a closed zone's look comes back as M1.1, M1.2. Art beyond prototype level stays with S5 (D-030).
+
+**Why:** the maintainer's direction, 9 Nov 2026. Each zone should look good, and that can be done incrementally.
