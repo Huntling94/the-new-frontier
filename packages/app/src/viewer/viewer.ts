@@ -125,7 +125,7 @@ function describe(event: GameEvent): string {
     case 'equipped':
       return `${String(event.tick)} unit ${String(event.unitId)} equips item ${String(event.itemId)} in ${event.slot}`;
     case 'unequipped':
-      return `${String(event.tick)} unit ${String(event.unitId)} sends item ${String(event.itemId)} from ${event.slot} to the store`;
+      return `${String(event.tick)} unit ${String(event.unitId)} sends item ${String(event.itemId)} from ${event.slot} to the inventory`;
     case 'squad-down':
       return `${String(event.tick)} squad down`;
     case 'squad-returned':

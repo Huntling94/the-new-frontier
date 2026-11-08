@@ -4,11 +4,12 @@
 
 ## Now
 
-Stage S2, Foundation, is done: the game plays from a public URL, with tests and the bot in CI. S1 to S3b are closed. The family is on state: each character has a name, a class, a level, an art and seven slots, and a live body in the field that a gate moves whole. Items are instances of item types with their own IDs, sit in exactly one place (the store or a slot), and are moved on the inventory screen (`Alt` + `E`). The anvil upgrades all seven slots. Every tick of 62 runs is unchanged from S3a. The island is Lande de Montclaire, a lavender heath with baked standing stones, and a gate leads to a small walled cave. Units find their way round walls by A\*, one zone runs at a time, and cleared packs come back on the game clock. The game plays in the browser from the start screen to victory, with the squad test's HUD, anvil, screens, synthesised sound, floating text, hit-stop and camera shake. Auto-combat fights bosses (D-036), and the camera follows a character selected alone (D-037). Bots play the whole game headless through `pnpm sim`, and in the real page with `?bot=careful`. The dev-only viewer is at `/viewer.html`. The README now links to the public page.
+Stage S2, Foundation, is done: the game plays from a public URL, with tests and the bot in CI. S1 to S3c are closed. The family is on state: each character has a name, a class, a level, an art and seven slots, and a live body in the field that a gate moves whole. Items are instances of item types with their own IDs, sit in exactly one place (the inventory or a slot), and are moved on the inventory screen (`Alt` + `E`). The anvil upgrades all seven slots. The game saves itself in the browser when no fight is on, and after every anvil result; the start screen offers Continue, New game, and export and import of the save as a `.json` file. Saves carry a version and a migration chain, and are checked before use. Every tick of 62 runs is unchanged from S3b, through the store's rename to the inventory (D-041) and saves. The island is Lande de Montclaire, a lavender heath with baked standing stones, and a gate leads to a small walled cave. Units find their way round walls by A\*, one zone runs at a time, and cleared packs come back on the game clock. The game plays in the browser from the start screen to victory, with the squad test's HUD, anvil, screens, synthesised sound, floating text, hit-stop and camera shake. Auto-combat fights bosses (D-036), and the camera follows a character selected alone (D-037). Bots play the whole game headless through `pnpm sim`, and in the real page with `?bot=careful`. The dev-only viewer is at `/viewer.html`. The README now links to the public page.
 
 ## Next
 
-1. S3c, saves (drafted), whose first format holds S3b's family and items.
+1. S3d, Montclaire to walk (drafted), then S3e, the smith (drafted, D-042 and D-043).
+2. The two S3c play questions, on what Continue brought back and whether saving was clear, were not answered separately.
 
 ## Open
 
@@ -16,7 +17,10 @@ Stage S2, Foundation, is done: the game plays from a public URL, with tests and 
 - The bots never struggle: no wipes or characters down across 100 seeds. Auto-combat alone now beats the boss on every seed tried, with no wipes (D-036). Balance has no brief yet.
 - Two of the squad test's four questions, on commanding a team and losing the Healer, were not answered separately in S2.3b. The maintainer will come back to the feel later.
 - The HUD costs about 1.5 ms a frame, because its page elements sit over WebGL. Measuring later briefs against a frame budget, not the last build, is proposed and not yet agreed (S2.3b).
-- Saves have no version number. S3c fixes it (D-024).
+- One save per browser, and no cloud saves yet (D-033, proposed).
+- Loading builds the zone's packs, which draws from the generator, so rolls after a reload differ from a run with no reload. An anvil result is saved at once, so it cannot be undone by reloading (S3c).
+- A save keeps the squad's position but not dropped coins or potions on the ground, or a half-cleared pack, which comes back whole (S3c).
+- Browser tests turn saving on with `?save`, beside `?test` (S3c).
 - Pack respawn is 180 seconds, a placeholder until balance (S3a).
 - Enemies chase in straight lines and slide round stones. Enemy routes wait for a zone where a monster must go round a wall (S3a decision 8).
 - Bots and auto-combat stay inside the zone that runs. Planning across zones has no brief yet.
@@ -35,5 +39,6 @@ Stage S2, Foundation, is done: the game plays from a public URL, with tests and 
 
 ## Bugs
 
+- The unit test "core lint rules rejects three" timed out once at 5 s in a full `pnpm check` under load during S3c, then passed. It is ESLint's first, cold run.
 - The browser test "Ctrl and a left click attack-moves" failed once in a full run under load during S3a, then passed three times alone. It reads attack-move flags two ticks after the click.
-- Some browser tests time key holds by the wall clock, so on slow frames the camera turns less and the test lands somewhere else. "A right click moves the squad … at four rotations" failed once locally in 31 runs: the squad settled 3.8 from the click, against a limit of 3, likely blocked by something at a point it does not usually reach. Its hold of `Period` should wait for the turn, as the camera test now does (S2.3b).
+- Some browser tests time key holds by the wall clock, so on slow frames the camera turns less and the test lands somewhere else. "A right click moves the squad … at four rotations" failed once locally in 31 runs, and once more in a full run in S3c (3.1 against 3), passing three times alone: the squad settled 3.8 from the click, against a limit of 3, likely blocked by something at a point it does not usually reach. Its hold of `Period` should wait for the turn, as the camera test now does (S2.3b).

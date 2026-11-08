@@ -44,6 +44,7 @@ Every design and architecture decision, in one place. Entries are never rewritte
 | [D-038](#d-038) | The world borrows the 2019 shape, with original names and places | Accepted | 8 Nov 2026 |
 | [D-039](#d-039) | Upgrades come only from a smith in a town | Accepted | 8 Nov 2026 |
 | [D-040](#d-040) | `Alt` + `E` opens the inventory | Accepted | 8 Nov 2026 |
+| [D-041](#d-041) | The store is called the inventory | Accepted | 8 Nov 2026 |
 
 ## D-001
 
@@ -338,3 +339,9 @@ Right click, right drag, middle drag, the wheel, left click and left drag, `Spac
 **`Alt` + `E` opens the inventory.** This extends D-034. The inventory screen (brief S3b) opens and closes with `Alt` + `E`, anywhere, including in fields and dungeons. Holding `Alt` keeps `E` from casting the first character's third spell (D-031). `Esc` also closes it. The key is read by position, so it works on other layouts and on a Mac, where `Option` + `E` would otherwise type an accent.
 
 **Why:** the maintainer's direction. The inventory should be reachable on the battlefield without a spell key firing by mistake.
+
+## D-041
+
+**The store is called the inventory.** The family's shared items, every item not equipped, are the inventory: `family.inventory` in code, and "Inventory" on the screen. This names a part of D-025, which is not rewritten. Closed briefs (S2.3b, S3a and S3b) keep the old word, as records. The rename landed in S3c before any save existed, so no save ever holds the old name and no migration is needed.
+
+**Why:** the maintainer's direction (8 Nov 2026). "Store" would clash with `SaveStore` (D-032) and with the town's shops (D-012).

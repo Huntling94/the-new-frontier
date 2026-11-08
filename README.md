@@ -29,6 +29,15 @@ The New Frontier expands my original text-based port into a full-fledged 3D game
 - **Choices that sting.** XP splits among the living, and every upgrade past +4 can destroy the item.
 - **No grind.** Auto-combat handles what is dull, and you choose which characters it runs.
 
+## Saves
+
+The game saves itself in your browser whenever no fight is on, at most every 15 seconds, and straight after every anvil result, so a reload never undoes an upgrade. The top right of the screen says when it last saved. Next time, the start screen offers **Continue**, with your characters' levels and when you saved.
+
+- **One save per browser.** It lives in this browser's storage, so clearing the site's data deletes it. **New game** asks before it replaces it.
+- **Export and import.** The start screen downloads your save as a `.json` file, and reads one back, to keep a copy or move a game to another browser.
+- **Saves move forward.** Each save carries a version, and later builds upgrade old saves rather than refuse them. A save from a newer build is refused and left alone.
+- **Bot and test runs never save,** so `?bot=careful` on the public page cannot overwrite your game.
+
 ## How it's made
 
 I direct this project, and it is built with [Claude Code](https://claude.com/claude-code). Every change starts as a written brief, and every significant choice is logged:

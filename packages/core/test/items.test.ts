@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { LEVELS } from '../data/combat';
 import { UPGRADES } from '../data/gear';
-import { ITEM_TYPES, SLOTS, STARTING_STORE, UNARMED } from '../data/items';
+import { ITEM_TYPES, SLOTS, STARTING_INVENTORY, UNARMED } from '../data/items';
 import { EMPTY_SCENARIO } from '../data/scenarios';
 import { CLASSES } from '../data/squad';
 import { characterOf } from '../src/family';
@@ -18,22 +18,22 @@ import { FIGHTER, HEALER, SNIPER, dummyGame, dummyOf, itemAt, ofType, place, run
 const refusals = (state: GameState, commands: readonly Command[]): string[] =>
   ofType(applyCommands(state, commands), 'order-refused').map(({ reason }) => reason);
 
-function storeItem(state: GameState, typeId: string): number {
-  const found = state.family.store.find((item) => item.typeId === typeId);
+function inventoryItem(state: GameState, typeId: string): number {
+  const found = state.family.inventory.find((item) => item.typeId === typeId);
   if (found) return found.id;
   const item = createItem(state, typeId);
-  state.family.store.push(item);
+  state.family.inventory.push(item);
   return item.id;
 }
 
 describe('items (S3b decisions 7 to 14)', () => {
-  it('start on each class as its weapon and armour, with the store holding a cap, buckler and necklace', () => {
+  it('start on each class as its weapon and armour, with the inventory holding a cap, buckler and necklace', () => {
     const state = createGame(1, EMPTY_SCENARIO);
     const typesOf = (id: number): (string | null)[] => SLOTS.map((slot) => characterOf(state, id).items[slot]?.typeId ?? null);
     expect(typesOf(FIGHTER)).toEqual(['sword', null, null, 'metal-chest', 'metal-gloves', 'metal-boots', null]);
     expect(typesOf(SNIPER)).toEqual(['rifle', null, null, 'leather-chest', 'leather-gloves', 'leather-boots', null]);
     expect(typesOf(HEALER)).toEqual(['staff', null, null, 'coat-chest', 'coat-gloves', 'coat-boots', null]);
-    expect(state.family.store.map(({ typeId }) => typeId)).toEqual(STARTING_STORE);
+    expect(state.family.inventory.map(({ typeId }) => typeId)).toEqual(STARTING_INVENTORY);
   });
 
   it('count their IDs apart, so unit and enemy IDs do not move', () => {
@@ -88,54 +88,54 @@ describe('items (S3b decisions 7 to 14)', () => {
 });
 
 describe('equip and unequip (decision 17)', () => {
-  it('moves the cap from the store onto the Fighter, and back', () => {
+  it('moves the cap from the inventory onto the Fighter, and back', () => {
     const state = dummyGame();
-    const cap = storeItem(state, 'cap');
+    const cap = inventoryItem(state, 'cap');
     const defence = unitOf(state, FIGHTER).defence;
     const events = applyCommands(state, [{ type: 'equip', unitId: FIGHTER, itemId: cap, slot: 'head' }]);
     expect(ofType(events, 'equipped')).toHaveLength(1);
     expect(itemAt(state, FIGHTER, 'head').id).toBe(cap);
-    expect(state.family.store.some(({ id }) => id === cap)).toBe(false);
+    expect(state.family.inventory.some(({ id }) => id === cap)).toBe(false);
     expect(unitOf(state, FIGHTER).defence).toBe(defence + Math.round(Math.round(8 * CLASSES.fighter.armourScale)));
     applyCommands(state, [{ type: 'unequip', unitId: FIGHTER, slot: 'head' }]);
     expect(characterOf(state, FIGHTER).items.head).toBeNull();
-    expect(state.family.store.some(({ id }) => id === cap)).toBe(true);
+    expect(state.family.inventory.some(({ id }) => id === cap)).toBe(true);
     expect(unitOf(state, FIGHTER).defence).toBe(defence);
   });
 
-  it('sends whatever was in the slot back to the store', () => {
+  it('sends whatever was in the slot back to the inventory', () => {
     const state = dummyGame();
     const sword = itemAt(state, FIGHTER, 'main-hand').id;
-    const spare = storeItem(state, 'plain-sword');
+    const spare = inventoryItem(state, 'plain-sword');
     applyCommands(state, [{ type: 'equip', unitId: FIGHTER, itemId: spare, slot: 'main-hand' }]);
     expect(itemAt(state, FIGHTER, 'main-hand').id).toBe(spare);
-    expect(state.family.store.map(({ id }) => id)).toContain(sword);
+    expect(state.family.inventory.map(({ id }) => id)).toContain(sword);
   });
 
-  it('empties the off hand into the store when a two-handed weapon goes in, and the reverse (rule 2)', () => {
+  it('empties the off hand into the inventory when a two-handed weapon goes in, and the reverse (rule 2)', () => {
     const state = dummyGame();
     characterOf(state, FIGHTER).arts.push('marksmanship');
-    const buckler = storeItem(state, 'buckler');
+    const buckler = inventoryItem(state, 'buckler');
     const sword = itemAt(state, FIGHTER, 'main-hand').id;
     applyCommands(state, [{ type: 'equip', unitId: FIGHTER, itemId: buckler, slot: 'off-hand' }]);
     expect(itemAt(state, FIGHTER, 'off-hand').id).toBe(buckler);
-    const rifle = storeItem(state, 'rifle');
+    const rifle = inventoryItem(state, 'rifle');
     const preview = previewChange(state, { type: 'equip', unitId: FIGHTER, itemId: rifle, slot: 'main-hand' });
     expect(preview.displaced.map(({ id }) => id)).toEqual([buckler]);
     applyCommands(state, [{ type: 'equip', unitId: FIGHTER, itemId: rifle, slot: 'main-hand' }]);
     expect(characterOf(state, FIGHTER).items['off-hand']).toBeNull();
-    expect(state.family.store.map(({ id }) => id)).toEqual(expect.arrayContaining([buckler, sword]));
-    // Putting the buckler back in sends the two-handed rifle to the store.
+    expect(state.family.inventory.map(({ id }) => id)).toEqual(expect.arrayContaining([buckler, sword]));
+    // Putting the buckler back in sends the two-handed rifle to the inventory.
     applyCommands(state, [{ type: 'equip', unitId: FIGHTER, itemId: buckler, slot: 'off-hand' }]);
     expect(characterOf(state, FIGHTER).items['main-hand']).toBeNull();
-    expect(state.family.store.map(({ id }) => id)).toContain(rifle);
+    expect(state.family.inventory.map(({ id }) => id)).toContain(rifle);
   });
 
   it('is refused during a fight, for a missing art, a missing level, or the wrong slot', () => {
     const state = dummyGame();
-    const buckler = storeItem(state, 'buckler');
-    const necklace = storeItem(state, 'necklace');
-    const cap = storeItem(state, 'cap');
+    const buckler = inventoryItem(state, 'buckler');
+    const necklace = inventoryItem(state, 'necklace');
+    const cap = inventoryItem(state, 'cap');
     expect(refusals(state, [{ type: 'equip', unitId: SNIPER, itemId: buckler, slot: 'off-hand' }])).toEqual(['needs-art']);
     expect(characterOf(state, FIGHTER).level).toBeLessThan(4);
     expect(refusals(state, [{ type: 'equip', unitId: FIGHTER, itemId: necklace, slot: 'necklace' }])).toEqual(['needs-level']);
@@ -147,7 +147,7 @@ describe('equip and unequip (decision 17)', () => {
     const [monster] = fight.live.enemies;
     if (!monster) throw new Error('No monster.');
     monster.awake = true;
-    const capInFight = storeItem(fight, 'cap');
+    const capInFight = inventoryItem(fight, 'cap');
     expect(refusals(fight, [{ type: 'equip', unitId: FIGHTER, itemId: capInFight, slot: 'head' }])).toEqual(['in-fight']);
     expect(refusals(fight, [{ type: 'unequip', unitId: FIGHTER, slot: 'chest' }])).toEqual(['in-fight']);
   });
@@ -155,7 +155,7 @@ describe('equip and unequip (decision 17)', () => {
   it('keeps every item in exactly one place, across random equips and unequips (rule 1)', () => {
     const state = dummyGame(9);
     characterOf(state, FIGHTER).level = 10;
-    for (const typeId of ['rifle', 'staff', 'buckler', 'cap', 'plain-chest']) storeItem(state, typeId);
+    for (const typeId of ['rifle', 'staff', 'buckler', 'cap', 'plain-chest']) inventoryItem(state, typeId);
     const total = everyItem(state).length;
     const rolls = { rng: 12345 };
     const pick = <T>(list: readonly T[]): T => list[Math.floor(nextRandom(rolls) * list.length)] as T;
@@ -164,8 +164,8 @@ describe('equip and unequip (decision 17)', () => {
       const unitId = pick([FIGHTER, SNIPER, HEALER]);
       const slot = pick(SLOTS);
       const command: Command =
-        nextRandom(rolls) < 0.6 && state.family.store.length > 0
-          ? { type: 'equip', unitId, itemId: pick(state.family.store).id, slot }
+        nextRandom(rolls) < 0.6 && state.family.inventory.length > 0
+          ? { type: 'equip', unitId, itemId: pick(state.family.inventory).id, slot }
           : { type: 'unequip', unitId, slot };
       accepted += ofType(applyCommands(state, [command]), 'order-accepted').length;
       const places = everyItem(state);
@@ -208,7 +208,7 @@ describe('the anvil over seven slots (decision 19)', () => {
   it('upgrades any filled slot by place and slot, with today’s odds and costs', () => {
     const state = dummyGame();
     state.family.marks = 100000;
-    const cap = storeItem(state, 'cap');
+    const cap = inventoryItem(state, 'cap');
     step(state, [{ type: 'equip', unitId: FIGHTER, itemId: cap, slot: 'head' }]);
     const events: ReturnType<typeof applyCommands> = [];
     expect(applyUpgrade(state, { type: 'upgrade', unitId: FIGHTER, slot: 'head' }, events)).toBeNull();
@@ -221,7 +221,7 @@ describe('the anvil over seven slots (decision 19)', () => {
     for (const slot of ['main-hand', 'head'] as GearSlot[]) {
       const state = dummyGame();
       state.family.marks = 1000000;
-      if (slot === 'head') applyCommands(state, [{ type: 'equip', unitId: FIGHTER, itemId: storeItem(state, 'cap'), slot }]);
+      if (slot === 'head') applyCommands(state, [{ type: 'equip', unitId: FIGHTER, itemId: inventoryItem(state, 'cap'), slot }]);
       let destroyed = false;
       for (let tries = 0; tries < 60 && !destroyed; tries += 1) {
         itemAt(state, FIGHTER, slot).upgrade = 9;

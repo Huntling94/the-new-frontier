@@ -20,23 +20,105 @@ const make = (tag: string, className = '', text = ''): HTMLElement => {
   return made;
 };
 
-/** The start screen: what the game is, the keys, and Start. */
-export function showStart(onStart: () => void): void {
-  const keys = element('keyList');
-  keys.replaceChildren(
-    ...KEY_LIST.map(([key, action]) => {
-      const row = make('div');
-      row.append(make('kbd', '', key), make('span', '', action));
-      return row;
-    }),
-  );
-  const button = element<HTMLButtonElement>('go');
-  button.addEventListener('click', () => {
-    element('start').hidden = true;
-    onStart();
-  });
-  element('start').hidden = false;
-  button.focus();
+/** What the start screen offers (S3c decisions 7 and 8). */
+export interface StartChoices {
+  /** Continue's line, levels and when it was saved, if a save loads. */
+  readonly continueInfo: string | null;
+  /** A line above the buttons, such as why a save would not load. */
+  readonly note: { readonly text: string; readonly warn: boolean } | null;
+  /** Export and import show only where saving is on. */
+  readonly saving: boolean;
+  /** There is a save, loadable or not, to export. */
+  readonly canExport: boolean;
+}
+
+export interface StartActions {
+  readonly onContinue: () => void;
+  readonly onNew: () => void;
+  readonly onExport: () => void;
+  readonly onImport: (file: File) => void;
+}
+
+/** The start screen: what the game is, the keys, Continue or Start, and saves (S3c). */
+export class StartScreen {
+  private readonly modal = element('start');
+  private readonly go = element<HTMLButtonElement>('go');
+  private readonly resume = element<HTMLButtonElement>('continue');
+  private readonly resumeInfo = element('continueInfo');
+  private readonly note = element('saveNote');
+  private readonly tools = element('saveTools');
+  private readonly exportButton = element<HTMLButtonElement>('exportSave');
+  private readonly file = element<HTMLInputElement>('importFile');
+  private readonly askBox = element('startAsk');
+  private readonly askText = element('askText');
+  private readonly askYes = element<HTMLButtonElement>('askYes');
+  private readonly askNo = element<HTMLButtonElement>('askNo');
+  private answer: ((yes: boolean) => void) | null = null;
+
+  constructor(actions: StartActions) {
+    element('keyList').replaceChildren(
+      ...KEY_LIST.map(([key, action]) => {
+        const row = make('div');
+        row.append(make('kbd', '', key), make('span', '', action));
+        return row;
+      }),
+    );
+    this.go.addEventListener('click', () => actions.onNew());
+    this.resume.addEventListener('click', () => actions.onContinue());
+    this.exportButton.addEventListener('click', () => actions.onExport());
+    element('importSave').addEventListener('click', () => this.file.click());
+    this.file.addEventListener('change', () => {
+      const [chosen] = this.file.files ?? [];
+      this.file.value = '';
+      if (chosen) actions.onImport(chosen);
+    });
+    this.askYes.addEventListener('click', () => this.settle(true));
+    this.askNo.addEventListener('click', () => this.settle(false));
+  }
+
+  show(choices: StartChoices): void {
+    this.settle(false);
+    const saved = choices.continueInfo !== null;
+    this.resume.hidden = !saved;
+    this.resumeInfo.textContent = choices.continueInfo ?? '';
+    this.go.textContent = saved || choices.canExport ? 'New game' : 'Start';
+    this.say(choices.note?.text ?? null, choices.note?.warn ?? false);
+    this.tools.hidden = !choices.saving;
+    this.exportButton.disabled = !choices.canExport;
+    this.modal.hidden = false;
+    (saved ? this.resume : this.go).focus();
+  }
+
+  hide(): void {
+    this.settle(false);
+    this.modal.hidden = true;
+  }
+
+  /** A line above the buttons, in the warning colour if `warn`. */
+  say(text: string | null, warn = false): void {
+    this.note.hidden = text === null;
+    this.note.textContent = text ?? '';
+    this.note.classList.toggle('warn', warn);
+  }
+
+  /** Asks before replacing a save, on the screen itself. Resolves to the answer. */
+  ask(question: string, yes: string): Promise<boolean> {
+    this.settle(false);
+    this.askText.textContent = question;
+    this.askYes.textContent = yes;
+    this.askBox.hidden = false;
+    this.askNo.focus();
+    return new Promise((resolve) => {
+      this.answer = resolve;
+    });
+  }
+
+  private settle(yes: boolean): void {
+    this.askBox.hidden = true;
+    const answer = this.answer;
+    this.answer = null;
+    answer?.(yes);
+  }
 }
 
 /** What an upgrade did, for the anvil's result box, as the squad test wrote it. */

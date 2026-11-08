@@ -116,10 +116,10 @@ function displaced(character: Character, slot: GearSlot, typeId: string): GearSl
   return [...fills, ...fillers];
 }
 
-function toStore(state: GameState, character: Character, slot: GearSlot): Item | null {
+function toInventory(state: GameState, character: Character, slot: GearSlot): Item | null {
   const held = character.items[slot];
   if (held) {
-    state.family.store.push(held);
+    state.family.inventory.push(held);
     character.items[slot] = null;
   }
   return held;
@@ -138,16 +138,16 @@ function findCharacter(state: GameState, id: number): Character | null {
 }
 
 /**
- * Moves an item from the store into a slot. Whatever was there, and anything a
- * two-handed item displaces, goes back to the store (decision 17, rule 2).
+ * Moves an item from the inventory into a slot. Whatever was there, and anything a
+ * two-handed item displaces, goes back to the inventory (decision 17, rule 2).
  */
 export function applyEquip(state: GameState, command: EquipCommand, events: GameEvent[]): RefusalReason | null {
   const character = findCharacter(state, command.unitId);
   if (!character) {
     return 'unknown-unit';
   }
-  const index = state.family.store.findIndex(({ id }) => id === command.itemId);
-  const item = state.family.store[index];
+  const index = state.family.inventory.findIndex(({ id }) => id === command.itemId);
+  const item = state.family.inventory[index];
   if (!item) {
     return 'unknown-item';
   }
@@ -161,9 +161,9 @@ export function applyEquip(state: GameState, command: EquipCommand, events: Game
   if (reason) {
     return reason;
   }
-  state.family.store.splice(index, 1);
+  state.family.inventory.splice(index, 1);
   for (const slot of [command.slot, ...displaced(character, command.slot, item.typeId)]) {
-    const sent = toStore(state, character, slot);
+    const sent = toInventory(state, character, slot);
     if (sent) {
       events.push({ type: 'unequipped', tick: state.tick, unitId: character.id, itemId: sent.id, slot });
     }
@@ -174,7 +174,7 @@ export function applyEquip(state: GameState, command: EquipCommand, events: Game
   return null;
 }
 
-/** Sends an equipped item back to the store (decision 17). */
+/** Sends an equipped item back to the inventory (decision 17). */
 export function applyUnequip(state: GameState, command: UnequipCommand, events: GameEvent[]): RefusalReason | null {
   const character = findCharacter(state, command.unitId);
   if (!character) {
@@ -187,24 +187,24 @@ export function applyUnequip(state: GameState, command: UnequipCommand, events: 
   if (inFight(state)) {
     return 'in-fight';
   }
-  toStore(state, character, command.slot);
+  toInventory(state, character, command.slot);
   events.push({ type: 'unequipped', tick: state.tick, unitId: character.id, itemId: held.id, slot: command.slot });
   refresh(state, character);
   return null;
 }
 
 /** Every item the family owns, with where it is: rule 1 says each appears once. */
-export function everyItem(state: GameView): { readonly item: GameView['family']['store'][number]; readonly where: string }[] {
+export function everyItem(state: GameView): { readonly item: GameView['family']['inventory'][number]; readonly where: string }[] {
   const worn = state.family.characters.flatMap((character) =>
     SLOTS.flatMap((slot) => {
       const held = character.items[slot];
       return held ? [{ item: held, where: `${String(character.id)}:${slot}` }] : [];
     }),
   );
-  return [...state.family.store.map((item) => ({ item, where: 'store' })), ...worn];
+  return [...state.family.inventory.map((item) => ({ item, where: 'inventory' })), ...worn];
 }
 
 /** The character's item in a slot, for reads outside the core. */
-export function itemIn(state: GameView, characterId: number, slot: GearSlot): GameView['family']['store'][number] | null {
+export function itemIn(state: GameView, characterId: number, slot: GearSlot): GameView['family']['inventory'][number] | null {
   return characterOf(state, characterId).items[slot];
 }

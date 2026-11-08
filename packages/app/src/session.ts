@@ -29,7 +29,8 @@ export interface MoveMark {
  * selection. Input turns into commands here, and nothing else changes the game (decision 1).
  */
 export class Session {
-  readonly state: GameState;
+  /** Replaced whole when a save is loaded (S3c decision 7). */
+  state: GameState;
   readonly selected = new Set<number>();
   /** Characters under auto-combat, which may be only some of them (D-035). */
   readonly autoIds = new Set<number>();
@@ -47,6 +48,16 @@ export class Session {
 
   get view(): GameView {
     return this.state;
+  }
+
+  /** Plays on from a loaded save: everyone selected, nothing pending, auto-combat off. */
+  restore(state: GameState): void {
+    this.state = state;
+    this.pending = [];
+    this.move = null;
+    this.autoIds.clear();
+    this.selected.clear();
+    this.selectAll();
   }
 
   get auto(): boolean {

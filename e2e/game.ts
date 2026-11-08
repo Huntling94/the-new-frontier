@@ -4,6 +4,10 @@ import { expect, type Page } from '@playwright/test';
 export interface Hook {
   frames: number;
   seed: number;
+  /** Saving is on for this page (S3c). */
+  saving: boolean;
+  saves: number;
+  saveNow(): Promise<boolean>;
   view: {
     tick: number;
     anchor: { x: number; z: number };
@@ -12,13 +16,15 @@ export interface Hook {
       marks: number;
       potions: number;
       active: number[];
-      characters: { id: number; name: string; classId: string; level: number; items: Record<string, { id: number; typeId: string; upgrade: number } | null> }[];
-      store: { id: number; typeId: string; upgrade: number }[];
+      characters: { id: number; name: string; classId: string; level: number; xp: number; items: Record<string, { id: number; typeId: string; upgrade: number } | null> }[];
+      inventory: { id: number; typeId: string; upgrade: number }[];
     };
     bodies: {
       id: number;
       x: number;
       z: number;
+      health: number;
+      mana: number;
       alive: boolean;
       hold: boolean;
       dest: unknown;
@@ -36,7 +42,7 @@ export interface Hook {
   /** A gate crossing is fading out or in. */
   fading: boolean;
   camera: { x: number; z: number; zoom: number; zoomTarget: number; yaw: number; tiltAdjust: number; follow: boolean };
-  events: { type: string; tick: number; order?: string; unitId?: number; spell?: string }[];
+  events: { type: string; tick: number; order?: string; unitId?: number; spell?: string; amount?: number }[];
   world: {
     groundAt(x: number, y: number): { x: number; z: number } | null;
     screenOf(point: { x: number; y: number; z: number }): { x: number; y: number; visible: boolean };
@@ -91,4 +97,46 @@ export async function stillCamera(page: Page): Promise<void> {
   await page.keyboard.up('ArrowUp');
   await expect.poll(() => page.evaluate(() => window.__tnf.camera.follow)).toBe(false);
   await page.waitForTimeout(300);
+}
+
+/** Where a ground point shows on the page, if it shows on the game itself and not under the HUD. */
+export async function onScreen(page: Page, point: { x: number; z: number }): Promise<{ x: number; y: number } | null> {
+  return page.evaluate(({ x, z }) => {
+    const { world } = window.__tnf;
+    const at = world.screenOf({ x, y: world.heightAt(x, z), z });
+    const under = document.elementFromPoint(at.x, at.y);
+    return at.visible && (under?.id === 'game' || under?.id === 'overlay') ? { x: at.x, y: at.y } : null;
+  }, point);
+}
+
+export async function rightClickGround(page: Page, points: readonly { x: number; z: number }[]): Promise<{ x: number; z: number }> {
+  for (const point of points) {
+    const at = await onScreen(page, point);
+    if (at) {
+      await page.mouse.move(at.x, at.y);
+      await page.mouse.down({ button: 'right' });
+      await page.mouse.up({ button: 'right' });
+      return point;
+    }
+  }
+  throw new Error('None of the points is on screen.');
+}
+
+/** Pans with the arrow keys until a ground point shows, as a player would look for it. */
+export async function bringIntoView(page: Page, point: { x: number; z: number }): Promise<void> {
+  for (let step = 0; step < 20 && !(await onScreen(page, point)); step += 1) {
+    const at = await page.evaluate(({ x, z }) => window.__tnf.world.screenOf({ x, y: window.__tnf.world.heightAt(x, z), z }), point);
+    const keys = [
+      ...(at.x < 320 ? ['ArrowLeft'] : at.x > 960 ? ['ArrowRight'] : []),
+      ...(at.y < 180 ? ['ArrowUp'] : at.y > 540 ? ['ArrowDown'] : []),
+    ];
+    for (const key of keys) await page.keyboard.down(key);
+    await page.waitForTimeout(200);
+    for (const key of keys) await page.keyboard.up(key);
+  }
+}
+
+export async function crossInto(page: Page, zoneId: string): Promise<void> {
+  await page.waitForFunction(() => window.__tnf.fading, undefined, { timeout: 20_000, polling: 'raf' });
+  await page.waitForFunction((id) => window.__tnf.view.zoneId === id && !window.__tnf.fading, zoneId, { timeout: 10_000 });
 }

@@ -1,6 +1,6 @@
 import { LEVELS, POTIONS } from '../data/combat';
 import { MARKS } from '../data/gear';
-import { STARTING_STORE } from '../data/items';
+import { STARTING_INVENTORY } from '../data/items';
 import { CLASSES, FORMATION, STARTING_FAMILY } from '../data/squad';
 import { removeMinions, resetBoss } from './boss';
 import { updateEnemy } from './enemies';
@@ -11,7 +11,7 @@ import { updateScheduled, updateShots } from './shots';
 import { createItem, startingItems } from './items';
 import { recalculate } from './stats';
 import { characterOf, classOf } from './family';
-import type { Body, Character, CharacterStart, Command, GameEvent, GameState, Scenario } from './state';
+import type { Body, Character, CharacterStart, Command, GameEvent, GameState, Point, Scenario } from './state';
 import { gateAt, zoneOf } from './world';
 import {
   createRecords,
@@ -37,14 +37,22 @@ function createCharacter(state: GameState, start: CharacterStart): Character {
   };
 }
 
-/** A character's body, standing at its place in the triangle. */
-function createBody(character: Character, place: number, scenario: Scenario): Body {
+/** A character's body at its place in the triangle, from the scenario's starting point. */
+function startingPoint(place: number, scenario: Scenario): Point {
   const { startOffset } = FORMATION[place] ?? { startOffset: { x: 0, z: 0 } };
+  return { x: scenario.squadStart.x + startOffset.x, z: scenario.squadStart.z + startOffset.z };
+}
+
+/**
+ * A character's body standing at a point, whole and with no orders, timers or target.
+ * Its stats come from the character's level and items (decision 14).
+ */
+export function createBody(character: Character, point: Point): Body {
   const body: Body = {
     id: character.id,
     alive: true,
-    x: scenario.squadStart.x + startOffset.x,
-    z: scenario.squadStart.z + startOffset.z,
+    x: point.x,
+    z: point.z,
     dest: null,
     hold: false,
     attackMove: false,
@@ -82,7 +90,7 @@ export function createGame(seed: number, scenario: Scenario): GameState {
     rng: seed >>> 0,
     nextId: 1,
     nextItemId: 1,
-    family: { characters: [], active: [], store: [], marks: MARKS.start, potions: POTIONS.start },
+    family: { characters: [], active: [], inventory: [], marks: MARKS.start, potions: POTIONS.start },
     bodies: [],
     zoneId: scenario.zone,
     records: createRecords(scenario),
@@ -98,9 +106,9 @@ export function createGame(seed: number, scenario: Scenario): GameState {
   };
   const characters = (scenario.family ?? STARTING_FAMILY).map((start) => createCharacter(state, start));
   state.family.characters = characters;
-  state.family.store = STARTING_STORE.map((typeId) => createItem(state, typeId));
+  state.family.inventory = STARTING_INVENTORY.map((typeId) => createItem(state, typeId));
   state.family.active = characters.slice(0, FORMATION.length).map(({ id }) => id);
-  state.bodies = state.family.active.map((id, place) => createBody(characterOf(state, id), place, scenario));
+  state.bodies = state.family.active.map((id, place) => createBody(characterOf(state, id), startingPoint(place, scenario)));
   enterZone(state, scenario.zone);
   return state;
 }

@@ -181,7 +181,7 @@ export interface ChangePreview {
   readonly reason: RefusalReason | null;
   readonly before: StatSheet;
   readonly after: StatSheet;
-  /** Items it would send back to the store, a two-handed weapon's off hand among them. */
+  /** Items it would send back to the inventory, a two-handed weapon's off hand among them. */
   readonly displaced: readonly ItemView[];
 }
 
@@ -193,7 +193,7 @@ export function previewChange(view: GameView, command: EquipCommand | UnequipCom
   const reason = command.type === 'equip' ? applyEquip(copy, command, events) : applyUnequip(copy, command, events);
   const displaced = events.flatMap((event) => {
     if (event.type !== 'unequipped') return [];
-    const item = copy.family.store.find(({ id }) => id === event.itemId);
+    const item = copy.family.inventory.find(({ id }) => id === event.itemId);
     return item && (command.type === 'unequip' || event.slot !== command.slot) ? [itemInfo(item)] : [];
   });
   return { reason, before, after: reason ? before : sheetOf(copy, command.unitId), displaced };

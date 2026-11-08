@@ -95,3 +95,53 @@ A refresh wipes the run, so playtesters cannot finish a region (D-024). S3a spli
 - Any standing trigger in `CLAUDE.md` fires.
 
 ## Outcome (builder fills in)
+
+Built on 8 Nov 2026, from `fd3aa1c`, in the two steps decision 11 set. The maintainer played it and approved the diff on 8 Nov 2026 (done means 7 and 9): "Played it, approved". The two play questions were not answered separately. CI on `master` is done means 8.
+
+**Step one: the store is the inventory (D-041).** `family.store` is `family.inventory` in the core, app, viewer, unit and browser tests, `STATE.md`, `ARCHITECTURE.md` and `docs/DATA-MODEL.md`, and the screen's left panel reads "Inventory". `STARTING_STORE` is `STARTING_INVENTORY`. Closed briefs keep the old word. Before step two began, every tick's commands, events and character stats were recorded for both replays and 20 seeds each of the careful bot, the sloppy bot and auto-combat, on the old code and the new: 62 runs, no difference. State's key names feed the replay hash, so the hashes moved:
+
+| Replay | S3b | After step one | After step two |
+|---|---|---|---|
+| Spell tour | `0e276c1d` | `282ab6e6` | `282ab6e6` |
+| Squad tour | `be8c024b` | `e904be92` | `e904be92` |
+
+**Done means:**
+
+| # | Result |
+|---|---|
+| 1 | `pnpm check` passes: 460 unit tests, lint, typecheck and the `legacy/` guard. One lint-rule test timed out once under load and passed on the rerun (`STATE.md` Bugs) |
+| 2 | `packages/core/test/save.test.ts`, 19 tests: text and back with every lasting value the same and no live value in it; under 100 KB; a loaded game plays 1,800 ticks of the careful bot exactly as a fresh entry into its zone does, same generator; ID counters worked out, so new enemies, drops and items take unused IDs; the version 1 example loads in the cave with its levels, gear, health and mana; each body where it stood, including the Healer's starting place against the waystone; a position inside the cave wall falls back to the camp; a character down stays down; a cleared pack comes back on the same tick; the chain runs test-only steps in order and never changes the data passed in; a newer version is refused with the text unchanged; missing fields, unknown IDs (class, art, item type, zone, pack), an item in two places, an item in the wrong slot and a buckler beside a rifle are all refused. `packages/app/test/saves.test.ts`, 9 tests: the store, its backup key, a refused write, when saving is on, the 15-second limit, no automatic save in a fight or with the squad down, always after the anvil |
+| 3 | After step two the 62 runs matched step one tick for tick, hashes included: saving only reads state |
+| 4 | `e2e/saves.spec.ts`, five flows: fight a camp and walk into the cave, reload, Continue, and the same levels, XP, marks, gear, inventory, zone, positions, health and mana; an anvil result saved before any tick runs, and kept after a reload; export, New game (which asks), import (which asks) and the exported game back; a newer save refused, left untouched, offered for export, with the backup offered; a `?bot=careful` run leaves an existing save untouched. All 28 browser tests pass. In the first full run the known camera-timing test ("a right click moves the squad … at four rotations", `STATE.md` Bugs) failed once, at 3.1 from the click against a limit of 3; it passed three times alone, and saving is off on its page |
+| 5 | `docs/DATA-MODEL.md`: the save is Built, with a new Saves section; the body is "No: rebuilt on load", with what of it a save keeps; family, character, item, inventory and zone record name their tests; rule 9 names its check. `ARCHITECTURE.md` has a Saves section, and the README one for players |
+| 6 | The changed files and the built site hold no local paths, personal details or secrets |
+| 7 | Approved by the maintainer, 8 Nov 2026 |
+| 8 | CI on `master` after the push |
+| 9 | Played by the maintainer, 8 Nov 2026 |
+
+**100-seed report.** Both on the same machine; S3b's numbers are from its Outcome:
+
+| | S3b | S3c |
+|---|---|---|
+| Careful bot | 100 of 100 finished, 0 stalled, 2.5 game minutes, 10.3 upgrades, 551.5 marks, 8.0 potions | the same |
+| Sloppy bot | 100 of 100, 0 stalled, 2.6 minutes, 10.3 upgrades, 478.6 marks, 7.8 potions | the same |
+| Auto-combat | clear 100 | clear 100 |
+
+Wipes, characters down, levels and refused orders do not change either.
+
+**Built:**
+
+- Core: `toSave` and `fromSave` in `packages/core/src/save.ts`, the migration chain in `src/migrations.ts` (no steps, so the version is 1), `SAVE_FORMAT` in `data/save.ts`, and the frozen example `test/saves/v1.json`: a careful bot's run on seed 7 with four upgrades and the necklace on the Healer, walked into the cave. `createBody` now takes a point, so load and `createGame` build bodies the same way.
+- App: `SaveStore` and the browser store in `packages/app/src/saves.ts`, on `the-new-frontier.save`, with the last save copied to `the-new-frontier.save.backup` before each write. `AutoSaver` saves at most every 15 seconds when no fight is on and the squad is not down, at once on arriving through a gate and when the page is hidden, and after every anvil result whatever is on. The start screen shows Continue with each character's level and when it was saved, New game (which asks before replacing), and Export and Import. The HUD's top right says "Saved" and the time, lit for a moment after each save. `Session.restore` swaps in a loaded game.
+- The test hook gains `saving`, `saves` and `saveNow()`, and the cave-walk helpers moved from `e2e/zones.spec.ts` to `e2e/game.ts` for reuse.
+
+**Found while building, for the maintainer to confirm:**
+
+- **Browser tests need saves, and `?test` turns them off** (decision 9). The tests add `?save`, which turns saving back on for a test or seed page. A bot never saves, even with `?save`. A player could add `?save` by hand, which only saves their own game.
+- **The backup is offered.** If the main save is refused, the start screen says why and offers Continue from the save before it. Decision 5 set the backup key; offering it is new.
+- **Loading draws from the generator.** Building the zone's packs on load uses it, as any entry does, so rolls after a reload differ from a run with no reload. Anvil results are saved at once, so a reload cannot undo one.
+- **What a reload loses.** Coins and potions on the ground, and a half-cleared pack, which comes back whole. Both are live-group things the brief left out.
+- **"Walkable" for a saved position.** Bodies often stand on cells the grid marks closed, against stones and the waystone; the Healer starts on one. A position counts if it touches an open cell and sits less than a body's width inside any obstacle. Only a position off the ground or deep in a wall falls back to the camp.
+- **A won run.** The boss's record says it is won, so Continue on a won save shows the victory screen again; New game starts over.
+- **Rule 9 and gates.** Saves hold no gate IDs, so the check covers classes, arts, item types, zones and packs.
+- **The save's size.** The version 1 example is about 2 KB, far under the 100 KB stop line. `localStorage` took every save in Chromium; Firefox and WebKit are still untested (`STATE.md`).

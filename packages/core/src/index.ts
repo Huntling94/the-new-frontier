@@ -28,6 +28,9 @@ export { randomBetween } from './random';
 export type { Box } from './grid';
 export type { Ground, ZoneData } from './world';
 export { runReplay } from './replay';
+export { SAVE_VERSION } from './migrations';
+export { fromSave, toSave } from './save';
+export type { LoadResult, SaveFile, SaveRefusal } from './save';
 export { isNearAnvil, upgradeOffer } from './upgrades';
 export type {
   AutoResult,

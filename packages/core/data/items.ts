@@ -155,5 +155,5 @@ export const UNARMED: { readonly stats: ItemStats; readonly weapon: WeaponData }
   weapon: { range: 2.5, attackSeconds: 1, knockback: 0, melee: true, attackStat: 'melee' },
 };
 
-/** The store a new family starts with, so the screen has something to show (decision 18). */
-export const STARTING_STORE: readonly string[] = ['cap', 'buckler', 'necklace'];
+/** The inventory a new family starts with, so the screen has something to show (decision 18). */
+export const STARTING_INVENTORY: readonly string[] = ['cap', 'buckler', 'necklace'];

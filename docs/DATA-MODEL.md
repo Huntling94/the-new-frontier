@@ -40,12 +40,13 @@ This is the same split as code and data (D-018), and it decides what a save hold
 | Character | One member of the family, such as a particular Fighter. What lasts: name, class, level, XP, arts and equipped items |
 | Class | The type of a character: Fighter, Sniper or Healer (D-020). Wizard and Elementalist are working names, still to be designed |
 | Definition | Fixed game data, never saved |
-| Family | Everything the player owns: characters, the store, marks and progress |
+| Family | Everything the player owns: characters, the inventory, marks and progress |
 | Field | A zone of kind `field`: open and unsafe |
 | Dungeon | A zone of kind `dungeon`: enclosed and unsafe. Each floor is its own zone |
 | Gate | A one-way link out of a zone into another. A two-way link is two gates |
 | Grid | A zone's walkable ground, as square cells one world unit across. Built from the zone's data, never saved |
 | Instance | Something that changes in play, and points at a definition |
+| Inventory | The family's shared items: every item not equipped. Called the store until S3c (D-041) |
 | Item | One specific piece of gear: its type plus its upgrade, with its own ID |
 | Item type | The definition of a piece of gear, such as a level 20 pistol: its category, the slots it fits and fills, stats, requirements and price |
 | Land | A named group of zones |
@@ -55,10 +56,10 @@ This is the same split as code and data (D-018), and it decides what a save hold
 | Slot | One of seven places a character wears an item: main hand, off hand, head, chest, gloves, boots and necklace |
 | Spare | The basic item the smith hands over when an upgrade destroys one (D-005). Each item type names its spare |
 | Stat | One named number on a character or enemy |
-| Store | The family's shared items: every item not equipped |
 | Unarmed | What an empty main hand fights with. A type in data, not an item |
 | Town | A zone of kind `town`: safe, with NPCs. The vision's cities are towns |
 | Zone | One playable space with its own ground, coordinates and monsters. Its ground is an island with a coast or a rectangle with walls |
+| Save | The lasting part of the game as plain data, in an envelope with a format version. Kept in the browser, and exported and imported as a `.json` file (S3c) |
 | Zone record | What lasts about a zone: bosses dead, chests opened, when cleared packs come back |
 
 ## Entity relationships
@@ -68,7 +69,7 @@ This is the same split as code and data (D-018), and it decides what a save hold
 ```mermaid
 erDiagram
   Family ||--o{ Character : has
-  Family |o--o{ Item : stores
+  Family |o--o{ Item : holds
   Family ||--o{ QuestProgress : tracks
   Family ||--o{ ZoneRecord : remembers
   "Class" ||--o{ Character : "is the type of"
@@ -85,7 +86,7 @@ erDiagram
   EffectType ||--o{ Effect : "is the type of"
 ```
 
-An item is either in the store or on one character, never both. A character in the active three has a body in the field; the body points at its character by ID.
+An item is either in the inventory or on one character, never both. A character in the active three has a body in the field; the body points at its character by ID.
 
 ### World, monsters and NPCs
 
@@ -117,16 +118,16 @@ Only one zone runs at a time, so there is at most one live group (D-021). The li
 
 | Entity | Kind | Saved | Status | Notes |
 |---|---|---|---|---|
-| Family | Instance | Yes | Built | `state.family`: the characters, the active three in order, the store, marks and potions (S3b) |
-| Character | Instance | Yes | Built | ID, name, class, level, XP, arts known and seven slots. Names are placeholders until names are chosen (S3b) |
-| Body | Instance | Open (S3c) | Built | `state.bodies`, one per character in the active three, in that order. Holds position, orders, route, health, mana, target, timers and calculated stats. Whether a loaded save rebuilds bodies whole at camp is left to S3c |
+| Family | Instance | Yes | Built | `state.family`: the characters, the active three in order, the inventory, marks and potions (S3b). Saved whole: `packages/core/test/save.test.ts` |
+| Character | Instance | Yes | Built | ID, name, class, level, XP, arts known and seven slots. Names are placeholders until names are chosen (S3b). Saved whole: `packages/core/test/save.test.ts` |
+| Body | Instance | No: rebuilt on load | Built | `state.bodies`, one per character in the active three, in that order. Holds position, orders, route, health, mana, target, timers and calculated stats. A save keeps each body's position, health, mana and whether it is down, and the triangle's centre and heading. Load rebuilds the rest: no orders, route, target or cooldowns, and stats worked out again. A position no longer walkable falls back to the triangle at the zone's camp (S3c). Tested in `packages/core/test/save.test.ts` and `e2e/saves.spec.ts` |
 | Class | Definition | No | Built | `CLASSES`: speed, health, mana, armour skill, auto-heal, ranges, arts and starting items. Weapon values moved to item types in S3b |
 | Art | Definition | No | Partial | `ARTS`: one per class, known from the start, unlocking its three spells and its weapon categories. Trainers, and arts gained later, come with the town |
 | Spell | Definition | No | Built | `SPELLS`. Each belongs to an art, and `SPELL_WEAPONS` names the weapon it needs in hand, if any |
 | Category | Definition | No | Built | `CATEGORIES`: sword, great sword, dagger, spear, pistol, rifle, staff and shield are weapons; leather, metal, coat and jewellery are armour. More can be added as data |
 | Item type | Definition | No | Built | `ITEM_TYPES`: category, slots it fits and fills, stats, weapon values, requirements, price, quality and spare. Item boosts come later (D-028) |
-| Item | Instance | Yes | Built | Type ID, upgrade and an ID from `nextItemId`, a counter of its own |
-| Store | Instance | Yes | Built | `state.family.store`: every item not equipped. A new family starts with a cap, a buckler and a necklace |
+| Item | Instance | Yes | Built | Type ID, upgrade and an ID from `nextItemId`, a counter of its own. The counter is not saved: load sets it one above the highest item ID in the save (S3c). Tested in `packages/core/test/save.test.ts` |
+| Inventory | Instance | Yes | Built | `state.family.inventory`: every item not equipped. A new family starts with a cap, a buckler and a necklace. Named the store until S3c (D-041). Saved whole: `packages/core/test/save.test.ts` |
 | Effect type | Definition | No | Planned | Says how repeats stack |
 | Effect | Instance | Live only | Partial | Today separate timers, such as `guardTicks`, `rallyTicks` and `slowTicks` |
 | Consumable | Open | Open | Partial | Today a shared count, `potions`. The design is open |
@@ -138,7 +139,7 @@ Only one zone runs at a time, so there is at most one live group (D-021). The li
 | Land | Definition | No | Planned | A name, a level range and a place on the world map. No rules of its own |
 | Zone | Definition | No | Built | `ZONES`: Lande de Montclaire and a cave off it. Holds its ground, camp, anvil, baked obstacles, packs, boss, gates and place in the world frame. Only the zone named on state runs |
 | Gate | Definition | No | Partial | On the zone it leaves: an area, the zone it arrives in, an arrival point and heading. Requirements and cost are held in the shared requirement shape, but nothing checks them yet |
-| Zone record | Instance | Yes | Built | `state.records`: whether the boss is dead, and the game tick each cleared pack comes back. Saved from S3c |
+| Zone record | Instance | Yes | Built | `state.records`: whether the boss is dead, and the game tick each cleared pack comes back. Saved from S3c, without a test scenario's contents. A zone added since a save starts with a fresh record. Tested in `packages/core/test/save.test.ts`, where a cleared pack comes back on the same tick after a load |
 | Live group | Instance | No | Built | `state.live`: enemies, shots, enemy shots, scheduled effects and drops |
 | Pack | Definition | No | Built | `PACKS` and the cave's pack, held on the zone. Comes back on the game clock after it is cleared |
 | Grid | Derived | No | Built | Built from the zone's ground, walls and obstacles the first time the zone runs, and kept. Never in state |
@@ -149,22 +150,39 @@ Only one zone runs at a time, so there is at most one live group (D-021). The li
 | NPC | Definition | No | Planned | |
 | Shop | Definition | No | Planned | D-012 |
 | Quest | Definition | No | Planned | |
-| Quest progress | Instance | Yes | Planned | |
-| Save | Instance | Is the save | Planned | D-024 |
+| Quest progress | Instance | Yes | Planned | Joins the save through a migration step when quests arrive (S3c) |
+| Save | Instance | Is the save | Built | D-024, D-032. `toSave` and `fromSave` in `packages/core/src/save.ts`, the migration chain in `src/migrations.ts`, the browser store in `packages/app/src/saves.ts`. See [Saves](#saves). Tested in `packages/core/test/save.test.ts`, `packages/app/test/saves.test.ts` and `e2e/saves.spec.ts` |
 
 ## Rules that must always hold
 
 Each rule should have a test or a validator check once it is built. The world's checks are in `packages/core/src/checks.ts`, and each is also tested against a deliberately broken zone.
 
-1. A gear item is in exactly one place: the store, or one character's slot. Tested across random equips and unequips in `packages/core/test/items.test.ts`.
-2. A two-handed weapon in the main hand means an empty off hand. Tested in the same file: equipping either one sends the other to the store.
+1. A gear item is in exactly one place: the inventory, or one character's slot. Tested across random equips and unequips in `packages/core/test/items.test.ts`.
+2. A two-handed weapon in the main hand means an empty off hand. Tested in the same file: equipping either one sends the other to the inventory.
 3. Final stats are calculated, never saved.
 4. Definitions never change during play.
 5. Nothing outside the live group refers to an enemy once its zone has closed. Checked after every crossing in tests.
 6. Every zone can be reached from the start, every gate arrives on a walkable cell, and every pack and camp stands on one. Reachability is checked by breadth-first search over gates.
 7. A crossing never strands the player: every land can earn enough to leave it, or the way back is free.
 8. Quest prerequisites contain no loops.
-9. Content IDs are never deleted or reused without a save migration.
+9. Content IDs are never deleted or reused without a save migration. A save naming a class, art, item type, zone or pack this build lacks is refused, in `packages/core/test/save.test.ts`. Saves hold no gate IDs.
+
+## Saves
+
+A save is the lasting part of the game, and nothing that can be worked out again (D-024, S3c).
+
+| Saved | Not saved |
+|---|---|
+| The family: characters with their levels, XP, arts and equipped items, the inventory, the active three in order, marks and potions | The live group: enemies, shots, drops and scheduled effects. Load builds it fresh, as entering the zone does |
+| Each zone record: the boss dead, and when each cleared pack comes back | A test scenario's zone contents |
+| The zone the squad is in, each body's position, health and mana and whether it is down, and the triangle's centre and heading | Everything else on a body: orders, route, target, cooldowns and calculated stats |
+| The generator's state and the game tick | The ID counters, which load works out: one above the highest character ID, and one above the highest item ID |
+
+- **An envelope and the game.** The envelope holds `format`, `version` and the app's `savedAt`. Version 1 is the first format.
+- **Migration is a chain.** Step *n* moves a save's game data from version *n* to *n* + 1. A save runs every step from its version to the current one, then the check. Steps are never edited once shipped, and each version keeps a frozen example in `packages/core/test/saves/`, which every later build must load.
+- **The check.** The right shape, every content ID in this build's data (rule 9), and S3b's item rules (rules 1 and 2). A save newer than the build, or one that fails the check, is refused and left untouched.
+- **Whether the run is won** follows from the boss's zone record, so it is not saved separately.
+- **Loading draws from the generator.** Building the zone's packs on load uses the generator, as any entry does. So the rolls after a reload differ from the rolls the run would have had without one. Replays start from `createGame` and never load a save.
 
 ## How stats are worked out
 

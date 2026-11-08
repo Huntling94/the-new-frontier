@@ -3,7 +3,17 @@ import '@fontsource/alegreya-sans/latin-500.css';
 import '@fontsource/alegreya-sans/latin-700.css';
 import '@fontsource/im-fell-english-sc/latin-400.css';
 import '@fontsource/vt323/latin-400.css';
-import { characterOf, currentZone, isNearAnvil, upgradeOffer, type BotKind, type GameEvent, type GearSlot } from '@new-frontier/core';
+import {
+  characterOf,
+  currentZone,
+  isNearAnvil,
+  upgradeOffer,
+  type BotKind,
+  type GameEvent,
+  type GameState,
+  type GearSlot,
+  type LoadResult,
+} from '@new-frontier/core';
 import { createWorldView, zoneLook, type CameraPose, type WorldView } from '@new-frontier/render';
 import {
   addShake,
@@ -24,7 +34,17 @@ import { Hud, HUD_SECONDS } from './hud';
 import { Input } from './input';
 import { Reactions, type Reaction } from './reactions';
 import { Inventory } from './inventory';
-import { Anvil, showStart, showVictory, upgradeResult } from './screens';
+import {
+  AutoSaver,
+  BrowserSaveStore,
+  describeSave,
+  download,
+  exportName,
+  readSave,
+  savedTime,
+  savingAllowed,
+} from './saves';
+import { Anvil, showVictory, StartScreen, upgradeResult } from './screens';
 import { Session } from './session';
 import { Sound } from './sound';
 import { fitViewport } from './viewport';
@@ -52,6 +72,19 @@ const speed = Math.min(Math.max(Number(params.get('speed') ?? 1) || 1, 0), MAX_S
 const botParam = params.get('bot');
 const bot: BotKind | null = botParam === 'careful' || botParam === 'sloppy' ? botParam : null;
 const stillMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+/** How long the HUD's "Saved" line stays lit after a save. */
+const SAVED_GLOW_MS = 1500;
+
+/** The browser store, unless this is a test or bot run (S3c decision 9) or the browser blocks storage. */
+function openStore(): BrowserSaveStore | null {
+  if (!savingAllowed(params)) return null;
+  try {
+    return new BrowserSaveStore(window.localStorage);
+  } catch {
+    return null;
+  }
+}
+const store = openStore();
 
 const canvas = element<HTMLCanvasElement>('game');
 const overlay = element<HTMLCanvasElement>('overlay');
@@ -74,6 +107,7 @@ if (world) start(world);
 type Mode = 'start' | 'play' | 'won';
 
 interface PageState {
+  readonly saver: AutoSaver | null;
   readonly mode: Mode;
   readonly paused: boolean;
   readonly sound: Sound;
@@ -109,6 +143,10 @@ function start(world: WorldView): void {
           reactions.tally.destroyed += 1;
           sound.play('fail');
         }
+      }
+      // A save follows every anvil result, fight or not, so a reload never undoes one (D-005, D-024).
+      if (events.some(({ type }) => type === 'upgraded' || type === 'item-destroyed')) {
+        void saver?.saveNow(session.view, performance.now(), true);
       }
       return upgradeResult(session.view, unitId, slot, offer?.chance ?? 0, events, before);
     },
@@ -172,8 +210,32 @@ function start(world: WorldView): void {
     cue: () => sound.play('click'),
   });
 
+  // Saves (S3c): the HUD says when the game last saved, and a failed save says so once.
+  const savedLine = element('saved');
+  let glow = 0;
+  let failed = false;
+  const saver = store
+    ? new AutoSaver(
+        store,
+        (at) => {
+          failed = false;
+          savedLine.textContent = `Saved ${savedTime(at)}`;
+          savedLine.classList.add('fresh');
+          window.clearTimeout(glow);
+          glow = window.setTimeout(() => savedLine.classList.remove('fresh'), SAVED_GLOW_MS);
+        },
+        () => {
+          if (!failed) hud.log({ text: 'The browser refused to save the game', tone: 'bad' });
+          failed = true;
+        },
+      )
+    : null;
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden && mode !== 'start') void saver?.saveNow(session.view, performance.now());
+  });
+
   const hook = params.has('test')
-    ? exposeHook(world, camera, recent, () => ({ mode, paused: screenOpen(), sound, help: hud.helpShown, fading: fade !== null }))
+    ? exposeHook(world, camera, recent, () => ({ saver, mode, paused: screenOpen(), sound, help: hud.helpShown, fading: fade !== null }))
     : null;
 
   const fit = (): void => {
@@ -183,13 +245,89 @@ function start(world: WorldView): void {
   fit();
   window.addEventListener('resize', fit);
 
-  showStart(() => {
+  /** Starts play: on the fresh game, or on a loaded one (S3c decision 7). */
+  const begin = (loaded: GameState | null, line: string): void => {
+    if (loaded) {
+      session.restore(loaded);
+      world.rebuildZone(session.view);
+      const centre = squadCentre(session.view);
+      camera.x = centre.x;
+      camera.z = centre.z;
+    }
+    startScreen.hide();
     sound.start();
     mode = 'play';
     hud.show(true);
-    hud.log({ text: 'Squad ready. Right click to move.', tone: 'plain' });
-    hud.banner({ title: zoneLook(currentZone(session.view).id).name, line: 'Clear the camps, then visit the anvil', seconds: BANNER_SECONDS });
+    hud.log({ text: loaded ? 'Welcome back.' : 'Squad ready. Right click to move.', tone: 'plain' });
+    hud.banner({ title: zoneLook(currentZone(session.view).id).name, line, seconds: BANNER_SECONDS });
+    // A won run stays won: its save says the boss is dead.
+    if (session.view.victory) {
+      mode = 'won';
+      victoryIn = BANNER_SECONDS;
+    }
+  };
+
+  /** What the store holds, and the game Continue loads: from the backup if the save itself is refused. */
+  let storedText: string | null = null;
+  let toContinue: Extract<LoadResult, { ok: true }> | null = null;
+  const startScreen = new StartScreen({
+    onContinue: () => {
+      if (toContinue) begin(toContinue.state, 'Welcome back');
+    },
+    onNew: () => {
+      void (async () => {
+        if (storedText !== null && !(await startScreen.ask('Start a new game? It replaces your saved game.', 'Replace it'))) return;
+        begin(null, 'Clear the camps, then visit the anvil');
+        void saver?.saveNow(session.view, performance.now(), true);
+      })();
+    },
+    onExport: () => {
+      void store?.load().then((text) => {
+        if (text !== null) download(text, exportName(new Date()));
+      });
+    },
+    onImport: (file) => {
+      void (async () => {
+        const text = await file.text();
+        const result = readSave(text);
+        if (!result.ok) {
+          startScreen.say(`That file could not be loaded. ${result.detail}`, true);
+          return;
+        }
+        const question = `Replace your saved game with this one? ${describeSave(result.state, result.savedAt)}.`;
+        if (storedText !== null && !(await startScreen.ask(question, 'Replace it'))) return;
+        try {
+          await store?.save(text);
+        } catch {
+          startScreen.say('The browser refused to save the imported game.', true);
+          return;
+        }
+        begin(result.state, 'Save imported');
+      })();
+    },
   });
+
+  /** Reads the store and offers Continue, or says why a save would not load (S3c decisions 4 and 7). */
+  const offer = async (): Promise<void> => {
+    storedText = (await store?.load()) ?? null;
+    const result = storedText === null ? null : readSave(storedText);
+    let note: { text: string; warn: boolean } | null = null;
+    toContinue = result?.ok ? result : null;
+    if (result && !result.ok) {
+      const backupText = await store?.loadBackup();
+      const backup = backupText ? readSave(backupText) : null;
+      toContinue = backup?.ok ? backup : null;
+      const why = `Your saved game could not be loaded. ${result.detail}`;
+      note = { text: toContinue ? `${why} Continue picks up the save before it.` : `${why} Export it to keep a copy, or start a new game.`, warn: true };
+    }
+    startScreen.show({
+      continueInfo: toContinue ? describeSave(toContinue.state, toContinue.savedAt) : null,
+      note,
+      saving: store !== null,
+      canExport: storedText !== null,
+    });
+  };
+  void offer();
 
   const react = (reaction: Reaction): void => {
     for (const name of reaction.sounds) sound.play(name);
@@ -267,11 +405,14 @@ function start(world: WorldView): void {
         if (recent.length > MAX_RECENT) recent.splice(0, recent.length - MAX_RECENT);
       }
       if (events.some(({ type }) => type === 'zone-changed')) {
+        // Arriving through a gate saves at once (S3c decision 6).
+        void saver?.saveNow(session.view, now);
         input.letGo();
         fade = { phase: 'out', seconds: 0 };
         break;
       }
     }
+    if (mode !== 'start') saver?.consider(session.view, now);
     fadeLayer.style.opacity = !fade ? '0' : String(fade.phase === 'out' ? Math.min(fade.seconds / FADE.outSeconds, 1) : Math.max(1 - fade.seconds / FADE.inSeconds, 0));
     // While fading out the canvas keeps its last picture of the zone being left.
     if (fade?.phase === 'out') {
@@ -311,6 +452,15 @@ function exposeHook(world: WorldView, camera: Camera, recent: readonly GameEvent
   const hook = {
     frames: 0,
     seed,
+    /** Saving is on for this page (S3c decision 9). */
+    get saving() {
+      return page().saver !== null;
+    },
+    get saves() {
+      return page().saver?.count ?? 0;
+    },
+    /** Saves now if no fight is on, as the automatic save does. Resolves to whether it saved. */
+    saveNow: () => page().saver?.saveNow(session.view, performance.now()) ?? Promise.resolve(false),
     get view() {
       return session.view;
     },

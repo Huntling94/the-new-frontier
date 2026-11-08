@@ -72,15 +72,15 @@ export function statLines(preview: ChangePreview): { readonly label: string; rea
 }
 
 /**
- * The inventory (S3b decision 20, D-040). The store on the left, the active three on
- * the right. Click a store item, then a slot, to equip; click an equipped item to send
+ * The inventory (S3b decision 20, D-040). The family's shared items on the left, the active three on
+ * the right. Click an inventory item, then a slot, to equip; click an equipped item to send
  * it back. It pauses the game like the anvil, and sends its commands at once.
  */
 export class Inventory {
   private readonly modal = element('inventory');
   private readonly box = element('inventoryBox');
   private view: GameView | null = null;
-  /** The store item picked up, waiting for a slot. */
+  /** The inventory item picked up, waiting for a slot. */
   private held: number | null = null;
   private message = '';
   private preview: { readonly title: string; readonly body: ChangePreview } | null = null;
@@ -126,7 +126,7 @@ export class Inventory {
       this.close();
       return;
     }
-    if (act === 'store') {
+    if (act === 'shared') {
       const id = Number(target.dataset.item);
       this.held = this.held === id ? null : id;
       this.message = '';
@@ -140,7 +140,7 @@ export class Inventory {
       if (this.held === null && !characterOf(view, unitId).items[slot]) return;
       const events = this.send([command]);
       const refused = events.find((answer) => answer.type === 'order-refused');
-      const item = this.held !== null ? this.storeItem(view, this.held) : null;
+      const item = this.held !== null ? this.inventoryItem(view, this.held) : null;
       this.message = refused?.type === 'order-refused' ? refusalText(refused.reason, item, characterOf(view, unitId).name) : '';
       if (!refused) this.held = null;
       this.preview = null;
@@ -169,8 +169,8 @@ export class Inventory {
     this.drawPreview(view);
   }
 
-  private storeItem(view: GameView, id: number): ItemView | null {
-    const found = view.family.store.find((item) => item.id === id);
+  private inventoryItem(view: GameView, id: number): ItemView | null {
+    const found = view.family.inventory.find((item) => item.id === id);
     return found ? itemInfo(found) : null;
   }
 
@@ -190,19 +190,19 @@ export class Inventory {
     const head = make('div', 'mhead');
     const fight = fightOn(view);
     head.append(make('h3', '', 'Inventory'), make('span', fight ? 'warn' : 'dim', fight ? 'Fight on: no changes' : 'Alt + E or Esc to close'));
-    const blurb = make('p', 'dim', 'Click an item in the store, then a slot. Click an equipped item to send it back to the store.');
+    const blurb = make('p', 'dim', 'Click an item in the inventory, then a slot. Click an equipped item to send it back to the inventory.');
 
-    const store = make('div', 'store');
-    store.append(make('h4', '', `Store (${view.family.store.length})`));
-    if (view.family.store.length === 0) store.append(make('p', 'dim', 'Empty.'));
-    for (const stored of view.family.store) {
-      const item = itemInfo(stored);
+    const shared = make('div', 'shared');
+    shared.append(make('h4', '', `Inventory (${view.family.inventory.length})`));
+    if (view.family.inventory.length === 0) shared.append(make('p', 'dim', 'Empty.'));
+    for (const held of view.family.inventory) {
+      const item = itemInfo(held);
       const tile = this.tile(item, 'itile');
-      tile.dataset.act = 'store';
+      tile.dataset.act = 'shared';
       tile.dataset.item = String(item.id);
       tile.classList.toggle('held', this.held === item.id);
       tile.setAttribute('role', 'button');
-      store.append(tile);
+      shared.append(tile);
     }
 
     const columns = make('div', 'icols');
@@ -231,7 +231,7 @@ export class Inventory {
           row.append(make('span', 'empty', filler ? `Held by ${filler}` : 'Empty'));
         }
         if (this.held !== null) {
-          const item = this.storeItem(view, this.held);
+          const item = this.inventoryItem(view, this.held);
           const fits = item?.fits.includes(slot) ?? false;
           row.classList.toggle('fits', fits);
           row.classList.toggle('blocked', fits && whyNotUse(view, id, item?.typeId ?? '') !== null);
@@ -242,7 +242,7 @@ export class Inventory {
     }
 
     const body = make('div', 'ibody');
-    body.append(store, columns);
+    body.append(shared, columns);
     const message = make('div', 'resbox imsg', this.message);
     message.id = 'inventoryMessage';
     const preview = make('div', 'ipreview');
@@ -267,7 +267,7 @@ export class Inventory {
     const lines: HTMLElement[] = [make('b', '', preview.title)];
     const { reason, displaced } = preview.body;
     if (reason) {
-      const item = this.held !== null ? this.storeItem(view, this.held) : null;
+      const item = this.held !== null ? this.inventoryItem(view, this.held) : null;
       const who = preview.title.split(',')[0] ?? '';
       lines.push(make('span', 'warn', refusalText(reason, item, who)));
     } else {
@@ -275,7 +275,7 @@ export class Inventory {
         lines.push(make('span', change > 0 ? 'up' : change < 0 ? 'down' : 'same', `${label} ${text}`));
       }
       for (const item of displaced) {
-        lines.push(make('span', 'warn', `Sends ${itemName(item.typeId, item.upgrade)} to the store`));
+        lines.push(make('span', 'warn', `Sends ${itemName(item.typeId, item.upgrade)} to the inventory`));
       }
     }
     box.replaceChildren(...lines);

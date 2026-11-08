@@ -153,7 +153,7 @@ export interface Family {
   /** The IDs of the three in the field. Order sets each one's place in the triangle. */
   active: number[];
   /** Every item not equipped. An item is in exactly one place (rule 1). */
-  store: Item[];
+  inventory: Item[];
   marks: number;
   /** A shared count until a second consumable is needed (D-025). */
   potions: number;
@@ -555,7 +555,7 @@ export interface PotionCommand {
   readonly unitId?: number;
 }
 
-/** Moves an item from the store into a slot (decision 17). */
+/** Moves an item from the inventory into a slot (decision 17). */
 export interface EquipCommand {
   readonly type: 'equip';
   readonly unitId: number;
@@ -563,7 +563,7 @@ export interface EquipCommand {
   readonly slot: GearSlot;
 }
 
-/** Sends an equipped item back to the store. */
+/** Sends an equipped item back to the inventory. */
 export interface UnequipCommand {
   readonly type: 'unequip';
   readonly unitId: number;

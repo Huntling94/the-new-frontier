@@ -378,6 +378,30 @@
       .btn:hover {
         background: #1c3540;
       }
+      /* Saves (S3c): Continue shows levels and when, quieter buttons for the rest. */
+      .btn.quiet {
+        border-color: var(--line);
+        color: var(--dim);
+      }
+      #continue small {
+        display: block;
+        margin-top: 2px;
+        font-size: 14px;
+        color: var(--dim);
+      }
+      #saveNote.warn,
+      #startAsk p {
+        color: var(--coral);
+      }
+      #saved {
+        font-size: 15px;
+        color: var(--dim);
+        transition: color 1.2s;
+      }
+      #saved.fresh {
+        color: var(--lamp);
+        transition: none;
+      }
       .btns {
         display: flex;
         gap: 8px;
@@ -448,7 +472,7 @@
         margin-top: 8px;
         min-height: 44px;
       }
-      /* The inventory (S3b decision 20): the store on the left, the three on the right. */
+      /* The inventory (S3b decision 20): the family's items on the left, the three on the right. */
       .mbox.wide {
         width: min(1080px, 100%);
       }
@@ -617,6 +641,7 @@
           <div id="stock"></div>
           <div id="focus"></div>
           <div id="clock"></div>
+          <div id="saved"></div>
         </div>
       </div>
       <div id="log" aria-live="polite"></div>
@@ -634,7 +659,23 @@
         </p>
         <div class="keys" id="keyList"></div>
         <p class="dim">Built for mouse and keyboard. Sound starts when you press Start.</p>
-        <div class="btns"><button class="btn" id="go" type="button">Start</button></div>
+        <p id="saveNote" hidden></p>
+        <div class="btns">
+          <button class="btn" id="continue" type="button" hidden>Continue<small id="continueInfo"></small></button>
+          <button class="btn" id="go" type="button">Start</button>
+        </div>
+        <div class="btns" id="saveTools" hidden>
+          <button class="btn quiet" id="exportSave" type="button">Export save</button>
+          <button class="btn quiet" id="importSave" type="button">Import save</button>
+          <input id="importFile" type="file" accept=".json,application/json" hidden />
+        </div>
+        <div id="startAsk" hidden>
+          <p id="askText"></p>
+          <div class="btns">
+            <button class="btn" id="askYes" type="button">Yes</button>
+            <button class="btn quiet" id="askNo" type="button">Cancel</button>
+          </div>
+        </div>
       </div>
     </div>
     <div class="modal" id="forge" hidden><div class="mbox" id="forgeBox"></div></div>
