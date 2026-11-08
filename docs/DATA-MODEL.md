@@ -57,8 +57,10 @@ This is the same split as code and data (D-018), and it decides what a save hold
 | Spare | The basic item the smith hands over when an upgrade destroys one (D-005). Each item type names its spare |
 | Stat | One named number on a character or enemy |
 | Unarmed | What an empty main hand fights with. A type in data, not an item |
-| Town | A zone of kind `town`: safe, with NPCs. The vision's cities are towns |
-| Zone | One playable space with its own ground, coordinates and monsters. Its ground is an island with a coast or a rectangle with walls |
+| Lot | A place in a town kept for a later system, such as the smithy: an ID, a door point on a walkable cell where that system's townsperson will stand, and the way the door faces. Its building is drawn by `render` only (S3d) |
+| Street | Part of a town's ground: a centreline through a few points, which can bend, and a width. A town's open places, such as its plaza, are outlines of points (S3d) |
+| Town | A zone of kind `town`: safe, with NPCs. The vision's cities are towns. Its ground is its streets and open places, and its buildings are look only |
+| Zone | One playable space with its own ground, coordinates and monsters. Its ground is an island with a coast, a rectangle with walls, or a town's streets |
 | Save | The lasting part of the game as plain data, in an envelope with a format version. Kept in the browser, and exported and imported as a `.json` file (S3c) |
 | Zone record | What lasts about a zone: bosses dead, chests opened, when cleared packs come back |
 
@@ -99,6 +101,7 @@ erDiagram
   Pack }o--o{ MonsterType : "made of"
   MonsterType }o--|| LootTable : drops
   LootTable }o--o{ ItemType : lists
+  Zone ||--o{ Lot : keeps
   Zone ||--o{ Npc : hosts
   Npc |o--o| Shop : runs
   Shop }o--o{ ItemType : sells
@@ -137,7 +140,10 @@ Only one zone runs at a time, so there is at most one live group (D-021). The li
 | Entity | Kind | Saved | Status | Notes |
 |---|---|---|---|---|
 | Land | Definition | No | Planned | A name, a level range and a place on the world map. No rules of its own |
-| Zone | Definition | No | Built | `ZONES`: Lande de Montclaire and a cave off it. Holds its ground, camp, anvil, baked obstacles, packs, boss, gates and place in the world frame. Only the zone named on state runs |
+| Zone | Definition | No | Built | `ZONES`: Lande de Montclaire, a cave off it, and the town of Montclaire (S3d). Holds its ground, camp, anvil, baked obstacles, packs, boss, gates, lots and place in the world frame. Only the zone named on state runs |
+| Town | Definition | No | Built | A zone of kind `town`. Montclaire, in `packages/core/data/montclaire.ts`: a plaza, a loop of streets and a gate street, hand-placed (D-022). No packs, boss or dummy, so no fight happens there. A player's new game starts in its plaza (`TOWN_SCENARIO`); bots, replays and test pages start on the Lande. NPCs come with S3e. Tested in `packages/core/test/town.test.ts` and `e2e/town.spec.ts` |
+| Street | Definition | No | Built | On a town's ground, with its open places: the grid opens every cell whose centre is a character's radius inside a street or place (S3d). Each of Montclaire's is 12 wide |
+| Lot | Definition | No | Built | `lots` on the zone: the smithy, the shop and the inn in Montclaire. Nothing in them works yet; S3e puts the smith at the smithy's door |
 | Gate | Definition | No | Partial | On the zone it leaves: an area, the zone it arrives in, an arrival point and heading. Requirements and cost are held in the shared requirement shape, but nothing checks them yet |
 | Zone record | Instance | Yes | Built | `state.records`: whether the boss is dead, and the game tick each cleared pack comes back. Saved from S3c, without a test scenario's contents. A zone added since a save starts with a fresh record. Tested in `packages/core/test/save.test.ts`, where a cleared pack comes back on the same tick after a load |
 | Live group | Instance | No | Built | `state.live`: enemies, shots, enemy shots, scheduled effects and drops |

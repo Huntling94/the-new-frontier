@@ -63,6 +63,8 @@ export interface WorldView {
   frame(view: GameView, alpha: number, dt: number, screen: ScreenState): void;
   /** How many floating texts are showing, for tests. */
   floating(): number;
+  /** How many buildings are faded because they would hide the squad, for tests (S3d). */
+  fadedBuildings(): number;
   setCamera(pose: CameraPose): void;
   /** The point on the ground plane under a page pixel, as the squad test picks it. */
   groundAt(x: number, y: number): Point | null;
@@ -201,11 +203,17 @@ export function createWorldView(canvas: HTMLCanvasElement, overlay: HTMLCanvasEl
         ? { x: living.reduce((sum, u) => sum + u.x, 0) / living.length, z: living.reduce((sum, u) => sum + u.z, 0) / living.length }
         : current.anchor;
       loaded.scene.update(current, dt, focus, squad);
+      // A building never hides a living character: it fades while it would (S3d decision 9).
+      const seen = loaded.entities.drawnUnits().filter(({ alive }) => alive).map(({ x, y, z }) => ({ x, y: y + PICK_HEIGHT, z }));
+      loaded.scene.occlude(camera.position, seen, dt);
       renderer.render(loaded.scene.scene, camera);
       drawOverlay(current, screen, dt);
     },
     floating() {
       return floats.count;
+    },
+    fadedBuildings() {
+      return loaded.scene.fadedBuildings();
     },
     setCamera({ eye, target }) {
       camera.position.set(eye.x, eye.y, eye.z);

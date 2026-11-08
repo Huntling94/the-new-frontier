@@ -1,6 +1,7 @@
 import {
   cardOf,
   ISLAND_SCENARIO,
+  TOWN_SCENARIO,
   REPLAYS,
   RUNS,
   TICK_RATE,
@@ -60,8 +61,33 @@ const BOTS: Readonly<Record<string, BotKind>> = {
   'live bot, sloppy': 'sloppy',
 };
 
+/** Montclaire (S3d): the squad walks the loop from the plaza and leaves by the gate. */
+const TOWN_RUN = 'town walk';
+const TOWN_WALK: readonly { readonly x: number; readonly z: number }[] = [
+  { x: -44, z: -20 },
+  { x: -51, z: 37 },
+  { x: 51, z: 13.5 },
+  { x: 24, z: -20 },
+  { x: -9.6, z: -36 },
+  { x: -18, z: 30 },
+  { x: -17, z: 55 },
+];
+/** Ticks between the walk's orders. */
+const TOWN_LEG_TICKS = 300;
+
 function chosenRun(): Run {
   const name = replaySelect.value || firstName;
+  if (name === TOWN_RUN) {
+    const unitIds = [1, 2, 3];
+    return {
+      game: createGame(Number(seedInput.value), TOWN_SCENARIO),
+      ticks: TOWN_WALK.length * TOWN_LEG_TICKS,
+      commands: (view) => {
+        const leg = TOWN_WALK[view.tick / TOWN_LEG_TICKS];
+        return leg ? [{ type: 'move', unitIds, x: leg.x, z: leg.z, attack: false }] : [];
+      },
+    };
+  }
   const bot = BOTS[name];
   if (bot) {
     return {
@@ -81,7 +107,7 @@ function chosenRun(): Run {
   };
 }
 
-for (const name of [...Object.keys(BOTS), ...Object.keys(REPLAYS)]) {
+for (const name of [...Object.keys(BOTS), TOWN_RUN, ...Object.keys(REPLAYS)]) {
   replaySelect.add(new Option(name, name));
 }
 

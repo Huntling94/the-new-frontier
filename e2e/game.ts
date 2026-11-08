@@ -51,6 +51,7 @@ export interface Hook {
     rebuildZone(): void;
     memory(): { geometries: number; textures: number; programs: number };
     floating(): number;
+    fadedBuildings(): number;
   };
 }
 

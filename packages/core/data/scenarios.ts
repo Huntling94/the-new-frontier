@@ -1,5 +1,6 @@
 import type { Scenario, ZoneContents } from '../src/state';
-import { START_ZONE } from './zones';
+import { MONTCLAIRE_START } from './montclaire';
+import { START_ZONE, TOWN_ZONE } from './zones';
 
 const NOTHING: ZoneContents = { dummy: null, packs: [], boss: null };
 
@@ -9,6 +10,14 @@ export const ISLAND_SCENARIO: Scenario = {
   zone: START_ZONE,
   squadStart: { x: 0, z: 62 },
   squadHeading: -Math.PI / 2,
+};
+
+/** A player's new game: the squad in Montclaire's plaza, facing the fountain (S3d decision 6). */
+export const TOWN_SCENARIO: Scenario = {
+  name: 'town',
+  zone: TOWN_ZONE,
+  squadStart: { x: MONTCLAIRE_START.x, z: MONTCLAIRE_START.z },
+  squadHeading: MONTCLAIRE_START.heading,
 };
 
 /** The squad at camp, with nothing else in the zone. */

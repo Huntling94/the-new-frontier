@@ -161,10 +161,75 @@ const CAVE: ZoneLook = {
   },
 };
 
-const ZONES: Readonly<Record<string, ZoneLook>> = { lande: HEATH, 'lande-cave': CAVE };
+/** Golden afternoon light, the same before and after the beacon: the town is safe. */
+const AFTERNOON: Light = {
+  skyTop: 0x5f8fc0,
+  horizon: 0xffd9b8,
+  fog: 0xe8cdb8,
+  sun: 0xffe6c8,
+  sunIntensity: 0.8,
+  hemisphere: 0.6,
+  deep: 0x1a6a7c,
+  shallow: 0x4fb3b0,
+  glint: 0xffe2b8,
+};
+
+/** Montclaire, a Provençal market town among lavender fields (S3d decision 8, D-038). */
+const TOWN: ZoneLook = {
+  name: 'Montclaire',
+  lowland: 0x7a6e94,
+  highland: 0x8c9a62,
+  rock: 0x9a8a70,
+  stone: 0xd8ccb0,
+  tuft: 0xa77fcf,
+  gate: 0xffd089,
+  dusk: AFTERNOON,
+  sunrise: AFTERNOON,
+};
+
+const ZONES: Readonly<Record<string, ZoneLook>> = { lande: HEATH, 'lande-cave': CAVE, montclaire: TOWN };
 
 export function zoneLook(zoneId: string): ZoneLook {
   return ZONES[zoneId] ?? HEATH;
+}
+
+/** What a town's buildings, streets and dressing are made of (S3d decision 8). */
+export interface TownLook {
+  /** Pale limestone walls, a few shades so the street does not look stamped out. */
+  readonly walls: readonly number[];
+  /** Terracotta roofs. */
+  readonly roofs: readonly number[];
+  readonly door: number;
+  readonly cobbles: number;
+  readonly cobbleJoints: number;
+  /** Ground the buildings leave: gardens and yards. */
+  readonly garden: number;
+  readonly trunk: number;
+  readonly leaves: number;
+  readonly lavender: number;
+  readonly water: number;
+  /** Each lot's sign board, by lot ID, and the colour of what hangs over the door. */
+  readonly signs: Readonly<Record<string, number>>;
+  readonly awning: number;
+}
+
+const PROVENCE: TownLook = {
+  walls: [0xe6dcc4, 0xdccfb2, 0xeee2c8, 0xd4c3a0, 0xe8d6b4],
+  roofs: [0xb85c38, 0xc46a40, 0xa8502e, 0xc77a4a],
+  door: 0x4a5a6c,
+  cobbles: 0xb8a88c,
+  cobbleJoints: 0x8c7c64,
+  garden: 0x8c9a62,
+  trunk: 0xb8ad94,
+  leaves: 0x6f8a46,
+  lavender: 0xa77fcf,
+  water: 0x6fb8d8,
+  signs: { smithy: 0x3a3a40, shop: 0x2f5a7a, inn: 0x7a3a2a },
+  awning: 0x3f7a70,
+};
+
+export function townLook(): TownLook {
+  return PROVENCE;
 }
 
 /** A spell's flash on the ground when it is cast. Spells not listed show nothing extra. */

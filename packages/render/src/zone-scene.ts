@@ -44,6 +44,7 @@ import {
 import { buildGroundGeometry } from './ground-geometry';
 import { basicMaterial, glowSprite, makeGlowTexture, makeShapes, Resources, type Shapes } from './kit';
 import { zoneLook, type Light, type ZoneLook } from './looks';
+import { Town, type Seen } from './town';
 
 const TAU = 2 * Math.PI;
 
@@ -120,6 +121,8 @@ export class ZoneScene {
   private readonly motes: Points;
   private readonly runes: Mesh[] = [];
   private readonly beacons: Beacon[] = [];
+  /** A town's buildings and dressing (S3d), or null for any other ground. */
+  private readonly town: Town | null = null;
   private dawn = DUSK;
   private time = 0;
   private lit = false;
@@ -145,8 +148,10 @@ export class ZoneScene {
       const ground = new Mesh(keep.keep(buildGroundGeometry(island, buildIslandMesh(island), this.look)), groundMaterial);
       ground.receiveShadow = true;
       this.scene.add(ground, this.buildFoam(island));
-    } else {
+    } else if (zone.ground.shape === 'walled') {
       this.buildCave(zone.ground, groundMaterial);
+    } else {
+      this.town = new Town(view, zone, zone.ground, keep, this.look, this.scene);
     }
 
     this.sea = {
@@ -182,7 +187,7 @@ export class ZoneScene {
     );
     sky.frustumCulled = false;
     // A walled zone is underground: no sea and no sky, only the dark.
-    if (zone.ground.shape === 'island') this.scene.add(sea, sky);
+    if (zone.ground.shape !== 'walled') this.scene.add(sea, sky);
     else this.scene.background = new Color(this.look.dusk.fog);
 
     this.buildProps();
@@ -230,6 +235,16 @@ export class ZoneScene {
     for (const rune of this.runes) {
       rune.rotation.y = this.time * 1.4;
     }
+  }
+
+  /** Fades any building between the camera and the squad (S3d decision 9). Only towns have buildings. */
+  occlude(eye: Vector3, seen: readonly Seen[], dt: number): void {
+    this.town?.occlude(eye, seen, dt);
+  }
+
+  /** How many buildings are faded, for tests. */
+  fadedBuildings(): number {
+    return this.town?.fadedCount() ?? 0;
   }
 
   dispose(): void {
@@ -315,6 +330,8 @@ export class ZoneScene {
         placed.rock.push({ x, y, z, s: obstacle.radius / ROCK_RADIUS, ry, c: look.rock });
       } else if (obstacle.kind === 'beacon') {
         this.buildBeacon(x, y, z);
+      } else if (obstacle.kind === 'fountain') {
+        this.town?.buildFountain(obstacle, y);
       } else {
         this.buildWaystone(x, y, z);
       }

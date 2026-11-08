@@ -20,7 +20,7 @@ import type {
   UnequipCommand,
 } from './state';
 import { secondsToTicks } from './time';
-import { gridOf, obstaclesOf, zoneOf, type Ground, type ZoneKind } from './world';
+import { gridOf, obstaclesOf, zoneOf, type Ground, type Lot, type ZoneKind } from './world';
 
 /** A gate as the screen needs it: where it is, and where it leads. */
 export interface GateView {
@@ -47,6 +47,8 @@ export interface ZoneView {
   /** Baked once, and the same on every run (D-022). */
   readonly obstacles: readonly Obstacle[];
   readonly gates: readonly GateView[];
+  /** Places kept for systems to come, such as the smithy (S3d). Only towns have any. */
+  readonly lots: readonly Lot[];
   /** Where the zone sits in the shared world frame (decision 11). */
   readonly place: Point;
 }
@@ -75,6 +77,7 @@ export function currentZone(view: GameView): ZoneView {
     anvil: zone.anvil,
     obstacles: obstaclesOf(view),
     gates: zone.gates.map(({ id, area, to }) => ({ id, x: area.x, z: area.z, radius: area.radius, to })),
+    lots: zone.lots,
     place: zone.place,
   };
 }

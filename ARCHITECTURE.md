@@ -67,6 +67,15 @@ The rules run in fixed ticks, 30 a second, whatever the frame rate (D-015). A se
 
 The viewer at `/viewer.html` plays any replay, or a live bot from a seed, on a plain 2D canvas under `pnpm dev`. It can draw the zone's grid, with closed cells shaded, and each unit's live route as a dashed line through its corners. It is dev-only: Vite builds only `index.html`, and `e2e/public-build.spec.ts` proves no viewer page or replay reaches the public build.
 
+## Towns
+
+A town is a zone whose ground is its streets (S3d). The rules know only where the squad may walk, and `render` draws everything else.
+
+- **Streets are numbers.** A street is a centreline through a few points and a width, and an open place such as a plaza is an outline of points. The grid opens each cell whose centre is a character's radius inside one, so A\* and route smoothing work unchanged, and the core computes no sine or cosine for them.
+- **Buildings are look only (D-022).** `packages/render/src/town.ts` places each lot's building at its door, then fills the ground the streets leave with houses, gardens and a wall. It never builds on or next to a cell a character may stand in, so a building can never block a street the rules allow.
+- **Buildings fade.** Each frame, any building between the camera and a living character in the active three fades to 30% opacity, and back once it is clear. It reads drawn positions only, and changes no rule or event.
+- **Where a game starts.** A player's new game starts in Montclaire. `?bot=` and `?test` pages start on the Lande, unless a test page also has `?town`.
+
 ## Saves
 
 Saves cross the split the same way as everything else (D-032): the core turns state into plain data and back, and the app decides where it goes.
@@ -89,7 +98,7 @@ Saves cross the split the same way as everything else (D-032): the core turns st
 
 | Command | Does |
 |---|---|
-| `pnpm dev` | Runs the game locally, with the replay viewer at `/viewer.html` |
+| `pnpm dev` | Runs the game locally, with the replay viewer at `/viewer.html`, which also walks the squad round Montclaire |
 | `pnpm build` | Builds the static site to `packages/app/dist` |
 | `pnpm check` | Typecheck, lint, unit tests and the `legacy/` guard |
 | `pnpm test:e2e` | Builds, then runs the browser test |

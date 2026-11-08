@@ -21,7 +21,11 @@ describe('reads for the screen', () => {
     expect({ x: zone.x, z: zone.z }).toEqual({ x: 0, z: 0 });
     expect(zone.obstacles).toBe(ZONES[0]?.obstacles);
     expect(zone.obstacles.length).toBe(96);
-    expect(zone.gates).toEqual([{ id: 'lande-to-cave', x: -16, z: 72, radius: 3, to: 'lande-cave' }]);
+    expect(zone.gates).toEqual([
+      { id: 'lande-to-cave', x: -16, z: 72, radius: 3, to: 'lande-cave' },
+      { id: 'lande-to-montclaire', x: 16, z: 72, radius: 3, to: 'montclaire' },
+    ]);
+    expect(zone.lots).toEqual([]);
   });
 
   it('gives each character its spells in data order, by ID', () => {

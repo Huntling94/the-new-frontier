@@ -5,6 +5,7 @@ import {
   createGame,
   ISLAND_SCENARIO,
   step,
+  type Scenario,
   type AutoStop,
   type BotKind,
   type Command,
@@ -40,8 +41,8 @@ export class Session {
   readonly notes: LogLine[] = [];
   private pending: Command[] = [];
 
-  constructor(seed: number, bot: BotKind | null) {
-    this.state = createGame(seed, ISLAND_SCENARIO);
+  constructor(seed: number, bot: BotKind | null, scenario: Scenario = ISLAND_SCENARIO) {
+    this.state = createGame(seed, scenario);
     this.bot = bot;
     for (const unit of this.state.bodies) this.selected.add(unit.id);
   }

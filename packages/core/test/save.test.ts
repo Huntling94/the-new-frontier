@@ -168,7 +168,9 @@ describe('the version 1 example save', () => {
     expect(result.savedAt).toBe('2026-11-08T12:00:00.000Z');
     const { state } = result;
     expect(state.zoneId).toBe('lande-cave');
-    expect(lasting(toSave(state))).toEqual(lasting(V1));
+    // Montclaire came after this save was made, so it gets a fresh record (S3d decision 10).
+    const town = { id: 'montclaire', bossDead: false, returns: [] };
+    expect(lasting(toSave(state))).toEqual(lasting({ ...V1, game: { ...V1.game, records: [...V1.game.records, town] } }));
     // Health and mana as saved: a reload never heals the squad.
     expect(state.bodies.map(({ health, mana }) => ({ health, mana }))).toEqual(V1.game.squad.bodies.map(({ health, mana }) => ({ health, mana })));
     expect(state.bodies.some(({ health, maxHealth }) => health < maxHealth)).toBe(true);

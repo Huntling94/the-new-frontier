@@ -6,7 +6,9 @@ import '@fontsource/vt323/latin-400.css';
 import {
   characterOf,
   currentZone,
+  ISLAND_SCENARIO,
   isNearAnvil,
+  TOWN_SCENARIO,
   upgradeOffer,
   type BotKind,
   type GameEvent,
@@ -61,8 +63,9 @@ function element<T extends HTMLElement>(id: string): T {
 const params = new URLSearchParams(window.location.search);
 const MAX_SPEED = 64;
 const MAX_RECENT = 2000;
-/** The start screen circles the island, as the squad test's does. */
+/** The start screen circles the island, as the squad test's does, and comes closer for a town (S3d). */
 const ORBIT = { radius: 130, height: 64, lookHeight: 4, turn: 0.1 };
+const TOWN_ORBIT = { ...ORBIT, radius: 92, height: 58 };
 /** Banners last this long, and the victory screen follows the beacon's banner after it. */
 const BANNER_SECONDS = 2.6;
 /** Crossing a gate fades out with the game held, then fades in on the new zone (D-021). */
@@ -89,7 +92,12 @@ const store = openStore();
 const canvas = element<HTMLCanvasElement>('game');
 const overlay = element<HTMLCanvasElement>('overlay');
 const fadeLayer = element<HTMLDivElement>('fade');
-const session = new Session(seed, bot);
+/**
+ * A player's new game starts in Montclaire (S3d decision 6). Bot runs and test pages
+ * keep starting on the Lande, unless a test page asks for the town with `?town`.
+ */
+const inTown = !bot && (!params.has('test') || params.has('town'));
+const session = new Session(seed, bot, inTown ? TOWN_SCENARIO : ISLAND_SCENARIO);
 const clock = new Clock();
 clock.speed = speed;
 
@@ -277,7 +285,7 @@ function start(world: WorldView): void {
     onNew: () => {
       void (async () => {
         if (storedText !== null && !(await startScreen.ask('Start a new game? It replaces your saved game.', 'Replace it'))) return;
-        begin(null, 'Clear the camps, then visit the anvil');
+        begin(null, inTown ? `Head out to ${zoneLook('lande').name}` : 'Clear the camps, then visit the anvil');
         void saver?.saveNow(session.view, performance.now(), true);
       })();
     },
@@ -368,10 +376,11 @@ function start(world: WorldView): void {
   /** The start screen's slow circle around the zone. */
   const orbitPose = (): CameraPose => {
     const zone = currentZone(session.view);
-    const angle = shown * ORBIT.turn;
+    const orbit = zone.kind === 'town' ? TOWN_ORBIT : ORBIT;
+    const angle = shown * orbit.turn;
     return {
-      eye: { x: zone.x + Math.cos(angle) * ORBIT.radius, y: ORBIT.height, z: zone.z + Math.sin(angle) * ORBIT.radius },
-      target: { x: zone.x, y: ORBIT.lookHeight, z: zone.z },
+      eye: { x: zone.x + Math.cos(angle) * orbit.radius, y: orbit.height, z: zone.z + Math.sin(angle) * orbit.radius },
+      target: { x: zone.x, y: orbit.lookHeight, z: zone.z },
     };
   };
 
@@ -502,6 +511,7 @@ function exposeHook(world: WorldView, camera: Camera, recent: readonly GameEvent
       rebuildZone: () => world.rebuildZone(session.view),
       memory: world.memory,
       floating: world.floating,
+      fadedBuildings: world.fadedBuildings,
     },
   };
   Object.assign(window, { __tnf: hook });

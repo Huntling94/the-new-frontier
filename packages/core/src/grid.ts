@@ -15,6 +15,19 @@ export interface Box {
   readonly maxZ: number;
 }
 
+/** A street: a centreline through a few points, so it can bend, and its width (S3d decision 1). */
+export interface Street {
+  readonly id: string;
+  readonly points: readonly Point[];
+  readonly width: number;
+}
+
+/** An open place, such as a plaza: an outline of points in order, closed back to the first. */
+export interface Place {
+  readonly id: string;
+  readonly outline: readonly Point[];
+}
+
 /** What the grid needs from a zone's ground. */
 export type GroundShape =
   | {
@@ -29,6 +42,13 @@ export type GroundShape =
       readonly shape: 'walled';
       readonly bounds: Box;
       readonly walls: readonly Box[];
+    }
+  | {
+      /** Walkable ground is every point inside a street or a place, and nothing else. */
+      readonly shape: 'streets';
+      readonly bounds: Box;
+      readonly streets: readonly Street[];
+      readonly places: readonly Place[];
     };
 
 /** A cell a character may stand in. Obstacles are grown by a character's radius. */
@@ -52,8 +72,61 @@ function insideBox(box: Box, x: number, z: number, grow: number): boolean {
   return x > box.minX - grow && x < box.maxX + grow && z > box.minZ - grow && z < box.maxZ + grow;
 }
 
+/** How far a point is from the segment between two others. */
+function segmentDistance(x: number, z: number, from: Point, to: Point): number {
+  const dx = to.x - from.x;
+  const dz = to.z - from.z;
+  const lengthSquared = dx * dx + dz * dz;
+  const along = lengthSquared === 0 ? 0 : ((x - from.x) * dx + (z - from.z) * dz) / lengthSquared;
+  const share = Math.min(1, Math.max(0, along));
+  return Math.hypot(x - (from.x + dx * share), z - (from.z + dz * share));
+}
+
+/** How far a point is from a line through points, or from a closed outline. */
+function pathDistance(points: readonly Point[], x: number, z: number, closed: boolean): number {
+  let least = Infinity;
+  const count = closed ? points.length : points.length - 1;
+  for (let index = 0; index < count; index += 1) {
+    const from = points[index];
+    const to = points[(index + 1) % points.length];
+    if (from && to) {
+      least = Math.min(least, segmentDistance(x, z, from, to));
+    }
+  }
+  return least;
+}
+
+/** Whether a point is inside an outline, by counting the edges a ray to the east crosses. */
+function insideOutline(outline: readonly Point[], x: number, z: number): boolean {
+  let inside = false;
+  for (let index = 0, last = outline.length - 1; index < outline.length; last = index, index += 1) {
+    const a = outline[index];
+    const b = outline[last];
+    if (a && b && a.z > z !== b.z > z && x < ((b.x - a.x) * (z - a.z)) / (b.z - a.z) + a.x) {
+      inside = !inside;
+    }
+  }
+  return inside;
+}
+
+/**
+ * Whether a character may stand at a point of a town's ground: inside a street or a
+ * place, and a character's radius clear of its edge, as of a wall.
+ */
+function onStreets(ground: Extract<GroundShape, { shape: 'streets' }>, x: number, z: number): boolean {
+  const radius = MOVEMENT.unitRadius;
+  if (!insideBox(ground.bounds, x, z, -radius)) {
+    return false;
+  }
+  const inStreet = ground.streets.some(({ points, width }) => pathDistance(points, x, z, false) < width / 2 - radius);
+  return (
+    inStreet ||
+    ground.places.some(({ outline }) => insideOutline(outline, x, z) && pathDistance(outline, x, z, true) > radius)
+  );
+}
+
 function groundBounds(ground: GroundShape): Box {
-  if (ground.shape === 'walled') {
+  if (ground.shape !== 'island') {
     return ground.bounds;
   }
   const { island } = ground;
@@ -67,6 +140,9 @@ function groundFlags(ground: GroundShape, x: number, z: number): number {
   if (ground.shape === 'island') {
     const coast = coastDistanceAt(ground.island, x, z);
     return (coast < ground.walkableEdge ? OPEN : 0) | (coast < ground.enemyEdge ? ENEMY_OPEN : 0);
+  }
+  if (ground.shape === 'streets') {
+    return onStreets(ground, x, z) ? OPEN | ENEMY_OPEN : 0;
   }
   const { bounds, walls } = ground;
   const inside = insideBox(bounds, x, z, -radius);

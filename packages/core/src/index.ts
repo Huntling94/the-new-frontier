@@ -1,6 +1,6 @@
 export { RUNS } from '../data/bots';
 export { REPLAYS } from '../data/replays';
-export { ISLAND_SCENARIO } from '../data/scenarios';
+export { ISLAND_SCENARIO, TOWN_SCENARIO } from '../data/scenarios';
 export { ZONES } from '../data/zones';
 export { TICK_RATE } from '../data/sim';
 export { autoCommands } from './auto';
@@ -25,8 +25,8 @@ export {
 } from './reads';
 export type { CardView, ChangePreview, GateView, ItemView, SpellView, StatSheet, ZoneView } from './reads';
 export { randomBetween } from './random';
-export type { Box } from './grid';
-export type { Ground, ZoneData } from './world';
+export type { Box, Place, Street } from './grid';
+export type { Ground, Lot, ZoneData } from './world';
 export { runReplay } from './replay';
 export { SAVE_VERSION } from './migrations';
 export { fromSave, toSave } from './save';

@@ -273,8 +273,9 @@ describe('world data checks (decision 12)', () => {
 
   it('find a zone no gate reaches, and a gate to nowhere', () => {
     const lost: ZoneData = { ...CAVE, id: 'lost', gates: [] };
+    const caveOnly: ZoneData = { ...LANDE, gates: [INTO_CAVE as NonNullable<typeof INTO_CAVE>] };
     const misspelt: ZoneData = { ...LANDE, gates: [{ ...(INTO_CAVE as NonNullable<typeof INTO_CAVE>), to: 'lande-cav' }] };
-    expect(unreachableZones([LANDE, CAVE, lost], START_ZONE)).toEqual(['lost cannot be reached from lande']);
+    expect(unreachableZones([caveOnly, CAVE, lost], START_ZONE)).toEqual(['lost cannot be reached from lande']);
     expect(unreachableZones([misspelt, CAVE], START_ZONE)).toEqual([
       'lande-cave cannot be reached from lande',
       "lande's gate lande-to-cave leads to lande-cav, which does not exist",

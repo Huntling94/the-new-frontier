@@ -435,7 +435,7 @@ export interface ChargeTelegraph {
 
 export type ScheduledEffect = ScheduledStrike | SlamTelegraph | ChargeTelegraph;
 
-export type ObstacleKind = 'stone' | 'rock' | 'beacon' | 'waystone';
+export type ObstacleKind = 'stone' | 'rock' | 'beacon' | 'waystone' | 'fountain';
 
 export interface Obstacle extends Point {
   readonly kind: ObstacleKind;

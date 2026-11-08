@@ -14,6 +14,8 @@ export interface Mark {
 const RIM_POINTS = 180;
 /** World units from the centre to the canvas edge. */
 const VIEW_RADIUS = 112;
+/** A town is smaller, so the viewer comes closer (S3d). */
+const TOWN_VIEW_RADIUS = 64;
 const UNIT_RADIUS = 11;
 const BAR_WIDTH = 30;
 const BAR_HEIGHT = 5;
@@ -53,7 +55,12 @@ const OBSTACLE_COLOURS = {
   rock: '#7c786c',
   beacon: '#d8b878',
   waystone: '#8fd6c4',
+  fountain: '#7fb8d8',
 };
+
+/** A town's lots: the door, a tick the way it faces, and its ID (S3d). */
+const LOT_COLOUR = '#ffcf6e';
+const LOT_TICK = 3;
 
 const ENEMY_LOOKS = {
   dummy: { colour: '#b0653a', letter: 'D', scale: 1.3 },
@@ -182,6 +189,33 @@ function drawGround(context: CanvasRenderingContext2D, game: GameView, toX: (x: 
   const box = (b: { minX: number; maxX: number; minZ: number; maxZ: number }): void => {
     context.fillRect(toX(b.minX), toY(b.minZ), toX(b.maxX) - toX(b.minX), toY(b.maxZ) - toY(b.minZ));
   };
+  if (ground.shape === 'streets') {
+    // The blocks between the streets are dark, and the streets and places are ground.
+    context.fillStyle = WALL_COLOUR;
+    box(ground.bounds);
+    context.save();
+    context.beginPath();
+    context.rect(toX(ground.bounds.minX), toY(ground.bounds.minZ), toX(ground.bounds.maxX) - toX(ground.bounds.minX), toY(ground.bounds.maxZ) - toY(ground.bounds.minZ));
+    context.clip();
+    context.fillStyle = GROUND_COLOUR;
+    context.strokeStyle = GROUND_COLOUR;
+    context.lineCap = 'round';
+    context.lineJoin = 'round';
+    for (const { points, width } of ground.streets) {
+      context.lineWidth = toX(width) - toX(0);
+      context.beginPath();
+      for (const point of points) context.lineTo(toX(point.x), toY(point.z));
+      context.stroke();
+    }
+    for (const { outline } of ground.places) {
+      context.beginPath();
+      for (const point of outline) context.lineTo(toX(point.x), toY(point.z));
+      context.closePath();
+      context.fill();
+    }
+    context.restore();
+    return;
+  }
   box(ground.bounds);
   context.fillStyle = WALL_COLOUR;
   ground.walls.forEach(box);
@@ -217,7 +251,8 @@ export function drawGame(
   showGrid: boolean,
 ): void {
   const { width } = context.canvas;
-  const scale = width / (VIEW_RADIUS * 2);
+  const zone = currentZone(game);
+  const scale = width / ((zone.kind === 'town' ? TOWN_VIEW_RADIUS : VIEW_RADIUS) * 2);
   const toX = (x: number): number => width / 2 + x * scale;
   // The map is seen from above, with +z towards the bottom of the screen.
   const toY = (z: number): number => width / 2 + z * scale;
@@ -225,7 +260,6 @@ export function drawGame(
   context.clearRect(0, 0, width, width);
   drawGround(context, game, toX, toY);
 
-  const zone = currentZone(game);
   for (const obstacle of zone.obstacles) {
     context.fillStyle = OBSTACLE_COLOURS[obstacle.kind];
     context.beginPath();
@@ -236,6 +270,17 @@ export function drawGame(
     drawRing(context, toX(gate.x), toY(gate.z), gate.radius * scale, GATE_COLOUR);
     context.fillStyle = GATE_COLOUR;
     context.fillText(`to ${gate.to}`, toX(gate.x), toY(gate.z) - gate.radius * scale - UNIT_RADIUS);
+  }
+  context.strokeStyle = LOT_COLOUR;
+  context.fillStyle = LOT_COLOUR;
+  context.lineWidth = 2;
+  for (const { id, door, facing } of zone.lots) {
+    context.beginPath();
+    context.arc(toX(door.x), toY(door.z), CORNER_RADIUS * 2, 0, 2 * Math.PI);
+    context.moveTo(toX(door.x), toY(door.z));
+    context.lineTo(toX(door.x + Math.cos(facing) * LOT_TICK), toY(door.z + Math.sin(facing) * LOT_TICK));
+    context.stroke();
+    context.fillText(id, toX(door.x - Math.cos(facing) * LOT_TICK * 2), toY(door.z));
   }
   if (showGrid) {
     context.drawImage(gridImage(game, width, toX, toY), 0, 0);

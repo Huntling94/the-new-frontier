@@ -6,14 +6,29 @@ import type { GameState, GameView, Obstacle, Point, Requirement, ZoneContents } 
 
 export type ZoneKind = 'field' | 'dungeon' | 'town';
 
-/** A zone's ground: an island with a noisy coast, or a rectangle with walls (decision 5). */
+/**
+ * A zone's ground: an island with a noisy coast, a rectangle with walls (S3a decision 5),
+ * or a town's streets and open places (S3d decision 1).
+ */
 export type Ground =
   | (GroundShape & { readonly shape: 'island'; readonly island: IslandData })
   | (GroundShape & {
-      readonly shape: 'walled';
+      readonly shape: 'walled' | 'streets';
       /** Height of the floor. */
       readonly level: number;
     });
+
+/**
+ * A place kept for a later system, such as the smithy (S3d decision 1). Its building is
+ * drawn by `render` only; the rules hold where its door is and which way it faces.
+ */
+export interface Lot {
+  readonly id: string;
+  /** A walkable point at the door, where the system's townsperson will stand. */
+  readonly door: Point;
+  /** The way the door faces, out into the street. */
+  readonly facing: number;
+}
 
 /** Gates hold requirements in the shared shape, which nothing checks for gates yet. */
 export type { Requirement };
@@ -51,6 +66,8 @@ export interface ZoneData {
   /** How long a cleared pack takes to come back, on the game clock. */
   readonly packRespawnSeconds: number;
   readonly gates: readonly GateData[];
+  /** Places kept for systems to come. Only towns have any. */
+  readonly lots: readonly Lot[];
 }
 
 export function zoneData(id: string, zones: readonly ZoneData[] = ZONES): ZoneData {

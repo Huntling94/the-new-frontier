@@ -8,7 +8,7 @@
 
 **[Play it in your browser](https://huntling94.github.io/the-new-frontier/)**, on a desktop with a mouse and keyboard.
 
-> **Status: early development.** One island, three characters and one boss, playable from the start screen to victory.
+> **Status: early development.** A town to walk, one island, three characters and one boss, playable from the start screen to victory.
 
 ## Purpose
 

@@ -3,6 +3,13 @@ import type { ZoneData } from '../src/world';
 import { PACKS } from './enemies';
 import { TEST_ISLAND } from './island';
 import { LANDE_LAYOUT } from './lande-layout';
+import {
+  MONTCLAIRE_BOUNDS,
+  MONTCLAIRE_GROUND,
+  MONTCLAIRE_LOTS,
+  MONTCLAIRE_OBSTACLES,
+  MONTCLAIRE_START,
+} from './montclaire';
 
 /** A cleared pack comes back after this long. A placeholder until balance (decision 2). */
 const PACK_RESPAWN_SECONDS = 180;
@@ -23,7 +30,8 @@ const CAVE_PACKS: readonly PackData[] = [
 /**
  * The world (D-021). Lande de Montclaire is the squad test's island, renamed, with
  * its trees baked as standing stones (D-022, D-038). The cave off its edge is the
- * first walled zone, and its name waits for the starting region's naming.
+ * first walled zone, and its name waits for the starting region's naming. The town of
+ * Montclaire is the first town, and a player's new game starts there (S3d).
  */
 export const ZONES: readonly ZoneData[] = [
   {
@@ -50,7 +58,17 @@ export const ZONES: readonly ZoneData[] = [
         requires: [],
         cost: [],
       },
+      {
+        id: 'lande-to-montclaire',
+        area: { x: 16, z: 72, radius: 3 },
+        to: 'montclaire',
+        arrival: { x: -17, z: 47 },
+        heading: -Math.PI / 2,
+        requires: [],
+        cost: [],
+      },
     ],
+    lots: [],
   },
   {
     id: 'lande-cave',
@@ -82,8 +100,35 @@ export const ZONES: readonly ZoneData[] = [
         cost: [],
       },
     ],
+    lots: [],
+  },
+  {
+    id: 'montclaire',
+    kind: 'town',
+    place: { x: 150, z: 130 },
+    ground: { shape: 'streets', level: 3, bounds: MONTCLAIRE_BOUNDS, ...MONTCLAIRE_GROUND },
+    camp: MONTCLAIRE_START,
+    anvil: null,
+    obstacles: MONTCLAIRE_OBSTACLES,
+    contents: { dummy: null, packs: [], boss: null },
+    packRespawnSeconds: PACK_RESPAWN_SECONDS,
+    gates: [
+      {
+        id: 'montclaire-to-lande',
+        area: { x: -17, z: 55, radius: 3 },
+        to: 'lande',
+        arrival: { x: 12, z: 64 },
+        heading: (-Math.PI * 3) / 4,
+        requires: [],
+        cost: [],
+      },
+    ],
+    lots: MONTCLAIRE_LOTS,
   },
 ];
 
-/** Where a new game begins. */
+/** Where bots, replays and test runs begin. */
 export const START_ZONE = 'lande';
+
+/** Where a player's new game begins (S3d decision 6). */
+export const TOWN_ZONE = 'montclaire';

@@ -77,3 +77,55 @@ The game starts in a field, and the only town is a name in D-038. Every system s
 - Any standing trigger in `CLAUDE.md` fires.
 
 ## Outcome (builder fills in)
+
+Built on 8 Nov 2026, from `52965d8`. The maintainer approved the top-down plan in the viewer before any `render` work (decision 2), keeping every street at 12 wide. The maintainer played it on 8 Nov 2026: "Ok this is good for now ... overall looks good to help us keep developing." The three play questions were not answered separately. CI on `master` is done means 9.
+
+**Done means:**
+
+| # | Result |
+|---|---|
+| 1 | `pnpm check` passes: 471 unit tests, lint, typecheck and the `legacy/` guard |
+| 2 | `packages/core/test/town.test.ts`, 11 tests: the world data checks with Montclaire in, reachable from the Lande and the Lande from it, both gates arriving on walkable cells, and the start in the plaza on one, with nothing to fight and auto-combat stopping at once with `clear`; every street wide enough along its whole length, measured on the grid; the plaza at least 24 across; every lot's door walkable; the loop, by closing the left street in a test copy and still routing from the plaza to the gate by the east, while closing both sides cuts it off; the squad sent from the plaza to each end of the left, right and bottom streets and to the top of the gate street, with no `unit-gave-up`; the plaza out through the gate onto the Lande and back in; a version 1 save made on the Lande before the town, given a fresh Montclaire record and playing on; a save made in Montclaire loading back in Montclaire where it stood. `save.test.ts` now expects the frozen cave example to gain Montclaire's fresh record, and loads it as before |
+| 3 | Every tick's commands, events and character stats matched for all 62 runs, old code against new. The 100-seed report matches S3c's exactly (below). The hashes move only because of Montclaire's record: with that record taken out, both replays' final states hash to the old values |
+| 4 | `e2e/town.spec.ts`: start a new game with `?town`, see Montclaire's banner and "Head out to Lande de Montclaire", see buildings fade between the camera and the squad, walk to the gate with one right click, cross onto the Lande, and walk back in. A second test proves `?test` and `?bot=careful` pages still start on the Lande. All 30 browser tests pass, first time, the known camera test included |
+| 5 | Plaza, camera turning through 5.4 full circles in 20 seconds, headless Chromium on an RTX 2080 Ti (Direct3D 11) at 1280 by 720, seed 1, frame limit off, three runs: slowest 5% of frames 2.7 to 3.4 ms, 446 to 584 frames a second. Inside 16.7 ms, and below S3a's boss fight (3.7 to 4.8 ms) |
+| 6 | `docs/DATA-MODEL.md`: town, street and lot are Built, with glossary entries; the zone row names Montclaire and its lots; the world diagram gains Zone keeps Lot. `ARCHITECTURE.md` has a Towns section, with the building fade |
+| 7 | The changed files and the built site hold no local paths, personal details or secrets |
+| 8 | Approved by the maintainer, 8 Nov 2026 |
+| 9 | CI on `master` after the push |
+| 10 | Played by the maintainer, 8 Nov 2026. His note for the backlog: buildings should feel taller against the characters, closer to true scale, so the town feels like a city, with less of a bird's-eye view that sees the whole town at once |
+
+**100-seed report.** S3c's numbers are from its Outcome:
+
+| | S3c | S3d |
+|---|---|---|
+| Careful bot | 100 of 100 finished, 0 stalled, 2.5 game minutes, 10.3 upgrades, 551.5 marks, 8.0 potions | the same |
+| Sloppy bot | 100 of 100, 0 stalled, 2.6 minutes, 10.3 upgrades, 478.6 marks, 7.8 potions | the same |
+| Auto-combat | clear 100 | clear 100 |
+
+Wipes, characters down, levels and refused orders do not change either.
+
+**Replay hashes:**
+
+| Replay | S3c | S3d | S3d, without Montclaire's record |
+|---|---|---|---|
+| Spell tour | `282ab6e6` | `6e574ca1` | `282ab6e6` |
+| Squad tour | `e904be92` | `c987f189` | `e904be92` |
+
+**Built:**
+
+- Core: a third ground shape, `streets` (`packages/core/src/grid.ts`), with streets as bending centrelines and a width, and open places as outlines. A cell opens if its centre is a character's radius inside one, found by distance to a segment and an even-odd test, with no sine or cosine. `ZoneData` gains `lots` (`Lot`: ID, door and facing), a deliberate interface change (D-019), and `ZoneView` passes them on. Obstacles gain the kind `fountain`.
+- Montclaire (`packages/core/data/montclaire.ts`), kind `town`, 120 by 120: an oval-feel plaza 82 by 32 with flat north and south sides; the left (about 52 long), right (about 40) and bottom (about 105) streets, each bent once; and the gate street dropping 30 straight south. Every street is 12 wide. The fountain is the only blocking prop. Lots: the smithy and the shop on the left street's east side, and the inn beside the gate street, all facing west. Gates: `montclaire-to-lande` at the foot of the gate street, arriving on the Lande at (12, 64) facing north-west; `lande-to-montclaire` at (16, 72), mirroring the cave gate, arriving at the top of the gate street facing north. Neither has requirements or a cost.
+- `TOWN_SCENARIO` starts the squad just south of the fountain, facing it. `START_ZONE` stays the Lande for bots, replays and tests, and `TOWN_ZONE` names the town.
+- Render (`packages/render/src/town.ts`): cobbled streets and plaza, drawn a little wider than the rules' width so the cobbles meet the house fronts; each lot's building first, with a sign on an iron arm (the smithy with a chimney, the shop with an awning, the inn taller with a canopy); terraced limestone houses with terracotta hipped roofs, doors and dark windows along both sides of every street and round the plaza; more houses filling the blocks; a low town wall, open at the gate; plane trees on grass in the yards; the fountain; and rows of lavender on a plateau outside the wall, falling to the sea, under a warm afternoon light. Each building is one merged mesh, so the town costs about one draw call a building.
+- The building fade: each frame, a ray from the camera to each living character in the active three, at chest height, is tested against each building's box in the building's own frame. A building that hides anyone fades to 30% opacity over a quarter of a second, and back once clear. The test hook gains `world.fadedBuildings()`.
+- App: a player's new game starts in Montclaire, unless the page is a bot run, or a test page without `?town`. The start screen circles the town closer, and the banner and HUD read "Head out to Lande de Montclaire".
+- Viewer: draws a town's streets, plaza, fountain and lots, closer in, and has a "town walk" run round the loop and out of the gate.
+
+**Found while building, for the maintainer to confirm:**
+
+- **Streets are a little narrower on the grid than on paper.** A 12-wide street leaves 10.6 units of open ground in theory, and 9.75 to 10.15 on the grid, because a cell opens only if its centre is inside. The triangle can be squeezed by up to 0.4 a side, and S3a's pull-in short of a wall covers it: no character gave up on any street. The maintainer kept 12 (8 Nov 2026).
+- **The town's floor is at height 3**, the Lande's, so the sea stays below it. The rules ignore it.
+- **The town has its own light**, a golden afternoon, the same before and after the beacon. The Lande keeps its storm.
+- **Buildings stand back about a unit from a street's edge.** Nothing is built on or next to a cell a character may stand in, so the cobbles run on a little past the walkable edge.
+- **The start screen still says** "One island, three characters, one boss". The README's status line now mentions the town.
