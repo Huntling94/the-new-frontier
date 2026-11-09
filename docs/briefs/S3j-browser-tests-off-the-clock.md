@@ -1,6 +1,6 @@
 # Brief S3j — Browser tests off the clock
 
-**Status:** agreed 9 Nov 2026
+**Status:** closed 10 Nov 2026
 **Read first:** `STATE.md` (Bugs), `e2e/game.ts`, `e2e/play.spec.ts`, `e2e/zones.spec.ts`, S3i's Outcome.
 **Goal:** a commit that changes no game code passes CI every time, so a red `master` always means something is wrong.
 
@@ -69,9 +69,9 @@ Built on 9 Nov 2026. Only `e2e/`, this Outcome and `STATE.md` changed.
 | 2 | 35 browser tests pass, in 3.9 minutes, with none removed or marked `fixme`. Each test named in the brief failed before its fix under a slowed browser and passes after it (below) |
 | 3 | No timed wait in `e2e/` decides whether an input has landed. The one `waitForTimeout` left is the pause between tries in `saveNow` (`saves.spec.ts`), which waits for a fight to end. Polls on drawn frames or game ticks carry no 5-second limit (below) |
 | 4 | `docs/DATA-MODEL.md` needs no change |
-| 5 | Pending: the maintainer's approval of the file list and diff |
-| 6 | Pending: CI on the approved push and four re-runs |
-| 7 | Pending: the public page deployed from that commit |
+| 5 | The maintainer approved the file list and diff before each commit, `c169e84` and `fbd6688` |
+| 6 | CI green on `master` at `fbd6688`, on the first attempt and four re-runs in a row (run 42613767002). The first push, `c169e84`, failed (below) |
+| 7 | The public page deployed from `fbd6688`, and the maintainer played it and said it plays as before, 10 Nov 2026 |
 
 **What caused each failure**
 
@@ -95,4 +95,4 @@ A stale click: `lookAt` moved the camera and waited 250 ms. With no frame drawn 
 
 **Bugs left in `STATE.md`:** the cold lint test, the attack-move test, and the 3.8-from-the-click case in the four rotations test. These are not reproduced or fixed here.
 
-**Closing note:** pending Done means 6 and 7.
+**Closing note:** closed 10 Nov 2026 on the maintainer's word that the page plays as before, after five green CI runs in a row at `fbd6688`.
