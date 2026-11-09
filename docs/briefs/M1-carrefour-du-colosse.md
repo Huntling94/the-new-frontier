@@ -1,6 +1,6 @@
 # Brief M1 — Carrefour du Colosse
 
-**Status:** built 9 Nov 2026; closes when CI is green on `master`
+**Status:** closed 9 Nov 2026
 **Read first:** `STATE.md`, `ARCHITECTURE.md`, `docs/DATA-MODEL.md`, briefs S3a, S3d and S3f, D-019, D-021, D-022, D-023, D-030, D-038, D-050, D-052, D-053.
 **Depends on:** S3f closed. It does not depend on S3g or S3h, and touches none of their work.
 **Goal:** the maintainer leaves Lande de Montclaire by a new gate, arrives at the east tip of a walled basin, and fights westward along its road to the far flank, with the squad never squeezing or giving up on the way.
@@ -167,8 +167,8 @@ Built in two halves, rules then look, on 9 Nov 2026. The maintainer approved the
 | 6 | Every pack alive (38 monsters), camera turning through 5.4 full circles in 20 seconds, headless Chromium on an RTX 2080 Ti (Direct3D 11) at 1280 by 720, seed 1, frame limit off, three runs at each of three views, production build, game clock held: slowest 5% of frames 3.9 to 7.6 ms over the middle zoomed out, 5.1 to 5.5 ms over the middle at the default zoom, 2.4 to 3.0 ms over the east lavender. Inside 16.7 ms |
 | 7 | `docs/DATA-MODEL.md` adds `basin` and names the zone. D-057 is in the register. `ARCHITECTURE.md` gains a Basins section |
 | 8 | Tracked files, changed files and the built site hold no secrets, local paths or unintended personal information |
-| 9 | Pending: the maintainer approves the exact file list and diff before each commit |
-| 10 | Pending: CI on `master` after the approved push |
+| 9 | The maintainer approved the push; the work landed on `master` at `b682555`, `542ccfd` and `e374709` |
+| 10 | CI is green on `master` at `e374709` |
 | 11 | The maintainer played it and said it looks good, 9 Nov 2026. The other three play questions (a place and a crossroads, the road walked twice, 240 by 240 for later fields) were not answered separately |
 
 **Departures**
