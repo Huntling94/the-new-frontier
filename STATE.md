@@ -8,7 +8,7 @@ Stage S2, Foundation, is done: the game plays from a public URL, with tests and 
 
 ## Next
 
-1. M2 waits on a new brief, moving through narrow ground: characters wedge on rock tips, monsters stick on rock (M2 Outcome). S3g, drops and the shop, and S3h, farming while away, each need one (D-053 to D-055). Then the Enhancer, a first quest giver, and the bank once items drop (D-044 to D-048).
+1. S3i, moving through narrow ground, is built and waits on the maintainer's play and push; M2 closes after it. S3g, drops and the shop, and S3h, farming while away, each need one (D-053 to D-055). Then the Enhancer, a first quest giver, and the bank once items drop (D-044 to D-048).
 2. The two S3c play questions, on what Continue brought back and whether saving was clear, were not answered separately.
 
 ## Open
@@ -26,7 +26,7 @@ Stage S2, Foundation, is done: the game plays from a public URL, with tests and 
 - A save keeps the squad's position but not dropped coins or potions on the ground, or a half-cleared pack, which comes back whole (S3c).
 - Browser tests turn saving on with `?save`, beside `?test` (S3c).
 - Pack respawn is 180 seconds, a placeholder until balance (S3a). Monster numbers are starting points. A monster's attack speed is its wait after a strike lands, with the wind-up on top (S3f).
-- Enemies chase in straight lines and slide round stones. That fails in Garganta da Cidadela: routes join the narrow-ground brief (M2).
+- Monsters chase until one side is dead or the squad leaves. A limit on the chase is a balance question (S3i).
 - Auto-combat stays inside the zone that runs (S3e decision 14).
 - Marks ran out before +4 to +5 in play, so the maintainer has not seen a break, and whether it feels like a loss worth fearing is unanswered (S3e). Balance has no brief.
 - Gate requirements and costs are data only, and nothing checks them yet.

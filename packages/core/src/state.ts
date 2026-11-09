@@ -356,6 +356,12 @@ export interface Enemy extends Omit<EnemyStats, 'health'> {
   /** Speed it is walking at. Knockback is on top of this. */
   moveX: number;
   moveZ: number;
+  /**
+   * Corners still to pass on the way to `routeGoal`, the last being the goal itself.
+   * Empty when it walks straight (D-060). Part of the live group, so never saved.
+   */
+  route: Point[];
+  routeGoal: Point | null;
   health: number;
   readonly maxHealth: number;
   /** Until its next strike. */

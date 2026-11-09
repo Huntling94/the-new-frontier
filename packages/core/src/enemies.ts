@@ -58,6 +58,8 @@ function createEnemy(state: GameState, kind: EnemyKind, point: Point, stats: Ene
     z: point.z,
     moveX: 0,
     moveZ: 0,
+    route: [],
+    routeGoal: null,
     health: stats.health,
     maxHealth: stats.health,
     strikeTicks: 0,
@@ -210,8 +212,16 @@ function moveEnemy(state: GameState, enemy: Enemy, drive: Drive): void {
   enemy.moveZ += (drive.z * drive.speed - enemy.moveZ) * TURN_PER_TICK;
   const x = enemy.x + perTick(enemy.moveX + enemy.knockX);
   const z = enemy.z + perTick(enemy.moveZ + enemy.knockZ);
-  if (isWalkableForEnemy(state, x, z)) {
+  // A monster on a route walks as a character does (D-060): it is never trapped on closed ground, and slides.
+  const routed = enemy.route.length > 0;
+  const trapped = routed && !isWalkableForEnemy(state, enemy.x, enemy.z);
+  const canStep = (toX: number, toZ: number): boolean => trapped || isWalkableForEnemy(state, toX, toZ);
+  if (canStep(x, z)) {
     enemy.x = x;
+    enemy.z = z;
+  } else if (routed && canStep(x, enemy.z)) {
+    enemy.x = x;
+  } else if (routed && canStep(enemy.x, z)) {
     enemy.z = z;
   }
   if (!enemy.boss) {

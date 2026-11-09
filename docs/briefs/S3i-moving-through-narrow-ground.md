@@ -1,6 +1,6 @@
 # Brief S3i — Moving through narrow ground
 
-**Status:** agreed 9 Nov 2026
+**Status:** built 9 Nov 2026, waiting on the maintainer
 **Read first:** `STATE.md`, `ARCHITECTURE.md`, `docs/DATA-MODEL.md`, briefs S3a and M2 (its Outcome), D-023, D-059.
 **Depends on:** M2 built. It does not depend on S3g or S3h, and touches none of their work.
 **Goal:** in Garganta da Cidadela, the squad walks every route with no character giving up, and monsters follow the squad round the canyon's bends instead of standing against the rock.
@@ -89,4 +89,52 @@ M2 is the first zone with bends and pinches, and it found two faults. Both block
 
 ## Outcome (builder fills in)
 
-Departures, bugs found, final numbers, and the closing note.
+Built on 9 Nov 2026, in the two steps of decision 8. **One stop trigger fired, and the maintainer ruled on it:** the corner rule alone left a second cause of giving up, so a second condition joined step 1 (first departure below).
+
+| Done means | Result |
+|---|---|
+| 1 | Types, lint, 637 unit tests and the legacy guard pass. Lint ran with `--ignore-pattern '.claude/**'`, because other sessions' worktrees sit under `.claude/worktrees` in this checkout |
+| 2 | 33 tests in `packages/core/test/narrow-ground.test.ts`. 312 seeded trips, each route in the appendix each way, half by one long click and half stop by stop: no give-ups. The (-29, 49) trip: none in 150. With the old rule put back, the trip test fails with 47 give-ups. A near corner with a blocked next leg is kept. 24 chases: no awake monster out of reach stands still for more than 3 seconds, worst 1 second, against 21 of 24 chases and a worst of 24 seconds on the old code. A clear line and a stone alone start no route |
+| 3 | Below |
+| 4 | 35 browser tests pass, with M2's walk through the sliver back on |
+| 5 | All 18 monsters awake and chasing, up to 11 on routes at once, the squad on the move, headless Chromium on an RTX 2080 Ti (Direct3D 11) at 1280 by 720, seed 1, frame limit off, production build, 20 seconds, three runs: slowest 5% of frames 2.8 to 3.2 ms, longest frame 15.8 ms. Inside 16.7 ms |
+| 6 | `docs/DATA-MODEL.md` is updated, and D-060 is in the register |
+| 7 | Tracked files, changed files and the built site hold no secrets, local paths or unintended personal information |
+| 8, 9, 10 | Waiting on the maintainer |
+
+**The two steps**
+
+| | Old code | Step 1 | Step 2 |
+|---|---|---|---|
+| Against | | Old code | Step 1 |
+| Replays | | Identical | Identical, new route fields left out |
+| 60 bot and auto-combat runs | | Corner rule alone: 37 changed length, 933 ticks in all, net +15. With the second condition: 58 differ, 1,554 ticks in all, net +570 | All identical |
+| Stalled, or bots unfinished | 0 | 0 | 0 |
+| Total ticks | 192,953 | 193,523 | 193,523 |
+| Spell tour hash | 2bcd8495 | 2bcd8495 | 6db9fd05 |
+| Squad tour hash | 6a6bfd95 | 6a6bfd95 | 6a6bfd95 |
+
+The spell tour's hash moves because its dummy now carries the empty route fields. The squad tour's does not, though the brief expected it to: that replay has no enemies, so nothing in it gained a field.
+
+**100-seed report** (both bots alike; auto-combat clears all 100 throughout)
+
+| | M2 | Corner rule alone | Step 1, final | Step 2 |
+|---|---|---|---|---|
+| Finished, stalled | 100, 0 | 100, 0 | 100, 0 | 100, 0 |
+| Game minutes | 1.8 | 1.8 | 1.8 | 1.8 |
+| Upgrades | 10.4 | 10.4 | 10.4 | 10.4 |
+| Marks | 40.2 | 38.6 | 43.1 | 43.1 |
+| Potions | 7.8 | 7.7 | 7.7 | 7.7 |
+
+Wipes, characters down, revives and refused orders stay 0. Marks and potions move because characters reach coins and fights a little sooner or later, which changes which rolls fall where. Step 2 matches step 1 exactly.
+
+**Departures**
+
+- **A second condition for characters (the maintainer, 9 Nov 2026).** After the corner rule, 8 of 312 trips still gave up, all at about (-13, -2). A push from a squad-mate leaves a character against the wall on a leg that runs almost along it. So a character now also finds its route again when the leg it is walking is blocked from where it stands. The give-up rule is unchanged. This cost the extra bot-run differences in the table.
+- **A routed monster steps as a character does.** Routes alone left 10 of 24 chases stuck, because a monster pushed onto closed ground had every step refused, for good. While it has a route, a monster may now step off closed ground and slide along whichever axis is free. Only a monster on a route does this, so open-field monsters are untouched, as the 62 runs show.
+- **A monster's route is found on its own ground,** not the characters' grid, so it can route through a stone's cells and be pushed round it, and never aims at ground it cannot stand on. Decision 4 set this for the line, and the route follows it.
+- **The search limit is a turn, not a timer.** Each monster may search on one tick in fifteen, set by its ID, so a pack's searches fall on different ticks and no extra field is needed.
+- **The 24 chases are rebuilt.** M2's exact set was not recorded. These are four packs, three places round a bend each, and two seeds. On the old code they show the same fault, at 21 of 24 against M2's 18.
+- `ROUTE.cornerReach` is gone, as nothing reads it now.
+
+**Closing note:** to be written when the maintainer has played it.

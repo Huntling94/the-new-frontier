@@ -89,6 +89,7 @@ describe('ticks and rounding', () => {
       bossMelee: 54,
       bossInterrupt: 72,
       chargeLength: 21,
+      monsterRouteSearch: 15,
     });
   });
 

@@ -112,8 +112,7 @@ test('the squad crosses between Garganta da Cidadela and Carrefour du Colosse bo
   expect(errors).toEqual([]);
 });
 
-// Waits on the brief for moving through narrow ground: a character can wedge on a rock tip and give up (M2 Outcome).
-test.fixme('the squad crosses from Carrefour du Colosse into Garganta da Cidadela, walks north through the sliver, and crosses back (M2)', async ({ page }) => {
+test('the squad crosses from Carrefour du Colosse into Garganta da Cidadela, walks north through the sliver, and crosses back (M2)', async ({ page }) => {
   test.setTimeout(150_000);
   const errors = watchErrors(page);
   // The test page starts in the zone with its packs out, so no fight decides the walk.

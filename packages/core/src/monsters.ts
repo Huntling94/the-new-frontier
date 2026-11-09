@@ -1,8 +1,11 @@
 import { MONSTERS, MONSTER_RULES, SLAMMER, SPITTER } from '../data/enemies';
+import { ROUTE } from '../data/movement';
 import { hurtUnit, wakePack } from './combat';
 import { STANDING, type Drive } from './enemies';
-import type { Enemy, GameEvent, GameState, MonsterData, MonsterKind, Body } from './state';
+import { findRouteForEnemy, lineClearForEnemy } from './grid';
+import type { Enemy, GameEvent, GameState, MonsterData, MonsterKind, Body, Point } from './state';
 import { TICKS, secondsToTicks } from './time';
+import { gridOf } from './world';
 
 function dataOf(enemy: Enemy): MonsterData {
   return MONSTERS[enemy.kind as MonsterKind];
@@ -67,14 +70,63 @@ function drawSlam(state: GameState, enemy: Enemy): void {
   });
 }
 
+/**
+ * The next point on the way to a target. A monster walks straight when its own ground
+ * allows, and takes a route only when it does not (D-060). A search waits for the
+ * monster's turn, which comes twice a second and falls on a different tick for each
+ * monster, so a pack shares the work.
+ */
+function chasePoint(state: GameState, enemy: Enemy, target: Point): Point {
+  const grid = gridOf(state);
+  if (lineClearForEnemy(grid, enemy, target)) {
+    enemy.route = [];
+    enemy.routeGoal = null;
+    return target;
+  }
+  const { routeGoal } = enemy;
+  const kept =
+    routeGoal !== null &&
+    enemy.route.length > 0 &&
+    Math.hypot(routeGoal.x - target.x, routeGoal.z - target.z) < ROUTE.goalDrift &&
+    lineClearForEnemy(grid, enemy, enemy.route[0] ?? target);
+  if (kept) {
+    enemy.route[enemy.route.length - 1] = { x: target.x, z: target.z };
+  } else if ((state.tick + enemy.id) % TICKS.monsterRouteSearch === 0) {
+    const route = findRouteForEnemy(grid, enemy, target);
+    enemy.route = route ?? [];
+    enemy.routeGoal = route ? { x: target.x, z: target.z } : null;
+  }
+  const { route } = enemy;
+  while (route.length > 1 && lineClearForEnemy(grid, enemy, route[1] as Point)) {
+    route.shift();
+  }
+  return route[0] ?? target;
+}
+
+/** The way to walk to reach a target, at a speed. */
+function chase(state: GameState, enemy: Enemy, target: Point, speed: number): Drive {
+  const point = chasePoint(state, enemy, target);
+  const dx = point.x - enemy.x;
+  const dz = point.z - enemy.z;
+  const distance = Math.hypot(dx, dz) || MONSTER_RULES.zeroDistance;
+  return { x: dx / distance, z: dz / distance, speed };
+}
+
 /** Keeps its distance, and fires from there. */
-function spitterDrive(enemy: Enemy, dx: number, dz: number, distance: number): Drive {
+function spitterDrive(
+  state: GameState,
+  enemy: Enemy,
+  target: Point,
+  dx: number,
+  dz: number,
+  distance: number,
+): Drive {
   const speed = enemy.speed * (enemy.slowTicks > 0 ? MONSTER_RULES.slowShare : 1);
   if (distance < SPITTER.fireWithin && enemy.strikeTicks === 0) {
     enemy.windTicks = secondsToTicks(dataOf(enemy).windSeconds);
   }
   if (distance > SPITTER.approachBeyond) {
-    return { x: dx / distance, z: dz / distance, speed };
+    return chase(state, enemy, target, speed);
   }
   return distance < SPITTER.retreatWithin
     ? { x: -dx / distance, z: -dz / distance, speed }
@@ -82,13 +134,7 @@ function spitterDrive(enemy: Enemy, dx: number, dz: number, distance: number): D
 }
 
 /** Walks in, and starts a strike once it is close. */
-function closingDrive(
-  state: GameState,
-  enemy: Enemy,
-  dx: number,
-  dz: number,
-  distance: number,
-): Drive {
+function closingDrive(state: GameState, enemy: Enemy, target: Point, distance: number): Drive {
   const { closeReachShare, closeSizeShare, startStrikeExtra, slowShare } = MONSTER_RULES;
   const data = dataOf(enemy);
   if (distance < enemy.reach + startStrikeExtra && enemy.strikeTicks === 0) {
@@ -101,7 +147,7 @@ function closingDrive(
     return STANDING;
   }
   const speed = enemy.speed * (enemy.slowTicks > 0 ? slowShare : 1);
-  return { x: dx / distance, z: dz / distance, speed };
+  return chase(state, enemy, target, speed);
 }
 
 /** One tick of a monster's thinking. Returns where it walks. */
@@ -127,6 +173,6 @@ export function updateMonster(state: GameState, enemy: Enemy, events: GameEvent[
     return STANDING;
   }
   return dataOf(enemy).behaviour === 'spitter'
-    ? spitterDrive(enemy, dx, dz, distance)
-    : closingDrive(state, enemy, dx, dz, distance);
+    ? spitterDrive(state, enemy, target, dx, dz, distance)
+    : closingDrive(state, enemy, target, distance);
 }

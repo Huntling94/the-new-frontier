@@ -54,7 +54,7 @@ This is the same split as code and data (D-018), and it decides what a save hold
 | Service | A type on an NPC's list: `smith` is built, and `enhancer`, `bank` and `shop` are to come (D-044) |
 | Live group | Everything that exists only while a zone runs: enemies, shots, drops and scheduled effects |
 | Marks | The family's money |
-| Route | The corners a character walks through to reach a point, found on the grid by A\* |
+| Route | The corners a character walks through to reach a point, found on the grid by A\*. A monster takes one only when a straight line to its target is blocked (D-060) |
 | Slot | One of seven places a character wears an item: main hand, off hand, head, chest, gloves, boots and necklace |
 | Stat | One named number on a character or enemy |
 | Unarmed | What an empty main hand fights with. A type in data, not an item |
@@ -154,7 +154,7 @@ Only one zone runs at a time, so there is at most one live group (D-021). The li
 | Pack | Definition | No | Built | `PACKS` and the cave's pack, held on the zone. Its members land in a square round its point, 6 either way unless the pack sets its own `spread` for tight ground (M2). Comes back on the game clock after it is cleared. A monster that would land on a character, or on ground it cannot stand on, shifts to the nearest clear walkable spot (S3f) |
 | Grid | Derived | No | Built | Built from the zone's ground, walls and obstacles the first time the zone runs, and kept. Never in state |
 | Monster type | Definition | No | Built | `MONSTERS`: the wasp, rooster, viper and wild boar, each with its own sheet as shares of what its level gives (D-050). Not saved, so their IDs can change with no migration. `BOSS` is the Warden, whose code stays unused until quest and raid bosses (D-052). `DUMMY` is for tests |
-| Enemy | Instance | No | Built | Keeps its own stats, because level scales them |
+| Enemy | Instance | No | Built | Keeps its own stats, because level scales them. Holds a route while a straight line to its target is blocked (D-060); it belongs to the live group, so saves need no change |
 | Loot table | Definition | No | Partial | Today `LOOT`, and `coins` on each monster |
 | Drop | Instance | No | Built | Loot on the ground |
 | NPC | Definition | No | Partial | `npcs` on the zone (S3e, D-044). The smith is the first, and only `smith` works. Quest lists exist and stay empty. Talking is a read, `whyNotTalk`, refused while any enemy is awake. A data check, `badNpcs`, holds a smith to towns. Tested in `packages/core/test/upgrades.test.ts`, `packages/core/test/zones.test.ts` and `e2e/smith.spec.ts` |
@@ -266,13 +266,13 @@ A structure enters only when a real need demands it, and the brief that adds it 
 | FNV-1a hash | Proving a replay matches | Fast, with no dependencies, and good enough to spot change | Built |
 | Tree | Lands contain zones | Each zone has exactly one parent | Planned |
 | Directed graph, as an adjacency list | Zones and gates | Handles one-way drops, and breadth-first search proves reachability. Each zone lists the gates that leave it | Built |
-| Grid | Walkable ground inside a zone | Any position is one lookup away. One byte a cell says whether a character, and whether an enemy, may stand there, and connected areas are labelled once so an unreachable goal is known at once | Built |
+| Grid | Walkable ground inside a zone | Any position is one lookup away. One byte a cell says whether a character, and whether an enemy, may stand there, and connected areas are labelled once for each, so an unreachable goal is known at once | Built |
 | A\* with a binary heap | Routes inside a zone | The heap always gives the most promising cell next. Routes are then smoothed by line of sight, so units walk long straight legs. The longest route on the Lande takes under a millisecond | Built |
 | Directed acyclic graph | Quest prerequisites | A topological sort proves that no quest is impossible | Planned |
 | State machine | Boss phases, quest status | One named stage at a time, with clear changes between stages. Today the unused boss only | Partial |
 | Sorted array with binary search | XP levels, loot odds | Fast lookup, and it stays plain data | Planned |
 
-The world uses the same idea at two scales. Zones and gates form a coarse graph, and the walkable cells inside a zone form a fine one. A unit walks straight when the line is clear on the grid, and asks A\* only when it is not. Bots plan across zones with exactly this split (S3e): a breadth-first search over gates gives the route, and A\* walks each zone. Auto-combat stays inside the zone that runs.
+The world uses the same idea at two scales. Zones and gates form a coarse graph, and the walkable cells inside a zone form a fine one. A unit walks straight when the line is clear on the grid, and asks A\* only when it is not. So does a monster, on the ground it may stand on (D-060). Bots plan across zones with exactly this split (S3e): a breadth-first search over gates gives the route, and A\* walks each zone. Auto-combat stays inside the zone that runs.
 
 ## Keeping this document true
 

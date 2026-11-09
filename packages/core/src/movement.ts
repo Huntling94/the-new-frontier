@@ -96,7 +96,8 @@ function slotTarget(state: GameState, unit: Body): Point | null {
 /**
  * The next point to walk to on the way to a goal, or null if there is no way.
  * A unit walks straight when the line is clear, and asks A* only when it is not.
- * A route is kept while its goal stays put, and corners are dropped as they pass.
+ * A route is kept while its goal stays put and its leg stays clear, and a corner is
+ * dropped once the next leg is clear from where the unit stands.
  */
 function steer(state: GameState, unit: Body, goal: Point): Point | null {
   const grid = gridOf(state);
@@ -106,7 +107,9 @@ function steer(state: GameState, unit: Body, goal: Point): Point | null {
     return goal;
   }
   const { routeGoal } = unit;
-  if (routeGoal && unit.route.length > 0 && near(routeGoal, goal, ROUTE.goalDrift)) {
+  // A shove can leave the unit where its current leg is blocked, so that needs a new route too.
+  const legClear = lineClear(grid, unit, unit.route[0] ?? goal);
+  if (routeGoal && unit.route.length > 0 && near(routeGoal, goal, ROUTE.goalDrift) && legClear) {
     unit.route[unit.route.length - 1] = { x: goal.x, z: goal.z };
   } else {
     const route = findRoute(grid, unit, goal);
@@ -119,8 +122,9 @@ function steer(state: GameState, unit: Body, goal: Point): Point | null {
   }
   const { route } = unit;
   while (route.length > 1) {
-    const [corner, after] = route as [Point, Point];
-    if (!near(unit, corner, ROUTE.cornerReach) && !lineClear(grid, unit, after)) {
+    const after = route[1] as Point;
+    // Being near a corner is not enough: the next leg must be clear from here (S3i decision 1).
+    if (!lineClear(grid, unit, after)) {
       break;
     }
     route.shift();

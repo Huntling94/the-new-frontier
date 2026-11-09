@@ -43,6 +43,6 @@ export const GRID = { cell: 1 };
 export const ROUTE = {
   /** A goal that has moved less than this keeps its route, and the route's end follows it. */
   goalDrift: 2,
-  /** A corner closer than this counts as passed. */
-  cornerReach: 0.6,
+  /** Each monster may search for a route this often, at most (D-060). */
+  monsterSearchSeconds: 0.5,
 };

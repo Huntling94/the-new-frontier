@@ -78,6 +78,8 @@ export interface Grid {
   readonly flags: Uint8Array;
   /** The connected area each open cell belongs to, or -1. Cells in different areas have no route. */
   readonly areas: Int32Array;
+  /** The same for the cells an enemy may stand in. */
+  readonly enemyAreas: Int32Array;
 }
 
 function insideBox(box: Box, x: number, z: number, grow: number): boolean {
@@ -202,6 +204,13 @@ function isOpenCell(grid: Pick<Grid, 'flags'>, index: number): boolean {
   return index >= 0 && (grid.flags[index] ?? 0) % (OPEN + 1) === OPEN;
 }
 
+function isEnemyCell(grid: Pick<Grid, 'flags'>, index: number): boolean {
+  return index >= 0 && (grid.flags[index] ?? 0) >= ENEMY_OPEN;
+}
+
+/** Which cells count as open: a character's, or an enemy's (S3i decision 4). */
+type CellTest = (grid: Pick<Grid, 'flags'>, index: number) => boolean;
+
 /** Whether a character may stand at a point. */
 export function isOpen(grid: Grid, x: number, z: number): boolean {
   return isOpenCell(grid, cellAt(grid, x, z));
@@ -209,17 +218,16 @@ export function isOpen(grid: Grid, x: number, z: number): boolean {
 
 /** Whether an enemy may stand at a point. */
 export function isOpenForEnemy(grid: Grid, x: number, z: number): boolean {
-  const index = cellAt(grid, x, z);
-  return index >= 0 && (grid.flags[index] ?? 0) >= ENEMY_OPEN;
+  return isEnemyCell(grid, cellAt(grid, x, z));
 }
 
 /** Labels each connected area of open cells, so an unreachable goal is known at once. */
-function labelAreas(grid: Layout & Pick<Grid, 'flags'>): Int32Array {
+function labelAreas(grid: Layout & Pick<Grid, 'flags'>, open: CellTest): Int32Array {
   const areas = new Int32Array(grid.cols * grid.rows).fill(-1);
   const steps = [-grid.cols, grid.cols, -1, 1];
   let next = 0;
   for (let start = 0; start < areas.length; start += 1) {
-    if (areas[start] !== -1 || !isOpenCell(grid, start)) {
+    if (areas[start] !== -1 || !open(grid, start)) {
       continue;
     }
     const queue = [start];
@@ -230,7 +238,7 @@ function labelAreas(grid: Layout & Pick<Grid, 'flags'>): Int32Array {
       for (const step of steps) {
         const other = index + step;
         const wraps = (step === -1 && col === 0) || (step === 1 && col === grid.cols - 1);
-        if (!wraps && other >= 0 && other < areas.length && areas[other] === -1 && isOpenCell(grid, other)) {
+        if (!wraps && other >= 0 && other < areas.length && areas[other] === -1 && open(grid, other)) {
           areas[other] = next;
           queue.push(other);
         }
@@ -270,7 +278,8 @@ export function buildGrid(ground: GroundShape, obstacles: readonly Obstacle[]): 
       }
     }
   }
-  return { ...base, flags, areas: labelAreas({ ...base, flags }) };
+  const layout = { ...base, flags };
+  return { ...layout, areas: labelAreas(layout, isOpenCell), enemyAreas: labelAreas(layout, isEnemyCell) };
 }
 
 /**
@@ -285,7 +294,7 @@ export function nearestOpen(grid: Grid, point: Point): Point {
   return index < 0 ? { x: point.x, z: point.z } : cellCentre(grid, index);
 }
 
-function nearestOpenCell(grid: Grid, point: Point): number {
+function nearestOpenCell(grid: Grid, point: Point, open: CellTest = isOpenCell): number {
   const clamp = (value: number, most: number): number => Math.min(Math.max(value, 0), most);
   const col = clamp(Math.floor((point.x - grid.minX) / grid.cell), grid.cols - 1);
   const row = clamp(Math.floor((point.z - grid.minZ) / grid.cell), grid.rows - 1);
@@ -296,7 +305,7 @@ function nearestOpenCell(grid: Grid, point: Point): number {
       return;
     }
     const index = r * grid.cols + c;
-    if (isOpenCell(grid, index)) {
+    if (open(grid, index)) {
       const centre = cellCentre(grid, index);
       const distance = Math.hypot(centre.x - point.x, centre.z - point.z);
       if (distance < bestDistance) {
@@ -329,7 +338,7 @@ function nearestOpenCell(grid: Grid, point: Point): number {
  * holding the two ends are not checked, so a character pressed against an obstacle
  * can still walk away from it, and can walk up to an enemy standing beside one.
  */
-export function lineClear(grid: Grid, from: Point, to: Point): boolean {
+export function lineClear(grid: Grid, from: Point, to: Point, open: CellTest = isOpenCell): boolean {
   const { cell, cols, rows } = grid;
   const fx = (from.x - grid.minX) / cell;
   const fz = (from.z - grid.minZ) / cell;
@@ -359,7 +368,7 @@ export function lineClear(grid: Grid, from: Point, to: Point): boolean {
     }
     const last = col === endCol && row === endRow;
     const off = col < 0 || row < 0 || col >= cols || row >= rows;
-    if (!last && (off || !isOpenCell(grid, row * cols + col))) {
+    if (!last && (off || !open(grid, row * cols + col))) {
       return false;
     }
   }
@@ -431,7 +440,7 @@ function octile(grid: Grid, from: number, to: number): number {
 }
 
 /** A* from cell to cell, eight ways, never cutting a corner. Returns the cells, start first. */
-function searchCells(grid: Grid, start: number, goal: number): number[] | null {
+function searchCells(grid: Grid, start: number, goal: number, open: CellTest): number[] | null {
   const { cols } = grid;
   const total = cols * grid.rows;
   const cost = new Float64Array(total).fill(Infinity);
@@ -458,11 +467,11 @@ function searchCells(grid: Grid, start: number, goal: number): number[] | null {
       for (let dx = -1; dx <= 1; dx += 1) {
         const c = col + dx;
         const other = index + dz * cols + dx;
-        if ((dx === 0 && dz === 0) || c < 0 || c >= cols || !isOpenCell(grid, other)) {
+        if ((dx === 0 && dz === 0) || c < 0 || c >= cols || !open(grid, other)) {
           continue;
         }
         const diagonal = dx !== 0 && dz !== 0;
-        if (diagonal && (!isOpenCell(grid, index + dx) || !isOpenCell(grid, index + dz * cols))) {
+        if (diagonal && (!open(grid, index + dx) || !open(grid, index + dz * cols))) {
           continue;
         }
         const next = (cost[index] ?? 0) + (diagonal ? Math.SQRT2 : 1);
@@ -478,13 +487,13 @@ function searchCells(grid: Grid, start: number, goal: number): number[] | null {
 }
 
 /** Keeps only the corners a straight line cannot cut, so the route runs in long straight legs. */
-function smooth(grid: Grid, points: readonly Point[]): Point[] {
+function smooth(grid: Grid, points: readonly Point[], open: CellTest): Point[] {
   const route: Point[] = [];
   let anchor = points[0];
   let at = 1;
   while (anchor && at < points.length) {
     let reach = at;
-    while (reach + 1 < points.length && lineClear(grid, anchor, points[reach + 1] as Point)) {
+    while (reach + 1 < points.length && lineClear(grid, anchor, points[reach + 1] as Point, open)) {
       reach += 1;
     }
     anchor = points[reach];
@@ -496,27 +505,41 @@ function smooth(grid: Grid, points: readonly Point[]): Point[] {
   return route;
 }
 
+function routeOn(grid: Grid, from: Point, to: Point, open: CellTest, areas: Int32Array): Point[] | null {
+  if (lineClear(grid, from, to, open)) {
+    return [{ x: to.x, z: to.z }];
+  }
+  const startCell = cellAt(grid, from.x, from.z);
+  const goalCell = cellAt(grid, to.x, to.z);
+  const start = open(grid, startCell) ? startCell : nearestOpenCell(grid, from, open);
+  const goal = open(grid, goalCell) ? goalCell : nearestOpenCell(grid, to, open);
+  if (start < 0 || goal < 0 || areas[start] !== areas[goal]) {
+    return null;
+  }
+  const cells = searchCells(grid, start, goal, open);
+  if (!cells) {
+    return null;
+  }
+  const middle = cells.slice(1, -1).map((index) => cellCentre(grid, index));
+  return smooth(grid, [from, ...middle, { x: to.x, z: to.z }], open);
+}
+
 /**
  * The corners to walk through from one point to another, ending at the goal, or
  * null if no route exists. A straight walk that is clear needs no search.
  */
 export function findRoute(grid: Grid, from: Point, to: Point): Point[] | null {
-  if (lineClear(grid, from, to)) {
-    return [{ x: to.x, z: to.z }];
-  }
-  const startCell = cellAt(grid, from.x, from.z);
-  const goalCell = cellAt(grid, to.x, to.z);
-  const start = isOpenCell(grid, startCell) ? startCell : nearestOpenCell(grid, from);
-  const goal = isOpenCell(grid, goalCell) ? goalCell : nearestOpenCell(grid, to);
-  if (start < 0 || goal < 0 || grid.areas[start] !== grid.areas[goal]) {
-    return null;
-  }
-  const cells = searchCells(grid, start, goal);
-  if (!cells) {
-    return null;
-  }
-  const middle = cells.slice(1, -1).map((index) => cellCentre(grid, index));
-  return smooth(grid, [from, ...middle, { x: to.x, z: to.z }]);
+  return routeOn(grid, from, to, isOpenCell, grid.areas);
+}
+
+/** Whether a straight walk stays on ground an enemy may stand on, stones aside. */
+export function lineClearForEnemy(grid: Grid, from: Point, to: Point): boolean {
+  return lineClear(grid, from, to, isEnemyCell);
+}
+
+/** The same search as `findRoute`, on the ground an enemy may stand on (D-060). */
+export function findRouteForEnemy(grid: Grid, from: Point, to: Point): Point[] | null {
+  return routeOn(grid, from, to, isEnemyCell, grid.enemyAreas);
 }
 
 /** The furthest open point along the line from one point towards another. */

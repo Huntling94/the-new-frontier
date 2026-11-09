@@ -513,3 +513,9 @@ Right click, right drag, middle drag, the wheel, left click and left drag, `Spac
 **A field's stretches may be narrower than the squad's triangle.** The squad need not keep its triangle, and going single file through a narrow stretch is fine. Every stretch of a route is at least 4 units wide in any direction, measured on the map's shapes. Stretches 10.6 or wider still fit the triangle. This replaces the width rule M1 applied to its own road, for Garganta da Cidadela and the zones after it. Narrow stretches are for passing through, not fighting in.
 
 **Why:** the maintainer's direction, 9 Nov 2026, from the sketch of Garganta da Cidadela (M2). A corridor is a new kind of ground for the game, and forcing the triangle's width on it would have lost the corridor.
+
+## D-060
+
+**A monster takes a route only when a straight line to its target is blocked.** This replaces S3a decision 8. The line is tested on the ground a monster may stand on, so a stone alone starts no route and a monster still slides round it. The route comes from the same A\* and smoothing as a character's (D-023), on that same ground, and is followed the same way. Each monster searches at most twice a second, on a tick of its own. While it has a route, a monster may also step off closed ground and slide along whichever axis is free, as a character does. A route belongs to the live group and is never saved. The boss does not change. Monsters still chase until one side is dead or the squad leaves the zone.
+
+**Why:** Garganta da Cidadela was the first zone with bends. Monsters chasing in straight lines stood against the rock, awake, for most of a chase, which refused equipping and held off autosave (M2, S3i).

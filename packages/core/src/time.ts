@@ -1,7 +1,7 @@
 import { AUTO_HEAL, COMBAT, POTIONS, SHOTS } from '../data/combat';
 import { AUTO, BOTS } from '../data/bots';
 import { BOSS, DUMMY, LOOT, MONSTER_RULES, SPITTER, WIPE } from '../data/enemies';
-import { MOVEMENT, SCATTER } from '../data/movement';
+import { MOVEMENT, ROUTE, SCATTER } from '../data/movement';
 import { ROUNDING_SLACK, TICK_RATE } from '../data/sim';
 import { SPELLS } from '../data/spells';
 
@@ -41,6 +41,7 @@ export const TICKS = {
   bossMelee: secondsToTicks(BOSS.attackSeconds),
   bossInterrupt: secondsToTicks(BOSS.interruptSeconds),
   chargeLength: secondsToTicks(BOSS.charge.seconds),
+  monsterRouteSearch: secondsToTicks(ROUTE.monsterSearchSeconds),
 };
 
 /** Turns a per-second value into a per-tick one. */
