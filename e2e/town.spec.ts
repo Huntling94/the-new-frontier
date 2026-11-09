@@ -27,7 +27,7 @@ test('a new game starts in Montclaire, walks out of the gate onto the Lande, and
     })
     .toBe(true);
   // The plaza to the gate is the longest walk in the tests, and CI renders in software.
-  await crossInto(page, 'lande', 60_000);
+  await crossInto(page, 'lande');
   await expect(page.locator('#ban')).toContainText('Lande de Montclaire');
   const walked = await page.evaluate((count) => window.__tnf.events.slice(count).map(({ type }) => type), from);
   expect(walked).not.toContain('unit-gave-up');

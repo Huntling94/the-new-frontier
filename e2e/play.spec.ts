@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
-import { openGame, stillCamera, ticksPass, watchErrors } from './game';
+import { framesPass, openGame, stillCamera, ticksPass, watchErrors } from './game';
 
 const CENTRE = { x: 640, y: 360 };
 
@@ -24,9 +24,7 @@ async function camera(page: Page): Promise<Window['__tnf']['camera']> {
 }
 
 async function allArrived(page: Page): Promise<void> {
-  await page.waitForFunction(() => window.__tnf.view.bodies.every((unit) => unit.dest === null), undefined, {
-    timeout: 15_000,
-  });
+  await page.waitForFunction(() => window.__tnf.view.bodies.every((unit) => unit.dest === null));
 }
 
 test.describe('commanding the squad', () => {
@@ -80,9 +78,9 @@ test.describe('commanding the squad', () => {
 
       // Turn for the next round, with a rotation key.
       await page.keyboard.down('Period');
-      await page.waitForTimeout(450);
+      await page.waitForFunction((from) => Math.abs(window.__tnf.camera.yaw - from) >= 0.7, before.yaw);
       await page.keyboard.up('Period');
-      await page.waitForTimeout(100);
+      await framesPass(page);
     }
     expect(new Set(yaws.map((yaw) => yaw.toFixed(2))).size).toBe(4);
   });
@@ -198,6 +196,8 @@ test.describe('commanding the squad', () => {
     await page.mouse.move(CENTRE.x, CENTRE.y);
     await page.mouse.down({ button: 'middle' });
     await page.mouse.move(CENTRE.x - 150, CENTRE.y, { steps: 6 });
+    // The grip is applied when a frame is drawn, so the button stays down until one has.
+    await page.waitForFunction(({ x, z }) => Math.hypot(window.__tnf.camera.x - x, window.__tnf.camera.z - z) > 5, { x: start.x, z: start.z });
     await page.mouse.up({ button: 'middle' });
     const gripped = await camera(page);
     expect(gripped.follow).toBe(false);

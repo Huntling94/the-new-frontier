@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
-import { bringIntoView, openGame, watchErrors } from './game';
+import { bringIntoView, framesPass, openGame, watchErrors } from './game';
 
 const SMITH = { x: -40.6, z: -4 };
 const RICH = 100000;
@@ -119,18 +119,18 @@ test('on a miss the item is broken, cannot be equipped, says why, and is repaire
 test('a left click on the smith does not talk, a drag from it is a box-select, and Y does nothing', async ({ page }) => {
   await openGame(page, 'town&seed=1');
   await page.keyboard.press('KeyY');
-  await page.waitForTimeout(150);
+  await framesPass(page);
   await expect(page.locator('#forge')).toBeHidden();
   const at = await smithAt(page);
   await page.mouse.move(at.x, at.y);
   await page.mouse.down();
   await page.mouse.up();
-  await page.waitForTimeout(200);
+  await framesPass(page);
   await expect(page.locator('#forge')).toBeHidden();
   expect(await page.evaluate(() => window.__tnf.view.bodies.every(({ dest }) => dest === null))).toBe(true);
   await page.mouse.down();
   await page.mouse.move(at.x + 60, at.y + 60);
   await page.mouse.up();
-  await page.waitForTimeout(200);
+  await framesPass(page);
   await expect(page.locator('#forge')).toBeHidden();
 });

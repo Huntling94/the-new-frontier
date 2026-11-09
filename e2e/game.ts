@@ -42,7 +42,7 @@ export interface Hook {
   /** A gate crossing is fading out or in. */
   fading: boolean;
   camera: { x: number; z: number; zoom: number; zoomTarget: number; yaw: number; tiltAdjust: number; follow: boolean };
-  events: { type: string; tick: number; order?: string; unitId?: number; spell?: string; amount?: number }[];
+  events: { type: string; tick: number; order?: string; unitId?: number; spell?: string; amount?: number; to?: string }[];
   world: {
     groundAt(x: number, y: number): { x: number; z: number } | null;
     screenOf(point: { x: number; y: number; z: number }): { x: number; y: number; visible: boolean };
@@ -92,13 +92,18 @@ export async function ticksPass(page: Page, ticks: number): Promise<void> {
   await page.waitForFunction((until) => window.__tnf.view.tick >= until, from + ticks);
 }
 
-/** Taps an arrow key, which pans a little and turns follow off, so the camera holds still. */
+/** Waits for whole frames to be drawn, so what the page reports is what the camera now shows. */
+export async function framesPass(page: Page, frames = 2): Promise<void> {
+  const from = await page.evaluate(() => window.__tnf.frames);
+  await page.waitForFunction((until) => window.__tnf.frames >= until, from + frames);
+}
+
+/** Holds an arrow key until the camera has panned and let go of the squad, so it holds still. */
 export async function stillCamera(page: Page): Promise<void> {
   await page.keyboard.down('ArrowUp');
-  await page.waitForTimeout(250);
+  await page.waitForFunction(() => !window.__tnf.camera.follow);
   await page.keyboard.up('ArrowUp');
-  await expect.poll(() => page.evaluate(() => window.__tnf.camera.follow)).toBe(false);
-  await page.waitForTimeout(300);
+  await framesPass(page);
 }
 
 /** Where a ground point shows on the page, if it shows on the game itself and not under the HUD. */
@@ -132,14 +137,18 @@ export async function bringIntoView(page: Page, point: { x: number; z: number })
       ...(at.x < 320 ? ['ArrowLeft'] : at.x > 960 ? ['ArrowRight'] : []),
       ...(at.y < 180 ? ['ArrowUp'] : at.y > 540 ? ['ArrowDown'] : []),
     ];
+    if (keys.length === 0) return;
     for (const key of keys) await page.keyboard.down(key);
-    await page.waitForTimeout(200);
+    // Held until the point shows, or for a stretch of frames if the zone's edge stops the camera.
+    const until = (await page.evaluate(() => window.__tnf.frames)) + 40;
+    while ((await page.evaluate(() => window.__tnf.frames)) < until && !(await onScreen(page, point)));
     for (const key of keys) await page.keyboard.up(key);
+    await framesPass(page);
   }
 }
 
-/** Waits out a gate crossing. `walkMs` is how long the walk to the gate may take. */
-export async function crossInto(page: Page, zoneId: string, walkMs = 20_000): Promise<void> {
-  await page.waitForFunction(() => window.__tnf.fading, undefined, { timeout: walkMs, polling: 'raf' });
-  await page.waitForFunction((id) => window.__tnf.view.zoneId === id && !window.__tnf.fading, zoneId, { timeout: 10_000 });
+/** Waits for the core to report the crossing into a zone, then for the fade to finish. Only the test's own time limit bounds it. */
+export async function crossInto(page: Page, zoneId: string): Promise<void> {
+  await page.waitForFunction((id) => window.__tnf.events.filter(({ type }) => type === 'zone-changed').at(-1)?.to === id, zoneId);
+  await page.waitForFunction(() => !window.__tnf.fading);
 }

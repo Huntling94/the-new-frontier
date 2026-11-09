@@ -61,4 +61,37 @@ CI draws in software, so its frames are slow and uneven. The tests fail where th
 
 ## Outcome (builder fills in)
 
-Departures, bugs found, final numbers, and the closing note.
+Built on 9 Nov 2026. Only `e2e/`, this Outcome and `STATE.md` changed.
+
+| Done means | Result |
+|---|---|
+| 1 | Types, lint, 637 unit tests and the legacy guard pass. Lint ran with `--ignore-pattern '.claude/**'`, as in S3i |
+| 2 | 35 browser tests pass, in 3.9 minutes, with none removed or marked `fixme`. Each test named in the brief failed before its fix under a slowed browser and passes after it (below) |
+| 3 | No timed wait in `e2e/` decides whether an input has landed. The one `waitForTimeout` left is the pause between tries in `saveNow` (`saves.spec.ts`), which waits for a fight to end |
+| 4 | `docs/DATA-MODEL.md` needs no change |
+| 5 | Pending: the maintainer's approval of the file list and diff |
+| 6 | Pending: CI on the approved push and four re-runs |
+| 7 | Pending: the public page deployed from that commit |
+
+**What caused each failure**
+
+| Test | Brief's guess | What the slowed runs showed |
+|---|---|---|
+| Four rotations | A held key can miss a slow frame | Confirmed. `camera.follow` stayed true after the 250 ms hold |
+| M1 crossing (`zones.spec.ts:88`) | Not read | A click placed from a stale picture: see below. Inferred from the mechanism; the exact 30-second timeout did not recur locally |
+| M2 both ways (`zones.spec.ts:110`) | `crossInto` misses a short fade | Not a missed fade. A fade runs in capped frame steps, at least 15 frames, so a poll cannot miss it. Two faults instead: a stale click, as above, and a fixed 10-second limit on the fade, which ran out with the game already in the right zone |
+| The sliver walk | The camera had not reached the point | Confirmed. The page reported the old camera, as no frame had been drawn since the look |
+
+A stale click: `lookAt` moved the camera and waited 250 ms. With no frame drawn in that time, `screenOf` still gave the old view, so the point seemed off screen, or the click landed short of the gate and the squad never crossed. Logged runs showed zero frames drawn after a look.
+
+**How it was slowed.** The brief asked for processor slowing, and that alone did not match CI. At 24 times slower all 8 runs passed, because it slows the test's own page calls along with the frames. On CI the drawing is what is slow, and scripts stay quick. Delaying only the game's frames by 300 to 800 ms, with a script injected into a scratch copy of the tests, reproduced the failures. Before the fixes: 6 of 8 runs failed, and a processor slowdown of 16 times failed all six crossing runs at the 10-second limit. After them, in full runs with frames delayed 80 to 300 ms: 32 of 32, the three build-output tests being left out of that copy. At 300 to 800 ms the only failures were whole-test time limits, and with five times the limit those tests passed. The limits stay as they were, as CI is far quicker than that.
+
+**Departures**
+
+- **Crossings and walks have no limit of their own now.** Only the test's overall time limit bounds them, as nothing about the clock should decide a crossing.
+- **Two tests beyond the brief's list.** The full delayed run found them, and leaving them would have left `master` flaky. "The camera grips" released the middle button before a frame had applied the drag, and now holds it until the camera has moved. "A ?bot=careful run" had the default 30 seconds for 900 ticks, and now has 90.
+- Other timed waits went too: the arrow-key hold in `interface.spec.ts`, and three pauses in `smith.spec.ts`, which now wait for frames.
+
+**Bugs left in `STATE.md`:** the -0.7984 camera test, the cold lint test, the attack-move test, and the 3.8-from-the-click case in the four rotations test. These are not reproduced or fixed here.
+
+**Closing note:** pending Done means 6 and 7.

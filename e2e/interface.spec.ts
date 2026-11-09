@@ -1,5 +1,5 @@
 import { expect, test, type Locator } from '@playwright/test';
-import { openGame, openStart, ticksPass, watchErrors } from './game';
+import { openGame, openStart, stillCamera, ticksPass, watchErrors } from './game';
 
 /** The share of the button the cooldown shade covers, from 0 to 1. */
 const shadeOf = (button: Locator): Promise<number> =>
@@ -82,9 +82,7 @@ test.describe('the interface (S2.3b)', () => {
 
   test('selecting one character alone turns follow on, onto them (D-037)', async ({ page }) => {
     await openGame(page);
-    await page.keyboard.down('ArrowUp');
-    await page.waitForTimeout(250);
-    await page.keyboard.up('ArrowUp');
+    await stillCamera(page);
     expect(await page.evaluate(() => window.__tnf.camera.follow)).toBe(false);
     // With follow off, selecting the Sniper alone turns it back on, onto the Sniper.
     await page.keyboard.press('F2');

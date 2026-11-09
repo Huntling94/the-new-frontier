@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
-import { bringIntoView, crossInto, openGame, rightClickGround, watchErrors } from './game';
+import { bringIntoView, crossInto, framesPass, onScreen, openGame, rightClickGround, watchErrors } from './game';
 
 /** The Lande's gate into the cave, the cave's way out, and points the cave's L-shaped wall hides. */
 const INTO_CAVE = { x: -16, z: 72 };
@@ -32,7 +32,7 @@ test('the squad walks into the cave, round its wall with one right click, and ba
   const target = await rightClickGround(page, BEHIND_WALL);
   // The order lands on the next tick, and then everyone walks until they arrive.
   await page.waitForFunction((count) => window.__tnf.events.slice(count).some(({ order }) => order === 'move'), from);
-  await page.waitForFunction(() => window.__tnf.view.bodies.every((unit) => unit.dest === null), undefined, { timeout: 30_000 });
+  await page.waitForFunction(() => window.__tnf.view.bodies.every((unit) => unit.dest === null));
   const since = await page.evaluate((count) => window.__tnf.events.slice(count).map(({ type }) => type), from);
   expect(since).not.toContain('unit-gave-up');
   expect(since.filter((type) => type === 'unit-arrived')).toHaveLength(3);
@@ -51,7 +51,7 @@ const INTO_COLOSSE = { x: -68, z: 54 };
 const WEST_ON_ROAD = { x: 88, z: 6 };
 const COLOSSE_WAY_OUT = { x: 112, z: 13 };
 
-/** Looks straight at a ground point, with follow off. */
+/** Looks straight at a ground point, with follow off, and waits until a drawn frame shows it. */
 async function lookAt(page: Page, point: { x: number; z: number }): Promise<void> {
   await page.evaluate(({ x, z }) => {
     const { camera } = window.__tnf;
@@ -59,7 +59,8 @@ async function lookAt(page: Page, point: { x: number; z: number }): Promise<void
     camera.x = x;
     camera.z = z;
   }, point);
-  await page.waitForTimeout(250);
+  await framesPass(page);
+  await expect.poll(() => onScreen(page, point)).not.toBeNull();
 }
 
 test('the squad crosses from the Lande to Carrefour du Colosse, walks west, and crosses back (M1)', async ({ page }) => {
@@ -69,7 +70,7 @@ test('the squad crosses from the Lande to Carrefour du Colosse, walks west, and 
 
   await lookAt(page, INTO_COLOSSE);
   await rightClickGround(page, [INTO_COLOSSE]);
-  await crossInto(page, 'carrefour-du-colosse', 40_000);
+  await crossInto(page, 'carrefour-du-colosse');
   await expect(page.locator('#ban')).toContainText('Carrefour du Colosse');
   const atArrival = await page.evaluate(() => window.__tnf.view.bodies[0]?.x ?? 0);
 
@@ -78,14 +79,14 @@ test('the squad crosses from the Lande to Carrefour du Colosse, walks west, and 
   await rightClickGround(page, [WEST_ON_ROAD]);
   // The order lands on the next tick, and then everyone walks until they arrive.
   await page.waitForFunction((count) => window.__tnf.events.slice(count).some(({ order }) => order === 'move'), from);
-  await page.waitForFunction(() => window.__tnf.view.bodies.every((unit) => unit.dest === null), undefined, { timeout: 30_000 });
+  await page.waitForFunction(() => window.__tnf.view.bodies.every((unit) => unit.dest === null));
   const since = await page.evaluate((count) => window.__tnf.events.slice(count).map(({ type }) => type), from);
   expect(since).not.toContain('unit-gave-up');
   expect(await page.evaluate(() => window.__tnf.view.bodies[0]?.x ?? 0)).toBeLessThan(atArrival - 6);
 
   await lookAt(page, COLOSSE_WAY_OUT);
   await rightClickGround(page, [COLOSSE_WAY_OUT]);
-  await crossInto(page, 'lande', 30_000);
+  await crossInto(page, 'lande');
   expect(errors).toEqual([]);
 });
 
@@ -102,12 +103,12 @@ test('the squad crosses between Garganta da Cidadela and Carrefour du Colosse bo
 
   await lookAt(page, GARGANTA_SOUTH_GATE);
   await rightClickGround(page, [GARGANTA_SOUTH_GATE]);
-  await crossInto(page, 'carrefour-du-colosse', 30_000);
+  await crossInto(page, 'carrefour-du-colosse');
   await expect(page.locator('#ban')).toContainText('Carrefour du Colosse');
 
   await lookAt(page, COLOSSE_WEST_DOOR);
   await rightClickGround(page, [COLOSSE_WEST_DOOR]);
-  await crossInto(page, 'garganta-da-cidadela', 30_000);
+  await crossInto(page, 'garganta-da-cidadela');
   await expect(page.locator('#ban')).toContainText('Garganta da Cidadela');
   expect(errors).toEqual([]);
 });
@@ -120,11 +121,11 @@ test('the squad crosses from Carrefour du Colosse into Garganta da Cidadela, wal
 
   await lookAt(page, GARGANTA_SOUTH_GATE);
   await rightClickGround(page, [GARGANTA_SOUTH_GATE]);
-  await crossInto(page, 'carrefour-du-colosse', 30_000);
+  await crossInto(page, 'carrefour-du-colosse');
 
   await lookAt(page, COLOSSE_WEST_DOOR);
   await rightClickGround(page, [COLOSSE_WEST_DOOR]);
-  await crossInto(page, 'garganta-da-cidadela', 30_000);
+  await crossInto(page, 'garganta-da-cidadela');
   await expect(page.locator('#ban')).toContainText('Garganta da Cidadela');
 
   for (const stop of [{ x: -17, z: 26 }, BESIDE_THE_SLIVER, NORTH_OF_THE_SLIVER]) {
@@ -132,7 +133,7 @@ test('the squad crosses from Carrefour du Colosse into Garganta da Cidadela, wal
     const from = await page.evaluate(() => window.__tnf.events.length);
     await rightClickGround(page, [stop]);
     await page.waitForFunction((count) => window.__tnf.events.slice(count).some(({ order }) => order === 'move'), from);
-    await page.waitForFunction(() => window.__tnf.view.bodies.every((unit) => unit.dest === null), undefined, { timeout: 40_000 });
+    await page.waitForFunction(() => window.__tnf.view.bodies.every((unit) => unit.dest === null));
     const since = await page.evaluate((count) => window.__tnf.events.slice(count).map(({ type }) => type), from);
     expect(since).not.toContain('unit-gave-up');
   }
@@ -140,6 +141,6 @@ test('the squad crosses from Carrefour du Colosse into Garganta da Cidadela, wal
 
   await lookAt(page, GARGANTA_SOUTH_GATE);
   await rightClickGround(page, [GARGANTA_SOUTH_GATE]);
-  await crossInto(page, 'carrefour-du-colosse', 40_000);
+  await crossInto(page, 'carrefour-du-colosse');
   expect(errors).toEqual([]);
 });

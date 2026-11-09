@@ -261,6 +261,7 @@ test.describe('saves (S3c)', () => {
   });
 
   test('a ?bot=careful run leaves an existing save untouched', async ({ page }) => {
+    test.setTimeout(90_000);
     await openGame(page, SAVING);
     await saveNow(page);
 
