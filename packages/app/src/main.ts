@@ -5,6 +5,7 @@ import '@fontsource/im-fell-english-sc/latin-400.css';
 import '@fontsource/vt323/latin-400.css';
 import {
   currentZone,
+  GARGANTA_SCENARIO,
   ISLAND_SCENARIO,
   TOWN_SCENARIO,
   whyNotTalk,
@@ -94,7 +95,11 @@ const fadeLayer = element<HTMLDivElement>('fade');
  * keep starting on the Lande, unless a test page asks for the town with `?town`.
  */
 const inTown = !bot && (!params.has('test') || params.has('town'));
-const session = new Session(seed, bot, inTown ? TOWN_SCENARIO : ISLAND_SCENARIO);
+// Test pages may start in Garganta da Cidadela, with `quiet` taking its packs out (M2).
+const gargantaTest = params.has('test') && params.has('garganta');
+const quietGarganta = { ...GARGANTA_SCENARIO, contents: { dummy: null, packs: [], boss: null } };
+const startScenario = gargantaTest ? (params.get('garganta') === 'quiet' ? quietGarganta : GARGANTA_SCENARIO) : inTown ? TOWN_SCENARIO : ISLAND_SCENARIO;
+const session = new Session(seed, bot, startScenario);
 const clock = new Clock();
 clock.speed = speed;
 

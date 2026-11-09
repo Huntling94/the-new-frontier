@@ -88,3 +88,59 @@ test('the squad crosses from the Lande to Carrefour du Colosse, walks west, and 
   await crossInto(page, 'lande', 30_000);
   expect(errors).toEqual([]);
 });
+
+/** Garganta da Cidadela (M2): its south gate, Carrefour's west door, and points either side of the sliver. */
+const GARGANTA_SOUTH_GATE = { x: 6, z: 101 };
+const COLOSSE_WEST_DOOR = { x: -112, z: 21 };
+const BESIDE_THE_SLIVER = { x: -13, z: 14 };
+const NORTH_OF_THE_SLIVER = { x: -9, z: 0 };
+
+test('the squad crosses between Garganta da Cidadela and Carrefour du Colosse both ways (M2)', async ({ page }) => {
+  test.setTimeout(120_000);
+  const errors = watchErrors(page);
+  await openGame(page, 'seed=1&speed=4&garganta=quiet');
+
+  await lookAt(page, GARGANTA_SOUTH_GATE);
+  await rightClickGround(page, [GARGANTA_SOUTH_GATE]);
+  await crossInto(page, 'carrefour-du-colosse', 30_000);
+  await expect(page.locator('#ban')).toContainText('Carrefour du Colosse');
+
+  await lookAt(page, COLOSSE_WEST_DOOR);
+  await rightClickGround(page, [COLOSSE_WEST_DOOR]);
+  await crossInto(page, 'garganta-da-cidadela', 30_000);
+  await expect(page.locator('#ban')).toContainText('Garganta da Cidadela');
+  expect(errors).toEqual([]);
+});
+
+// Waits on the brief for moving through narrow ground: a character can wedge on a rock tip and give up (M2 Outcome).
+test.fixme('the squad crosses from Carrefour du Colosse into Garganta da Cidadela, walks north through the sliver, and crosses back (M2)', async ({ page }) => {
+  test.setTimeout(150_000);
+  const errors = watchErrors(page);
+  // The test page starts in the zone with its packs out, so no fight decides the walk.
+  await openGame(page, 'seed=1&speed=4&garganta=quiet');
+
+  await lookAt(page, GARGANTA_SOUTH_GATE);
+  await rightClickGround(page, [GARGANTA_SOUTH_GATE]);
+  await crossInto(page, 'carrefour-du-colosse', 30_000);
+
+  await lookAt(page, COLOSSE_WEST_DOOR);
+  await rightClickGround(page, [COLOSSE_WEST_DOOR]);
+  await crossInto(page, 'garganta-da-cidadela', 30_000);
+  await expect(page.locator('#ban')).toContainText('Garganta da Cidadela');
+
+  for (const stop of [{ x: -17, z: 26 }, BESIDE_THE_SLIVER, NORTH_OF_THE_SLIVER]) {
+    await lookAt(page, stop);
+    const from = await page.evaluate(() => window.__tnf.events.length);
+    await rightClickGround(page, [stop]);
+    await page.waitForFunction((count) => window.__tnf.events.slice(count).some(({ order }) => order === 'move'), from);
+    await page.waitForFunction(() => window.__tnf.view.bodies.every((unit) => unit.dest === null), undefined, { timeout: 40_000 });
+    const since = await page.evaluate((count) => window.__tnf.events.slice(count).map(({ type }) => type), from);
+    expect(since).not.toContain('unit-gave-up');
+  }
+  expect(await page.evaluate(() => window.__tnf.view.bodies[0]?.z ?? 99)).toBeLessThan(8);
+
+  await lookAt(page, GARGANTA_SOUTH_GATE);
+  await rightClickGround(page, [GARGANTA_SOUTH_GATE]);
+  await crossInto(page, 'carrefour-du-colosse', 40_000);
+  expect(errors).toEqual([]);
+});

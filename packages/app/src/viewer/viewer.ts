@@ -1,6 +1,7 @@
 import {
   cardOf,
   COLOSSE_SCENARIO,
+  GARGANTA_SCENARIO,
   ISLAND_SCENARIO,
   TOWN_SCENARIO,
   REPLAYS,
@@ -92,6 +93,20 @@ const COLOSSE_WALK: readonly { readonly x: number; readonly z: number }[] = [
 const COLOSSE_LEG_TICKS = 900;
 const PLAN_TICKS = 7200;
 
+/**
+ * Garganta da Cidadela (M2): the plan, with its four packs asleep and the squad at the south
+ * gate, and a walk with the packs taken out: north to the citadel door, back by the east side
+ * of the sliver, out to the falls end, then into the pocket behind the pillars.
+ */
+const GARGANTA_PLAN_RUN = 'garganta plan';
+const GARGANTA_WALK_RUN = 'garganta walk';
+const GARGANTA_WALK: readonly { readonly x: number; readonly z: number }[] = [
+  { x: -11, z: -117 },
+  { x: -3, z: 16 },
+  { x: 69, z: -36 },
+  { x: 22, z: 18 },
+];
+
 function chosenRun(): Run {
   const name = replaySelect.value || firstName;
   if (name === COLOSSE_PLAN_RUN) {
@@ -107,6 +122,23 @@ function chosenRun(): Run {
       ticks: COLOSSE_WALK.length * COLOSSE_LEG_TICKS,
       commands: (view) => {
         const leg = COLOSSE_WALK[view.tick / COLOSSE_LEG_TICKS];
+        return leg ? [{ type: 'move', unitIds, x: leg.x, z: leg.z, attack: false }] : [];
+      },
+    };
+  }
+  if (name === GARGANTA_PLAN_RUN) {
+    return { game: createGame(Number(seedInput.value), GARGANTA_SCENARIO), ticks: PLAN_TICKS, commands: () => [] };
+  }
+  if (name === GARGANTA_WALK_RUN) {
+    const unitIds = [1, 2, 3];
+    return {
+      game: createGame(Number(seedInput.value), {
+        ...GARGANTA_SCENARIO,
+        contents: { dummy: null, packs: [], boss: null },
+      }),
+      ticks: GARGANTA_WALK.length * COLOSSE_LEG_TICKS,
+      commands: (view) => {
+        const leg = GARGANTA_WALK[view.tick / COLOSSE_LEG_TICKS];
         return leg ? [{ type: 'move', unitIds, x: leg.x, z: leg.z, attack: false }] : [];
       },
     };
@@ -141,7 +173,7 @@ function chosenRun(): Run {
   };
 }
 
-for (const name of [...Object.keys(BOTS), TOWN_RUN, COLOSSE_PLAN_RUN, COLOSSE_WALK_RUN, ...Object.keys(REPLAYS)]) {
+for (const name of [...Object.keys(BOTS), TOWN_RUN, COLOSSE_PLAN_RUN, COLOSSE_WALK_RUN, GARGANTA_PLAN_RUN, GARGANTA_WALK_RUN, ...Object.keys(REPLAYS)]) {
   replaySelect.add(new Option(name, name));
 }
 

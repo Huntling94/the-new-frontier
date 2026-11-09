@@ -1,6 +1,6 @@
 # Brief M2 — Garganta da Cidadela
 
-**Status:** agreed 9 Nov 2026
+**Status:** built 9 Nov 2026, open until the brief on moving through narrow ground lands
 **Read first:** `STATE.md`, `ARCHITECTURE.md`, `docs/DATA-MODEL.md`, briefs S3a, S3d and M1, D-021, D-022, D-023, D-030, D-038, D-050, D-052, D-057, D-058.
 **Depends on:** M1 closed. It does not depend on S3g or S3h, and touches none of their work.
 **Goal:** the maintainer leaves Carrefour du Colosse by its west gate, arrives at the south end of a narrow canyon, and fights north up the corridor to a causeway across a lake, ending at the closed door of a walled citadel.
@@ -157,4 +157,38 @@ Game units, centred on (0, 0), with x running east and z running south. One sket
 
 ## Outcome (builder fills in)
 
-Departures, bugs found, final numbers, and the closing note.
+Built on 9 Nov 2026, rules then look. The maintainer approved the plan in the viewer before any `render` work. **Two stop triggers fired, and the maintainer ruled that one new brief, on moving through narrow ground, takes both. This brief stays open until it lands.**
+
+| Done means | Result |
+|---|---|
+| 1 | Types, lint, 604 unit tests and the legacy guard pass |
+| 2 | 41 tests in `packages/core/test/garganta.test.ts` and 4 more in `packages/render/test/basin.test.ts`. The named walks pass with no `unit-gave-up`, but see the first problem below |
+| 3 | 62 runs, 192,953 per-tick digests of commands, events and all state bar the new record, identical old code against new. The 100-seed report matches M1's Outcome. The hashes move only because of the new record: spell tour 80291be7 to 2bcd8495, squad tour b432cfc3 to 6a6bfd95 |
+| 4 | South gate to citadel door: 0.49 to 0.55 ms (Node 24, 500-run means, 5 repeats), under the 2 ms limit. South gate to falls end: 0.76 to 0.91 ms. Grid build 37 ms median, 60 ms first |
+| 5 | **Partly met.** The crossing both ways passes in the browser. The walk north through the sliver gave up, and is marked `test.fixme` until the movement brief lands |
+| 6 | Every pack alive (18 monsters), camera turning through 5.4 full circles in 20 seconds, headless Chromium on an RTX 2080 Ti (Direct3D 11) at 1280 by 720, seed 1, frame limit off, three runs at each of three views, production build, game clock held: slowest 5% of frames 2.0 to 2.2 ms over the causeway zoomed out, 2.5 to 3.0 ms over the pillars at the default zoom, 3.3 to 4.3 ms over the south canyon zoomed out. Inside 16.7 ms |
+| 7 | `docs/DATA-MODEL.md` names the zone, and D-059 is in the register |
+| 8 | Tracked files, changed files and the built site hold no secrets, local paths or unintended personal information |
+| 9, 10, 11 | Waiting on the maintainer |
+
+**Problems found, for the movement brief**
+
+- **A character can wedge on a rock tip and give up.** On one south-to-north trip with slightly varied clicks, 102 of 150 runs gave up at the outline's corner at (-29, 49), on the west arm's inner bend, 10.3 wide. Across 300 varied trips over the zone, 6 gave up, at (0, 29). Moving that corner half a unit only moved the problem, to (-7, -60) in one try, so it is not this layout's fault alone.
+- **Monsters stick on canyon rock.** They chase in straight lines (S3a decision 8). In 18 of 24 chases round a bend, at least one monster stood still for about 17 to 24 of 25 seconds, 16 to 67 units from the squad, and stayed awake. An awake monster refuses equipping and holds off autosave until the squad leaves the zone.
+
+**Departures**
+
+- A pack may set its own `spread` (the maintainer, 9 Nov 2026). A 12-unit landing square does not fit the canyon's bends, so packs 1 to 3 use 4 and pack 4 keeps the usual 6. Every other pack keeps 6, and the 62 runs show nothing else moved.
+- Pack 1 stands at (-7.5, 70.5), not (-4, 74), so arriving at the south gate does not wake it (the maintainer, 9 Nov 2026).
+- The arrival beside Carrefour's west door is (-108, 14), as clear of pack 8 as that end allows. It is still inside the pack's wake range while the pack lives.
+- The appendix's falls route crosses the left pillar between (8, 38) and (21, 44). The route in `core` stays as written, and the worn way drawn on the floor bends round the pillar through (12, 46.5).
+- Measured on the shapes, the widths are 12.0, 10.9, 10.5, 10.0, 9.1, 7.2, 6.3, 5.2, 5.2, 4.2 and 4.6, in the order of the appendix's table, against its 12.2, 10.7, 10.3, 10.0, 8.8, 7.0, 6.7, 5.1, 5.0, 4.8 and 4.3. All are at least 4. The gap south of the rock island, on no route, is 3.9.
+- The grid covers x -48 to 84 and z -124 to 108, the walkable ground, not the whole 240 square.
+
+**Added beyond the brief**
+
+- Carrefour's west door now stands open, its leaves and bars gone, as a gate leads through it (decision 7).
+- Test pages can start in the zone with `?test&garganta`, and with its packs out with `?test&garganta=quiet`.
+- Pale stone faces and a low kerb run wherever the floor's edge stands in the lake, not only along the causeway, so the floor does not float.
+
+**Closing note:** to be written when the maintainer has played it and the movement brief has landed.

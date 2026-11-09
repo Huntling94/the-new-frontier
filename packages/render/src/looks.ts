@@ -230,6 +230,7 @@ const ZONES: Readonly<Record<string, ZoneLook>> = {
   'lande-cave': CAVE,
   montclaire: TOWN,
   'carrefour-du-colosse': LIMESTONE,
+  'garganta-da-cidadela': { ...LIMESTONE, name: 'Garganta da Cidadela' },
 };
 
 export function zoneLook(zoneId: string): ZoneLook {
@@ -301,6 +302,11 @@ export interface BasinLook {
   readonly waterPale: number;
   readonly waterGlint: number;
   readonly doorParts: { readonly rock: number; readonly door: number; readonly iron: number };
+  /** The pale stone of a causeway. */
+  readonly causeway: number;
+  /** A fortress's dark wall, and its darker base. */
+  readonly fortress: number;
+  readonly fortressDark: number;
 }
 
 const DRY_LIMESTONE: BasinLook = {
@@ -325,6 +331,9 @@ const DRY_LIMESTONE: BasinLook = {
   waterPale: 0xbfe2dc,
   waterGlint: 0xffffff,
   doorParts: { rock: 0xa89f8c, door: 0x5e4a38, iron: 0x3c3c42 },
+  causeway: 0xd9d1bc,
+  fortress: 0x4a4650,
+  fortressDark: 0x35323a,
 };
 
 export function basinLook(): BasinLook {

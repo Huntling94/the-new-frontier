@@ -21,6 +21,8 @@ export interface BasinPlan {
   readonly water: readonly Strip[];
   /** Where the ranges are cut low: a way in, or a way that used to be. */
   readonly passes: readonly Strip[];
+  /** Built walls standing beyond the outline, which the land keeps clear of. */
+  readonly fortress?: readonly (readonly Point[])[];
 }
 
 /** The land just under the floor, so the floor's exact edge is what the eye sees. */
@@ -41,6 +43,7 @@ const RANGE = {
 const LAKE = { depth: 4, shelf: 0.6, fall: 1.4, shore: 9 };
 const BANK = { clear: 1.5, spread: 7 };
 const PASS = { floor: 0.04, shoulder: 12 };
+const FORTRESS_CLEAR = 14;
 
 function clamp01(value: number): number {
   return Math.min(Math.max(value, 0), 1);
@@ -112,6 +115,7 @@ export function landHeight(plan: BasinPlan, x: number, z: number): number {
   if (insideRing(x, z, plan.lake)) return -Math.min(LAKE.depth, LAKE.shelf + shore * LAKE.fall);
   const reach = ringDistance(x, z, plan.outline);
   if (reach < RANGE.foot) return UNDER_FLOOR;
+  if (plan.fortress?.some((wall) => insideRing(x, z, wall))) return UNDER_FLOOR;
 
   const peak = RANGE.north + (RANGE.south - RANGE.north) * smooth((z - RANGE.northAt) / (RANGE.southAt - RANGE.northAt));
   let height = peak * (1 - Math.exp(-(reach - RANGE.foot) / RANGE.rise)) * (0.55 + ridges(x, z) * 0.75);
@@ -122,5 +126,6 @@ export function landHeight(plan: BasinPlan, x: number, z: number): number {
   for (const { points, half, shoulder } of plan.passes) {
     height *= PASS.floor + (1 - PASS.floor) * smooth((lineDistance(x, z, points) - half) / (shoulder ?? PASS.shoulder));
   }
+  for (const wall of plan.fortress ?? []) height *= smooth(ringDistance(x, z, wall) / FORTRESS_CLEAR);
   return Math.max(height, UNDER_FLOOR);
 }

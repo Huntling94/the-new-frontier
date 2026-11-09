@@ -260,6 +260,8 @@ export interface MonsterData {
 export interface PackData extends Point {
   readonly level: number;
   readonly mobs: readonly { readonly kind: MonsterKind; readonly count: number }[];
+  /** Half the side of the square its members land in, where the ground is too tight for the usual one (M2). */
+  readonly spread?: number;
 }
 
 export interface BossData extends EnemyStats {

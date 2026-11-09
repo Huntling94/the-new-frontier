@@ -13,6 +13,7 @@ import {
   ConeGeometry,
   CylinderGeometry,
   DodecahedronGeometry,
+  ExtrudeGeometry,
   Float32BufferAttribute,
   IcosahedronGeometry,
   InstancedMesh,
@@ -48,6 +49,9 @@ const WATER_LIFT = 0.05;
 const LAKE_SURFACE = -1.2;
 const PLATEAU_HEIGHT = 9.5;
 const RIDGE_HEIGHT = 4.6;
+const FORTRESS = { height: 15, base: 2, merlon: 3.2, tower: 3, towerAside: 10, towerBack: 3 };
+const QUAY = { kerb: 0.3, under: 1.6, thick: 0.5 };
+const DECK_SLAB = 4;
 const CRAG = { spacing: 0.72, swell: 1.12 };
 const LAVENDER = { step: 1.9, roadClear: 4.5 };
 const SCRUB = { step: 3.1, share: 0.42 };
@@ -175,18 +179,20 @@ export class Basin {
       ...ground.walls.filter(({ id }) => waterIds.includes(id)).map(({ points, width }) => ({ points, half: width / 2 })),
       ...waterOnward,
     ];
-    const doorPass = [door, { x: door.x - DOOR_SET_BACK, z: door.z }];
+    const doorPass = [door, this.portal()];
     const gate = zone.gates[0];
-    const eastPass = gate ? [{ x: gate.x, z: gate.z }, { x: gate.x + 110, z: gate.z - 6 }] : [];
+    const out = this.setting.gatePass ?? { x: 110, z: -6 };
+    const gatePass = gate ? [{ x: gate.x, z: gate.z }, { x: gate.x + out.x, z: gate.z + out.z }] : [];
     this.plan = {
       outline: ground.outline,
       lake,
       water,
       passes: [
         { points: doorPass, half: 6.5, shoulder: 4 },
-        { points: eastPass, half: 9 },
-        { points: [closedRoad.end, closedRoad.onward], half: 8 },
+        { points: gatePass, half: 9 },
+        { points: [closedRoad.end, closedRoad.onward], half: closedRoad.half ?? 8 },
       ].filter(({ points }) => points.length > 0),
+      ...(this.setting.fortress ? { fortress: this.setting.fortress } : {}),
     };
     this.rockMaterial = this.cutAway(keep.keep(new MeshPhongMaterial({ flatShading: true, shininess: 4 })));
 
@@ -197,6 +203,14 @@ export class Basin {
     this.buildPlants();
     this.buildDoor();
     this.buildClosedRoad();
+    this.buildFortress();
+    this.buildQuay();
+  }
+
+  /** Where the portal stands: set back from the door's point, into the range. */
+  private portal(): Point {
+    const { door, doorBack = { x: -1, z: 0 } } = this.setting;
+    return { x: door.x + doorBack.x * DOOR_SET_BACK, z: door.z + doorBack.z * DOOR_SET_BACK };
   }
 
   update(dt: number): void {
@@ -446,6 +460,25 @@ export class Basin {
     worn(this.setting.road, 7, 1);
     for (const way of this.setting.ways) worn(way, 3.6, 0.55);
 
+    // The causeway's pale deck, laid in slabs over the road.
+    if (this.setting.causeway) {
+      const { points, half } = this.setting.causeway;
+      context.lineCap = 'butt';
+      context.strokeStyle = css(look.causeway);
+      context.lineWidth = half * 2;
+      this.curve(context, points);
+      context.stroke();
+      context.strokeStyle = css(look.crack, 0.3);
+      context.lineWidth = 0.12;
+      for (const { x, z } of along(points, DECK_SLAB)) {
+        context.beginPath();
+        context.moveTo(x - half, z);
+        context.lineTo(x + half, z);
+        context.stroke();
+      }
+      context.lineCap = 'round';
+    }
+
     // Damp ground by the water, and shade at the foot of every wall.
     for (const { id, points, width } of walls) {
       const isWater = this.setting.waterIds.includes(id);
@@ -550,7 +583,7 @@ export class Basin {
       }
     });
     for (const { id, outline } of this.ground.blocked) {
-      if (id === this.setting.plateauId) this.buildPlateau(outline);
+      if (this.setting.plateauIds.includes(id)) this.buildPlateau(outline);
       else this.fillRidge(outline, crags);
     }
     this.dressPlateau(crags);
@@ -558,10 +591,13 @@ export class Basin {
     this.instance(cragGeometry(2), crags.filter((_, index) => index % 2 === 1), this.rockMaterial, true);
   }
 
-  /** Loose stones on the plateau's top, so it is not a bare lid. */
+  /** Loose stones on each plateau's top, so it is not a bare lid. */
   private dressPlateau(into: Placed[]): void {
-    const top = this.ground.blocked.find(({ id }) => id === this.setting.plateauId);
-    if (!top) return;
+    for (const top of this.ground.blocked.filter(({ id }) => this.setting.plateauIds.includes(id))) this.dressTop(top.outline, into);
+  }
+
+  private dressTop(outline: readonly Point[], into: Placed[]): void {
+    const top = { outline };
     const west = Math.min(...top.outline.map(({ x }) => x)) - 1;
     const north = Math.min(...top.outline.map(({ z }) => z)) - 1;
     const wide = Math.max(...top.outline.map(({ x }) => x)) + 1 - west;
@@ -586,13 +622,15 @@ export class Basin {
         index += 1;
         if (!insideRing(x, z, outline)) continue;
         const edge = ringDistance(x, z, outline);
+        const size = this.setting.snugRidges ? Math.min(1.3, edge + 0.3) : 1.3;
+        const jitter = this.setting.snugRidges ? 0 : 0.6;
         into.push({
-          x: x + (hash(index, 81) - 0.5) * 0.6,
+          x: x + (hash(index, 81) - 0.5) * jitter,
           y: this.level - 0.1,
-          z: z + (hash(index, 82) - 0.5) * 0.6,
-          sx: 1.3,
+          z: z + (hash(index, 82) - 0.5) * jitter,
+          sx: size,
           sy: RIDGE_HEIGHT * (0.7 + smooth(edge / 1.5) * 0.3 + hash(index, 83) * 0.4),
-          sz: 1.3,
+          sz: size,
           ry: hash(index, 84) * 6.28,
           colour: this.colourOf(this.look.rock, hash(index, 85)),
         });
@@ -744,7 +782,7 @@ export class Basin {
     this.scene.add(mesh);
   }
 
-  /** The closed dungeon door at the west end (decision 6): a barred portal in a cutting. No gate leads through it. */
+  /** A portal in a cutting at the end of the road: barred if no gate leads through it, and open if one does. */
   private buildDoor(): void {
     const { door, rock, iron } = this.look.doorParts;
     const stone = rock;
@@ -762,33 +800,41 @@ export class Basin {
       // Lintel with a keystone.
       painted(new BoxGeometry(17, 2.4, 3.4).translate(0, 13.6, 0), stone),
       painted(new BoxGeometry(3, 3.4, 3.8).translate(0, 13.8, 0.3), dark),
-      // The two leaves, barred across.
-      painted(new BoxGeometry(4.6, 11, 0.5).translate(-2.35, 5.5, 0.6), door),
-      painted(new BoxGeometry(4.6, 11, 0.5).translate(2.35, 5.5, 0.6), door),
-      ...[2.2, 5.5, 8.8].map((y) => painted(new BoxGeometry(9.5, 0.4, 0.2).translate(0, y, 0.95), iron)),
-      painted(new BoxGeometry(11.4, 0.9, 0.7).translate(0, 5.2, 1.3), iron),
-      ...[-1, 1].map((side) => painted(new BoxGeometry(1.1, 1.8, 1).translate(side * 5.2, 5.2, 1), iron)),
+      // The two leaves, barred across, unless the way is open.
+      ...(this.setting.doorOpen
+        ? []
+        : [
+            painted(new BoxGeometry(4.6, 11, 0.5).translate(-2.35, 5.5, 0.6), door),
+            painted(new BoxGeometry(4.6, 11, 0.5).translate(2.35, 5.5, 0.6), door),
+            ...[2.2, 5.5, 8.8].map((y) => painted(new BoxGeometry(9.5, 0.4, 0.2).translate(0, y, 0.95), iron)),
+            painted(new BoxGeometry(11.4, 0.9, 0.7).translate(0, 5.2, 1.3), iron),
+            ...[-1, 1].map((side) => painted(new BoxGeometry(1.1, 1.8, 1).translate(side * 5.2, 5.2, 1), iron)),
+          ]),
       // Unlit iron braziers either side, cold.
       ...[-1, 1].flatMap((side) => [
         painted(new CylinderGeometry(0.28, 0.4, 3.2, 6).translate(side * 9.4, 1.6, 2.2), iron),
         painted(new CylinderGeometry(1, 0.5, 0.7, 7).translate(side * 9.4, 3.4, 2.2), iron),
       ]),
     ];
-    this.solid(parts, { x: this.setting.door.x - DOOR_SET_BACK, z: this.setting.door.z }, Math.PI / 2);
+    this.solid(parts, this.portal(), this.setting.doorTurn ?? Math.PI / 2);
   }
 
-  /** The road south, closed for now (decision 7): a rockfall at the basin's edge, and a barrier before it. */
+  /** A road closed for now: a rockfall at the basin's edge, and a barrier before it. */
   private buildClosedRoad(): void {
-    const { x, z } = this.setting.closedRoad.end;
+    const { end, out = { x: 0, z: 1 }, width = 1 } = this.setting.closedRoad;
+    const { x, z } = end;
+    const length = Math.hypot(out.x, out.z);
+    const way = { x: out.x / length, z: out.z / length };
+    const side = { x: way.z, z: -way.x };
     const stones: Placed[] = [];
     for (let index = 0; index < 26; index += 1) {
       const across = -9 + (index % 13) * 1.5 + (hash(index, 91) - 0.5);
       const back = 2.4 + Math.floor(index / 13) * 2.6 + hash(index, 92) * 1.2;
       const big = 1.5 + hash(index, 93) * 1.5;
       stones.push({
-        x: x + across,
+        x: x + across * width * side.x + back * way.x,
         y: this.level - 0.1,
-        z: z + back,
+        z: z + across * width * side.z + back * way.z,
         sx: big,
         sy: (2.5 + hash(index, 94) * 3.5) * (1 - Math.abs(across) / 22),
         sz: big,
@@ -800,12 +846,57 @@ export class Basin {
     const { door: wood, iron } = this.look.doorParts;
     const parts: BufferGeometry[] = [];
     for (const px of [-7.5, -2.5, 2.5, 7.5]) {
-      parts.push(painted(new BoxGeometry(0.5, 3, 0.5).rotateX(0.14).translate(px, 1.5, 0), wood));
+      parts.push(painted(new BoxGeometry(0.5, 3, 0.5).rotateX(0.14).translate(px * width, 1.5, 0), wood));
     }
     for (const py of [1, 1.9, 2.6]) {
-      parts.push(painted(new BoxGeometry(17, 0.3, 0.2).rotateZ(py * 0.015).translate(0, py, 0.32), wood));
+      parts.push(painted(new BoxGeometry(17 * width, 0.3, 0.2).rotateZ(py * 0.015).translate(0, py, 0.32), wood));
     }
     parts.push(painted(new BoxGeometry(2, 1.2, 0.1).translate(0, 2.1, 0.5), iron));
-    this.solid(parts, { x: x + 0.2, z: z + 1.9 }, -0.08);
+    this.solid(parts, { x: x + 0.2 * side.x + 1.9 * way.x, z: z + 0.2 * side.z + 1.9 * way.z }, -0.08 + Math.atan2(way.x, way.z));
+  }
+
+  /** Dark fortress walls beyond the outline, battlemented, with a tower either side of the door (M2 decision 11). */
+  private buildFortress(): void {
+    const { fortress } = this.setting;
+    if (!fortress) return;
+    const { fortress: wall, fortressDark } = this.look;
+    const parts: BufferGeometry[] = [];
+    for (const ring of fortress) {
+      const shape = new Shape(ring.map(({ x, z }) => new Vector2(x, -z)));
+      parts.push(painted(new ExtrudeGeometry(shape, { depth: FORTRESS.height + FORTRESS.base, bevelEnabled: false }).rotateX(-Math.PI / 2).translate(0, -FORTRESS.base, 0), wall));
+      along([...ring, ring[0] as Point], FORTRESS.merlon).forEach(({ x, z }, index) => {
+        if (index % 2 === 0) parts.push(painted(new BoxGeometry(1.5, 1.5, 1.5).translate(x, FORTRESS.height + 0.75, z), fortressDark));
+      });
+    }
+    const portal = this.portal();
+    const { doorBack = { x: -1, z: 0 } } = this.setting;
+    for (const side of [-1, 1]) {
+      const x = portal.x + doorBack.z * side * FORTRESS.towerAside - doorBack.x * FORTRESS.towerBack;
+      const z = portal.z - doorBack.x * side * FORTRESS.towerAside - doorBack.z * FORTRESS.towerBack;
+      parts.push(painted(new BoxGeometry(6, FORTRESS.height + FORTRESS.tower, 12).translate(x, (FORTRESS.height + FORTRESS.tower) / 2, z), fortressDark));
+    }
+    this.solid(parts, { x: 0, z: 0 }, 0);
+  }
+
+  /** Pale stone down to the water wherever the floor's edge stands in the lake, with a low kerb. */
+  private buildQuay(): void {
+    if (!this.setting.causeway) return;
+    const { outline } = this.ground;
+    const parts: BufferGeometry[] = [];
+    outline.forEach((a, index) => {
+      const b = outline[(index + 1) % outline.length] as Point;
+      if (!insideRing((a.x + b.x) / 2, (a.z + b.z) / 2, this.setting.lake)) return;
+      const length = Math.hypot(b.x - a.x, b.z - a.z);
+      const tall = QUAY.kerb + QUAY.under;
+      parts.push(
+        painted(
+          new BoxGeometry(length + QUAY.thick, tall, QUAY.thick)
+            .rotateY(-Math.atan2(b.z - a.z, b.x - a.x))
+            .translate((a.x + b.x) / 2, QUAY.kerb - tall / 2, (a.z + b.z) / 2),
+          this.look.causeway,
+        ),
+      );
+    });
+    if (parts.length > 0) this.solid(parts, { x: 0, z: 0 }, 0);
   }
 }

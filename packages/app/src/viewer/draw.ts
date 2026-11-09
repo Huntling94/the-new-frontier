@@ -61,6 +61,7 @@ const ROUTE_DASH = [6, 4];
 const CORNER_RADIUS = 3;
 const GATE_COLOUR = '#8fd6c4';
 const LAKE_COLOUR = '#6fa3c4';
+const FORTRESS_COLOUR = '#2a2630';
 const ROAD_COLOUR = '#ffe2a8';
 const SIDE_ROUTE_COLOUR = '#ffe2a8aa';
 const PLAN_DASH = [10, 6];
@@ -242,6 +243,11 @@ function drawGround(context: CanvasRenderingContext2D, game: GameView, toX: (x: 
     context.fillStyle = LAKE_COLOUR;
     trace(basinSetting(game.zoneId).lake);
     context.fill();
+    context.fillStyle = FORTRESS_COLOUR;
+    for (const wall of basinSetting(game.zoneId).fortress ?? []) {
+      trace(wall);
+      context.fill();
+    }
     context.fillStyle = GROUND_COLOUR;
     trace(ground.outline);
     context.fill();
@@ -266,8 +272,8 @@ function drawGround(context: CanvasRenderingContext2D, game: GameView, toX: (x: 
   ground.walls.forEach(box);
 }
 
-/** The basin's plan: the main road, the two side routes and the closed dungeon door (M1 appendix). */
-function drawPlan(context: CanvasRenderingContext2D, { road, ways, door }: BasinSetting, toX: (x: number) => number, toY: (z: number) => number): void {
+/** The basin's plan: the main road, the side routes and the ends closed by look (M1 and M2 appendices). */
+function drawPlan(context: CanvasRenderingContext2D, { road, ways, door, doorOpen, closedRoad }: BasinSetting, toX: (x: number) => number, toY: (z: number) => number): void {
   context.save();
   context.setLineDash(PLAN_DASH);
   context.lineWidth = 2;
@@ -283,7 +289,10 @@ function drawPlan(context: CanvasRenderingContext2D, { road, ways, door }: Basin
   context.restore();
   context.fillStyle = ROAD_COLOUR;
   context.fillRect(toX(door.x) - CORNER_RADIUS * 2, toY(door.z) - CORNER_RADIUS * 3, CORNER_RADIUS * 4, CORNER_RADIUS * 6);
-  context.fillText('door (look only)', toX(door.x), toY(door.z) + CORNER_RADIUS * 6);
+  if (!doorOpen) context.fillText('door (look only)', toX(door.x), toY(door.z) + CORNER_RADIUS * 6);
+  const { end } = closedRoad;
+  context.fillRect(toX(end.x) - CORNER_RADIUS * 2, toY(end.z) - CORNER_RADIUS * 3, CORNER_RADIUS * 4, CORNER_RADIUS * 6);
+  context.fillText('closed (look only)', toX(end.x), toY(end.z) + CORNER_RADIUS * 6);
 }
 
 /** Each unit's live route: a dashed line from the unit through its corners (decision 14). */

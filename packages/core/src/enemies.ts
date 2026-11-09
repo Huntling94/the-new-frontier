@@ -142,7 +142,7 @@ export function createPack(
   packId: number,
   settle: (point: Point) => Point = (point) => point,
 ): Enemy[] {
-  const { spread } = MONSTER_RULES;
+  const spread = pack.spread ?? MONSTER_RULES.spread;
   return pack.mobs.flatMap(({ kind, count }) => {
     return Array.from({ length: count }, () => {
       const x = pack.x + randomBetween(state, -spread, spread);

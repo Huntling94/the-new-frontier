@@ -507,3 +507,9 @@ Right click, right drag, middle drag, the wheel, left click and left drag, `Spac
 **Each zone has its own brief, one at a time.** Map briefs are numbered M1, M2 and so on, in the order they are built. A zone closes only when the maintainer is happy with how it looks, and more work on a closed zone's look comes back as M1.1, M1.2. Art beyond prototype level stays with S5 (D-030).
 
 **Why:** the maintainer's direction, 9 Nov 2026. Each zone should look good, and that can be done incrementally.
+
+## D-059
+
+**A field's stretches may be narrower than the squad's triangle.** The squad need not keep its triangle, and going single file through a narrow stretch is fine. Every stretch of a route is at least 4 units wide in any direction, measured on the map's shapes. Stretches 10.6 or wider still fit the triangle. This replaces the width rule M1 applied to its own road, for Garganta da Cidadela and the zones after it. Narrow stretches are for passing through, not fighting in.
+
+**Why:** the maintainer's direction, 9 Nov 2026, from the sketch of Garganta da Cidadela (M2). A corridor is a new kind of ground for the game, and forcing the triangle's width on it would have lost the corridor.

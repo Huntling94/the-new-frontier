@@ -10,6 +10,13 @@ import {
   COLOSSE_WALLS,
 } from './colosse';
 import { PACKS } from './enemies';
+import {
+  GARGANTA_BLOCKED,
+  GARGANTA_BOUNDS,
+  GARGANTA_CAMP,
+  GARGANTA_OUTLINE,
+  GARGANTA_PACKS,
+} from './garganta';
 import { TEST_ISLAND } from './island';
 import { LANDE_LAYOUT } from './lande-layout';
 import {
@@ -167,6 +174,47 @@ export const ZONES: readonly ZoneData[] = [
         area: { x: 112, z: 13, radius: 3 },
         to: 'lande',
         arrival: { x: -62, z: 54 },
+        heading: 0,
+        requires: [],
+        cost: [],
+      },
+      {
+        // The closed west door until M2, now the road to Garganta da Cidadela's south end (M2 decision 7).
+        id: 'colosse-to-garganta',
+        area: { x: -112, z: 21, radius: 3 },
+        to: 'garganta-da-cidadela',
+        arrival: { x: GARGANTA_CAMP.x, z: GARGANTA_CAMP.z },
+        heading: GARGANTA_CAMP.heading,
+        requires: [],
+        cost: [],
+      },
+    ],
+    lots: [],
+    npcs: [],
+  },
+  {
+    id: 'garganta-da-cidadela',
+    kind: 'field',
+    place: { x: -500, z: 0 },
+    ground: {
+      shape: 'basin',
+      level: 3,
+      bounds: GARGANTA_BOUNDS,
+      outline: GARGANTA_OUTLINE,
+      blocked: GARGANTA_BLOCKED,
+      walls: [],
+    },
+    camp: GARGANTA_CAMP,
+    obstacles: [],
+    contents: { dummy: null, packs: GARGANTA_PACKS, boss: null },
+    packRespawnSeconds: PACK_RESPAWN_SECONDS,
+    gates: [
+      {
+        // Back to Carrefour's west door, on the side away from its last pack (M2 decision 7).
+        id: 'garganta-to-colosse',
+        area: { x: 6, z: 101, radius: 3 },
+        to: 'carrefour-du-colosse',
+        arrival: { x: -108, z: 14 },
         heading: 0,
         requires: [],
         cost: [],

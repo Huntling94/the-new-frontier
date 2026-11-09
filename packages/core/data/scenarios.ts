@@ -1,5 +1,6 @@
 import type { Scenario, ZoneContents } from '../src/state';
 import { COLOSSE_CAMP } from './colosse';
+import { GARGANTA_CAMP } from './garganta';
 import { MONTCLAIRE_START } from './montclaire';
 import { START_ZONE, TOWN_ZONE } from './zones';
 
@@ -27,6 +28,14 @@ export const COLOSSE_SCENARIO: Scenario = {
   zone: 'carrefour-du-colosse',
   squadStart: { x: COLOSSE_CAMP.x, z: COLOSSE_CAMP.z },
   squadHeading: COLOSSE_CAMP.heading,
+};
+
+/** The squad just inside the south gate of Garganta da Cidadela (M2), with its packs. Tests and the viewer use it. */
+export const GARGANTA_SCENARIO: Scenario = {
+  name: 'garganta',
+  zone: 'garganta-da-cidadela',
+  squadStart: { x: GARGANTA_CAMP.x, z: GARGANTA_CAMP.z },
+  squadHeading: GARGANTA_CAMP.heading,
 };
 
 /** The squad at camp, with nothing else in the zone. */

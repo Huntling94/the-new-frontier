@@ -82,7 +82,7 @@ A town is a zone whose ground is its streets (S3d). The rules know only where th
 
 A basin is a field whose ground is an outline minus blocked outlines and walls (M1). As with a town, the rules know only where the squad may walk.
 
-- **Height is look only (D-022).** `packages/render/src/basin-shape.ts` is plain arithmetic for the land's height: under the floor everywhere inside the outline, so no character can clip it, and rising outside it. `packages/render/src/basin.ts` draws the floor to the outline's exact edge, the ranges, the water, the rocks and walls, and the closed door and road, none of which the rules read. It draws any basin; what is particular to one (its lake, road, door and rock heights) is an entry in `packages/render/src/basin-setting.ts`, and a basin with no entry fails at once.
+- **Height is look only (D-022).** `packages/render/src/basin-shape.ts` is plain arithmetic for the land's height: under the floor everywhere inside the outline, so no character can clip it, and rising outside it. `packages/render/src/basin.ts` draws the floor to the outline's exact edge, the ranges, the water, the rocks and walls, and the closed door and road, and any causeway and fortress walls, none of which the rules read. It draws any basin; what is particular to one (its lake, road, door and rock heights) is an entry in `packages/render/src/basin-setting.ts`, and a basin with no entry fails at once.
 - **Tall ground cuts away.** Rock between the camera and a living character dissolves in a soft circle, in a screen-door pattern in its shader. It is the same idea as a town's fading buildings, for ground too large and too joined up to fade whole, and it reads drawn positions only.
 
 ## Saves

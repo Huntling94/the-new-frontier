@@ -170,8 +170,8 @@ describe('Carrefour du Colosse (M1)', () => {
     expect(LANDE.obstacles).toHaveLength(95);
   });
 
-  it('has no gate through the west door or the south road: nothing leaves but the east tip', () => {
-    expect(COLOSSE.gates.map(({ id }) => id)).toEqual(['colosse-to-lande']);
+  it('leaves by the east tip and, since M2, the west door, and has no gate down the south road', () => {
+    expect(COLOSSE.gates.map(({ id }) => id)).toEqual(['colosse-to-lande', 'colosse-to-garganta']);
   });
 
   it('puts the gates at the east tip, and the camp and arrival on its inside', () => {

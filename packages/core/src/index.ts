@@ -1,7 +1,8 @@
 export { RUNS } from '../data/bots';
 export { REPLAYS } from '../data/replays';
-export { COLOSSE_SCENARIO, ISLAND_SCENARIO, TOWN_SCENARIO } from '../data/scenarios';
+export { COLOSSE_SCENARIO, GARGANTA_SCENARIO, ISLAND_SCENARIO, TOWN_SCENARIO } from '../data/scenarios';
 export { COLOSSE_LAKE_ROUTE, COLOSSE_ROAD, COLOSSE_SOUTH_ROUTE } from '../data/colosse';
+export { GARGANTA_FALLS_ROUTE, GARGANTA_MAIN_ROUTE, GARGANTA_POCKET_ROUTE } from '../data/garganta';
 export { ZONES } from '../data/zones';
 export { TICK_RATE } from '../data/sim';
 export { autoCommands } from './auto';
