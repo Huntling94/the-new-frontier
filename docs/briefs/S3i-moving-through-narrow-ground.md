@@ -1,6 +1,6 @@
 # Brief S3i — Moving through narrow ground
 
-**Status:** built 9 Nov 2026, waiting on the maintainer
+**Status:** closed 9 Nov 2026
 **Read first:** `STATE.md`, `ARCHITECTURE.md`, `docs/DATA-MODEL.md`, briefs S3a and M2 (its Outcome), D-023, D-059.
 **Depends on:** M2 built. It does not depend on S3g or S3h, and touches none of their work.
 **Goal:** in Garganta da Cidadela, the squad walks every route with no character giving up, and monsters follow the squad round the canyon's bends instead of standing against the rock.
@@ -100,7 +100,9 @@ Built on 9 Nov 2026, in the two steps of decision 8. **One stop trigger fired, a
 | 5 | All 18 monsters awake and chasing, up to 11 on routes at once, the squad on the move, headless Chromium on an RTX 2080 Ti (Direct3D 11) at 1280 by 720, seed 1, frame limit off, production build, 20 seconds, three runs: slowest 5% of frames 2.8 to 3.2 ms, longest frame 15.8 ms. Inside 16.7 ms |
 | 6 | `docs/DATA-MODEL.md` is updated, and D-060 is in the register |
 | 7 | Tracked files, changed files and the built site hold no secrets, local paths or unintended personal information |
-| 8, 9, 10 | Waiting on the maintainer |
+| 8 | The maintainer approved the file list and diff before the commit |
+| 9 | CI green on `master` at `26f8b7e`, and the deploy succeeded |
+| 10 | The maintainer played it and said it was fine, 9 Nov 2026 |
 
 **The two steps**
 
@@ -137,4 +139,4 @@ Wipes, characters down, revives and refused orders stay 0. Marks and potions mov
 - **The 24 chases are rebuilt.** M2's exact set was not recorded. These are four packs, three places round a bend each, and two seeds. On the old code they show the same fault, at 21 of 24 against M2's 18.
 - `ROUTE.cornerReach` is gone, as nothing reads it now.
 
-**Closing note:** to be written when the maintainer has played it.
+**Closing note:** closed 9 Nov 2026 on the maintainer's word that it is fine. The two play questions, on anyone being left behind and on the monsters reaching the squad, were not answered separately.

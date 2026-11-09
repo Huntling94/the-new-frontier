@@ -1,6 +1,6 @@
 # Brief M2 — Garganta da Cidadela
 
-**Status:** built 9 Nov 2026, open until the brief on moving through narrow ground lands
+**Status:** closed 9 Nov 2026
 **Read first:** `STATE.md`, `ARCHITECTURE.md`, `docs/DATA-MODEL.md`, briefs S3a, S3d and M1, D-021, D-022, D-023, D-030, D-038, D-050, D-052, D-057, D-058.
 **Depends on:** M1 closed. It does not depend on S3g or S3h, and touches none of their work.
 **Goal:** the maintainer leaves Carrefour du Colosse by its west gate, arrives at the south end of a narrow canyon, and fights north up the corridor to a causeway across a lake, ending at the closed door of a walled citadel.
@@ -169,7 +169,9 @@ Built on 9 Nov 2026, rules then look. The maintainer approved the plan in the vi
 | 6 | Every pack alive (18 monsters), camera turning through 5.4 full circles in 20 seconds, headless Chromium on an RTX 2080 Ti (Direct3D 11) at 1280 by 720, seed 1, frame limit off, three runs at each of three views, production build, game clock held: slowest 5% of frames 2.0 to 2.2 ms over the causeway zoomed out, 2.5 to 3.0 ms over the pillars at the default zoom, 3.3 to 4.3 ms over the south canyon zoomed out. Inside 16.7 ms |
 | 7 | `docs/DATA-MODEL.md` names the zone, and D-059 is in the register |
 | 8 | Tracked files, changed files and the built site hold no secrets, local paths or unintended personal information |
-| 9, 10, 11 | Waiting on the maintainer |
+| 9 | The maintainer approved the file list and diff before each commit |
+| 10 | CI green on `master` |
+| 11 | The maintainer played it and said it was fine, 9 Nov 2026 |
 
 **Problems found, for the movement brief**
 
@@ -191,4 +193,4 @@ Built on 9 Nov 2026, rules then look. The maintainer approved the plan in the vi
 - Test pages can start in the zone with `?test&garganta`, and with its packs out with `?test&garganta=quiet`.
 - Pale stone faces and a low kerb run wherever the floor's edge stands in the lake, not only along the causeway, so the floor does not float.
 
-**Closing note:** to be written when the maintainer has played it and the movement brief has landed.
+**Closing note:** closed 9 Nov 2026 on the maintainer's word that it is fine, after S3i removed both problems above and put the browser walk of Done means 5 back on. The four play questions were not answered separately, and D-058 allows more work on the zone's look later as M2.1.
