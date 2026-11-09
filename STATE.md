@@ -46,6 +46,7 @@ Stage S2, Foundation, is done: the game plays from a public URL, with tests and 
 
 ## Bugs
 
+- CI failed twice at `3f5e20e`, a docs-only commit, on four browser tests that assume steady frames. Brief: S3j.
 - The browser test "the camera grips, rotates, tilts and zooms" failed once on CI at `91b5901`: -0.7984 against -0.8.
 - The unit test "core lint rules rejects three" timed out once at 5 s in a full `pnpm check` under load during S3c, then passed. It is ESLint's first, cold run.
 - The browser test "Ctrl and a left click attack-moves" failed once in a full run under load during S3a, then passed three times alone. It reads attack-move flags two ticks after the click.
