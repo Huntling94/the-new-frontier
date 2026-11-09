@@ -21,7 +21,7 @@ async function smithAt(page: Page): Promise<{ x: number; y: number }> {
 async function talkToSmith(page: Page): Promise<void> {
   const at = await smithAt(page);
   await page.mouse.move(at.x, at.y);
-  await expect.poll(() => page.evaluate(() => window.__tnf.world.npcHighlighted())).toBe(0);
+  await expect.poll(() => page.evaluate(() => window.__tnf.world.npcHighlighted()), { timeout: 0 }).toBe(0);
   await expect(page.locator('#game')).toHaveCSS('cursor', 'pointer');
   await page.mouse.down({ button: 'right' });
   await page.mouse.up({ button: 'right' });
@@ -68,7 +68,7 @@ test('hover over the smith, talk, upgrade an inventory item to +5, and reload: i
   // The smith's screen does not pause the game (S3e decision 4).
   expect(await page.evaluate(() => window.__tnf.paused)).toBe(false);
   const tick = await page.evaluate(() => window.__tnf.view.tick);
-  await expect.poll(() => page.evaluate(() => window.__tnf.view.tick)).toBeGreaterThan(tick);
+  await expect.poll(() => page.evaluate(() => window.__tnf.view.tick), { timeout: 0 }).toBeGreaterThan(tick);
 
   await askForTheRiskyStep(page);
   await page.locator('#smithAsk [data-confirm]').click();

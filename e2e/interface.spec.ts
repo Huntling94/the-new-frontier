@@ -48,10 +48,10 @@ test.describe('the interface (S2.3b)', () => {
     expect(casts).toEqual([{ unitId: 1, spell: 'cleave' }]);
     expect(await page.evaluate(() => window.__tnf.view.bodies[0]?.spellTicks.cleave)).toBeGreaterThan(0);
     // The shade over the button shows the cooldown, and shrinks as it runs.
-    await expect.poll(() => shadeOf(button)).toBeGreaterThan(0.5);
+    await expect.poll(() => shadeOf(button), { timeout: 0 }).toBeGreaterThan(0.5);
     const first = await shadeOf(button);
     await ticksPass(page, 30);
-    await expect.poll(() => shadeOf(button)).toBeLessThan(first);
+    await expect.poll(() => shadeOf(button), { timeout: 0 }).toBeLessThan(first);
   });
 
   test('N mutes and unmutes the sound, and H hides and shows help', async ({ page }) => {
@@ -102,6 +102,6 @@ test.describe('the interface (S2.3b)', () => {
         };
         return Math.hypot(middle.x - x, middle.z - z) - Math.hypot(sniper.x - x, sniper.z - z);
       });
-    await expect.poll(offCentre, { timeout: 10_000 }).toBeGreaterThan(2.5);
+    await expect.poll(offCentre, { timeout: 0 }).toBeGreaterThan(2.5);
   });
 });

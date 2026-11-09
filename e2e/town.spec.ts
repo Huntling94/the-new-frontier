@@ -15,7 +15,7 @@ test('a new game starts in Montclaire, walks out of the gate onto the Lande, and
   expect(await page.evaluate(() => window.__tnf.view.live.enemies.length)).toBe(0);
 
   // The camera starts south of the squad, behind the houses on the plaza's south side, which fade.
-  await expect.poll(() => page.evaluate(() => window.__tnf.world.fadedBuildings())).toBeGreaterThan(0);
+  await expect.poll(() => page.evaluate(() => window.__tnf.world.fadedBuildings()), { timeout: 0 }).toBeGreaterThan(0);
 
   const from = await page.evaluate(() => window.__tnf.events.length);
   await bringIntoView(page, OUT_OF_TOWN);

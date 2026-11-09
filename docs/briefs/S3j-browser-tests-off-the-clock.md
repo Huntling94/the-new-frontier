@@ -67,7 +67,7 @@ Built on 9 Nov 2026. Only `e2e/`, this Outcome and `STATE.md` changed.
 |---|---|
 | 1 | Types, lint, 637 unit tests and the legacy guard pass. Lint ran with `--ignore-pattern '.claude/**'`, as in S3i |
 | 2 | 35 browser tests pass, in 3.9 minutes, with none removed or marked `fixme`. Each test named in the brief failed before its fix under a slowed browser and passes after it (below) |
-| 3 | No timed wait in `e2e/` decides whether an input has landed. The one `waitForTimeout` left is the pause between tries in `saveNow` (`saves.spec.ts`), which waits for a fight to end |
+| 3 | No timed wait in `e2e/` decides whether an input has landed. The one `waitForTimeout` left is the pause between tries in `saveNow` (`saves.spec.ts`), which waits for a fight to end. Polls on drawn frames or game ticks carry no 5-second limit (below) |
 | 4 | `docs/DATA-MODEL.md` needs no change |
 | 5 | Pending: the maintainer's approval of the file list and diff |
 | 6 | Pending: CI on the approved push and four re-runs |
@@ -90,8 +90,9 @@ A stale click: `lookAt` moved the camera and waited 250 ms. With no frame drawn 
 
 - **Crossings and walks have no limit of their own now.** Only the test's overall time limit bounds them, as nothing about the clock should decide a crossing.
 - **Two tests beyond the brief's list.** The full delayed run found them, and leaving them would have left `master` flaky. "The camera grips" released the middle button before a frame had applied the drag, and now holds it until the camera has moved. "A ?bot=careful run" had the default 30 seconds for 900 ticks, and now has 90.
+- **A failed first push (`c169e84`).** CI failed 34 of 35 on "the camera grips": a poll for the turn of a held key used `expect.poll`'s default limit of 5 seconds, and CI drew only a couple of frames in that time. The first round had missed that limit. On the maintainer's word the polls that depend on frames or ticks now have none, and that test has 90 seconds. The count for Done means 6 restarted on the next commit.
 - Other timed waits went too: the arrow-key hold in `interface.spec.ts`, and three pauses in `smith.spec.ts`, which now wait for frames.
 
-**Bugs left in `STATE.md`:** the -0.7984 camera test, the cold lint test, the attack-move test, and the 3.8-from-the-click case in the four rotations test. These are not reproduced or fixed here.
+**Bugs left in `STATE.md`:** the cold lint test, the attack-move test, and the 3.8-from-the-click case in the four rotations test. These are not reproduced or fixed here.
 
 **Closing note:** pending Done means 6 and 7.

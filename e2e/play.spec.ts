@@ -170,6 +170,7 @@ test.describe('commanding the squad', () => {
   });
 
   test('the camera grips, rotates, tilts and zooms', async ({ page }) => {
+    test.setTimeout(90_000);
     const start = await camera(page);
     await page.mouse.move(CENTRE.x, CENTRE.y);
     await page.mouse.down({ button: 'right' });
@@ -184,7 +185,7 @@ test.describe('commanding the squad', () => {
     // Holding the key keeps turning the camera. Frames are slow and clamped on CI, so wait
     // for the turn rather than for a fixed time.
     await page.keyboard.down('Comma');
-    await expect.poll(() => page.evaluate(() => window.__tnf.camera.yaw)).toBeLessThan(orbited.yaw - 0.2);
+    await expect.poll(() => page.evaluate(() => window.__tnf.camera.yaw), { timeout: 0 }).toBeLessThan(orbited.yaw - 0.2);
     await page.keyboard.up('Comma');
     await page.keyboard.press('Backspace');
     expect(await page.evaluate(() => [window.__tnf.camera.yaw, window.__tnf.camera.tiltAdjust])).toEqual([0, 0]);

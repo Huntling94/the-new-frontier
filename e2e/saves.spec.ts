@@ -173,7 +173,7 @@ test.describe('saves (S3c)', () => {
     await bringIntoView(page, INTO_CAVE);
     await rightClickGround(page, [INTO_CAVE]);
     await crossInto(page, 'lande-cave');
-    await expect.poll(() => page.evaluate(() => window.__tnf.saves)).toBeGreaterThan(saves);
+    await expect.poll(() => page.evaluate(() => window.__tnf.saves), { timeout: 0 }).toBeGreaterThan(saves);
     await expect(page.locator('#saved')).toContainText('Saved');
     await ticksPass(page, 30);
 
@@ -222,7 +222,7 @@ test.describe('saves (S3c)', () => {
     await page.locator('#askYes').click();
     await expect(page.locator('#start')).toBeHidden();
     expect(await page.evaluate(() => window.__tnf.view.family.characters[0]?.items.head)).toBeNull();
-    await expect.poll(() => storedSave(page)).not.toBe(exported);
+    await expect.poll(() => storedSave(page), { timeout: 0 }).not.toBe(exported);
 
     // Import asks too, then plays the exported game.
     await page.reload();

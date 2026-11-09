@@ -15,7 +15,7 @@ const BEHIND_WALL = [
 async function zoomOut(page: Page): Promise<void> {
   await page.mouse.move(640, 300);
   for (let turn = 0; turn < 8; turn += 1) await page.mouse.wheel(0, 400);
-  await expect.poll(() => page.evaluate(() => Math.abs(window.__tnf.camera.zoom - window.__tnf.camera.zoomTarget))).toBeLessThan(0.01);
+  await expect.poll(() => page.evaluate(() => Math.abs(window.__tnf.camera.zoom - window.__tnf.camera.zoomTarget)), { timeout: 0 }).toBeLessThan(0.01);
 }
 
 test('the squad walks into the cave, round its wall with one right click, and back out (S3a)', async ({ page }) => {
