@@ -134,4 +134,26 @@ Every zone still gets drawn in a real browser after this: Lande and Montclaire b
 
 ## Outcome (builder fills in)
 
-Departures, bugs found, final numbers, and the closing note.
+**Built 12 Nov 2026. Not yet closed:** Done means 3 (CI timings), 9 (CI green five times) and 10 (the maintainer seeing it) wait on the push.
+
+**Step 1, measured locally** (Chromium on SwiftShader, as on CI; CI's old reporter gave no per-test times):
+
+- Before: 35 tests in 4.1 minutes. The slowest were the sliver walk (35.3 s), the town crossing (20.4 s), the M2 crossing (19.1 s) and the M1 crossing (14.8 s). CI's browser step took about 8 minutes on the last green run before this brief.
+- Drawing is most of a frame: in-page, 5.3 ms a frame drawn against 0.7 ms skipped on the Lande, and 2.3 against 0.13 in Montclaire. Over 1,800 stepped frames, drawing each took 107 s and skipping took 3.3 s, as the GPU's work queues up behind the timer. The stop-and-ask on drawing did not fire.
+
+**After:** 33 tests in 1.6 minutes locally. The M2 crossing is now the slowest, at 15.8 s, then the leak test at 6.6 s, which draws every frame on purpose. 638 unit tests pass. The CI figure comes from the `list` reporter, now on, after the push.
+
+**Done means 5:** a `?test&seed=1` page stepped with drawing and one stepped without it, after the same right click and auto-combat, ended on tick 1809 with the same hash, `7a3e5405`, over 159 hits and kills. **Done means 6:** a `stepUntil` that could never succeed failed after 300 frames, in 0.3 s, saying what it waited for. Both were run once and not kept as tests, so the suite holds 33.
+
+**Departures:**
+
+1. **The overlay is not skipped whole.** `drawOverlay` also ages floating text, which `floating()` reports. With `draw: false`, `Floats.age` ages it without drawing.
+2. **`step` takes `until`, and returns the frames it ran.** `stepUntil` checks its condition after every frame inside the page; without `until`, each check would have ended a step call and so drawn a frame. When `until` stops a step early, a frame of no time draws the picture without moving the game.
+3. **`stepFresh`** readies a stepped page after a load or reload, and `bringIntoView` now fails if the point never shows.
+4. **Two waits stay on Playwright's default 5-second poll:** the save count after a gate, and the stored save after New game. Both wait on the browser's storage answering, not on frames.
+
+**Found:**
+
+- **Settling beside stones is a rule, not a flake.** The new core test sends the squad beside each of the 36 stones and rocks within 70 of the start, at eight points each: all 288 orders settle, the squad's middle ends up to 3.47 from the point, and two orders end with a unit giving up. The page test's limit of 3 was tighter than the rules keep. The maintainer set the core test's limit at 4 (12 Nov 2026). The bug entry in `STATE.md` goes, and the finding is under Open.
+- **Attack-move's tick count is exact now.** It and the four-rotations test passed 15 times each in a row, so its bug entry goes.
+

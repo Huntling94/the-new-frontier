@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
-import { bringIntoView, framesPass, openGame, watchErrors } from './game';
+import { bringIntoView, openGame, step, stepFresh, stepUntil, ticksPass, watchErrors } from './game';
 
 const SMITH = { x: -40.6, z: -4 };
 const RICH = 100000;
@@ -21,11 +21,13 @@ async function smithAt(page: Page): Promise<{ x: number; y: number }> {
 async function talkToSmith(page: Page): Promise<void> {
   const at = await smithAt(page);
   await page.mouse.move(at.x, at.y);
-  await expect.poll(() => page.evaluate(() => window.__tnf.world.npcHighlighted()), { timeout: 0 }).toBe(0);
+  await stepUntil(page, 'the smith to light up', () => window.__tnf.world.npcHighlighted() === 0, null, 5);
   await expect(page.locator('#game')).toHaveCSS('cursor', 'pointer');
   await page.mouse.down({ button: 'right' });
   await page.mouse.up({ button: 'right' });
-  await expect(page.locator('#forge')).toBeVisible({ timeout: 30_000 });
+  // The squad walks over first if the smith is out of reach.
+  await stepUntil(page, "the smith's screen", () => document.getElementById('forge')?.checkVisibility() === true, null, 600);
+  await expect(page.locator('#forge')).toBeVisible();
 }
 
 async function capId(page: Page): Promise<number> {
@@ -58,7 +60,6 @@ async function askForTheRiskyStep(page: Page): Promise<number> {
 }
 
 test('hover over the smith, talk, upgrade an inventory item to +5, and reload: it stands', async ({ page }) => {
-  test.setTimeout(120_000);
   const errors = watchErrors(page);
   await openGame(page, HIT);
   await page.evaluate((marks) => {
@@ -67,8 +68,7 @@ test('hover over the smith, talk, upgrade an inventory item to +5, and reload: i
   await talkToSmith(page);
   // The smith's screen does not pause the game (S3e decision 4).
   expect(await page.evaluate(() => window.__tnf.paused)).toBe(false);
-  const tick = await page.evaluate(() => window.__tnf.view.tick);
-  await expect.poll(() => page.evaluate(() => window.__tnf.view.tick), { timeout: 0 }).toBeGreaterThan(tick);
+  await ticksPass(page, 1);
 
   await askForTheRiskyStep(page);
   await page.locator('#smithAsk [data-confirm]').click();
@@ -76,15 +76,14 @@ test('hover over the smith, talk, upgrade an inventory item to +5, and reload: i
   expect(await capState(page)).toEqual({ upgrade: 5, broken: false });
 
   await page.reload();
-  await page.waitForFunction(() => window.__tnf?.frames > 5);
+  await stepFresh(page);
   await page.locator('#continue').click();
-  await page.waitForFunction(() => window.__tnf.mode === 'play');
+  expect(await page.evaluate(() => window.__tnf.mode)).toBe('play');
   expect(await capState(page)).toEqual({ upgrade: 5, broken: false });
   expect(errors).toEqual([]);
 });
 
 test('on a miss the item is broken, cannot be equipped, says why, and is repaired to +4', async ({ page }) => {
-  test.setTimeout(120_000);
   const errors = watchErrors(page);
   await openGame(page, MISS);
   await page.evaluate((marks) => {
@@ -119,18 +118,18 @@ test('on a miss the item is broken, cannot be equipped, says why, and is repaire
 test('a left click on the smith does not talk, a drag from it is a box-select, and Y does nothing', async ({ page }) => {
   await openGame(page, 'town&seed=1');
   await page.keyboard.press('KeyY');
-  await framesPass(page);
+  await step(page, 1);
   await expect(page.locator('#forge')).toBeHidden();
   const at = await smithAt(page);
   await page.mouse.move(at.x, at.y);
   await page.mouse.down();
   await page.mouse.up();
-  await framesPass(page);
+  await step(page, 1);
   await expect(page.locator('#forge')).toBeHidden();
   expect(await page.evaluate(() => window.__tnf.view.bodies.every(({ dest }) => dest === null))).toBe(true);
   await page.mouse.down();
   await page.mouse.move(at.x + 60, at.y + 60);
   await page.mouse.up();
-  await framesPass(page);
+  await step(page, 1);
   await expect(page.locator('#forge')).toBeHidden();
 });

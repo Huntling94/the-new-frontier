@@ -36,6 +36,12 @@ function distance(a: Point, b: Point): number {
   return Math.hypot(a.x - b.x, a.z - b.z);
 }
 
+/**
+ * Orders beside stones (S3k note 1): within `reach` of the start, at `sides` points round each,
+ * `gap` clear of its edge. Every order settles within `ticks`, with the squad's middle under `limit` of the point.
+ */
+const SETTLING = { reach: 70, sides: 8, gap: 1.2, ticks: 900, limit: 4 };
+
 describe('starting state', () => {
   it('places the squad at the squad test positions, in ID order', () => {
     const game = createGame(1, EMPTY_SCENARIO);
@@ -391,6 +397,34 @@ describe('obstacles and other units', () => {
     Object.assign(second, { x: 1, z: 30, hold: true });
     run(game, 60);
     expect(distance(first, second)).toBeGreaterThan(MOVEMENT.unitSpacing - 0.05);
+  });
+
+  it('settle round the point after orders beside every stone and rock near the start of the Lande (S3k note 1)', () => {
+    // The real Lande, its stones included. Each order starts from where the last one left the squad.
+    const game = createGame(1, EMPTY_SCENARIO);
+    const near = obstaclesOf(game).filter(({ kind, x, z }) => kind !== 'beacon' && distance({ x, z }, { x: 0, z: 62 }) < SETTLING.reach);
+    expect(near.length).toBeGreaterThan(30);
+    let worst = 0;
+    for (const { x, z, radius } of near) {
+      for (let turn = 0; turn < SETTLING.sides; turn += 1) {
+        const angle = (turn / SETTLING.sides) * Math.PI * 2;
+        step(game, [move(ALL, x + Math.cos(angle) * (radius + SETTLING.gap), z + Math.sin(angle) * (radius + SETTLING.gap))]);
+        let ticks = 0;
+        while (game.bodies.some(({ dest }) => dest !== null) && ticks < SETTLING.ticks) {
+          advance(game);
+          ticks += 1;
+        }
+        // Everyone stops: arrived, or given up when blocked.
+        expect(ticks).toBeLessThan(SETTLING.ticks);
+        const centre = {
+          x: game.bodies.reduce((sum, body) => sum + body.x, 0) / game.bodies.length,
+          z: game.bodies.reduce((sum, body) => sum + body.z, 0) / game.bodies.length,
+        };
+        worst = Math.max(worst, distance(centre, game.anchor));
+      }
+    }
+    // Beside a stone the bodies push apart or give up, so the squad's middle can sit well off the point.
+    expect(worst).toBeLessThan(SETTLING.limit);
   });
 });
 

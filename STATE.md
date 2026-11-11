@@ -10,7 +10,7 @@ Stage S2, Foundation, is done: the game plays from a public URL, with tests and 
 
 1. S3g, drops and the shop, and S3h, farming while away, each need a brief (D-053 to D-055). Then the Enhancer, a first quest giver, and the bank once items drop (D-044 to D-048).
 2. The two S3c play questions, on what Continue brought back and whether saving was clear, were not answered separately.
-3. S3k, browser tests step by step, is agreed and not built.
+3. S3k, browser tests step by step, is built and not closed: it waits on CI and the maintainer seeing the deployed page.
 
 ## Open
 
@@ -25,7 +25,8 @@ Stage S2, Foundation, is done: the game plays from a public URL, with tests and 
 - One save per browser, and no cloud saves yet (D-033, proposed).
 - Loading builds the zone's packs, which draws from the generator, so rolls after a reload differ from a run with no reload. An anvil result is saved at once, so it cannot be undone by reloading (S3c).
 - A save keeps the squad's position but not dropped coins or potions on the ground, or a half-cleared pack, which comes back whole (S3c).
-- Browser tests turn saving on with `?save`, beside `?test` (S3c).
+- Browser tests turn saving on with `?save`, beside `?test` (S3c). `?test&step` stops the page's own frames so a test steps it; only the smoke test and the start-screen test run on real frames (S3k).
+- Beside a stone, the squad's middle can settle up to about 3.5 from the point clicked, and a unit can give up. The core test allows 4 (maintainer, 12 Nov 2026). Tighter settling would need a brief (S3k).
 - Pack respawn is 180 seconds, a placeholder until balance (S3a). Monster numbers are starting points. A monster's attack speed is its wait after a strike lands, with the wind-up on top (S3f).
 - Monsters chase until one side is dead or the squad leaves. A limit on the chase is a balance question (S3i).
 - Auto-combat stays inside the zone that runs (S3e decision 14).
@@ -48,5 +49,3 @@ Stage S2, Foundation, is done: the game plays from a public URL, with tests and 
 ## Bugs
 
 - The unit test "core lint rules rejects three" timed out once at 5 s in a full `pnpm check` under load during S3c, then passed. It is ESLint's first, cold run.
-- The browser test "Ctrl and a left click attack-moves" failed once in a full run under load during S3a, then passed three times alone. It reads attack-move flags two ticks after the click.
-- The browser test "A right click moves the squad … at four rotations" failed once locally in 31 runs, and once more in a full run in S3c (3.1 against 3), passing three times alone: the squad settled 3.8 from the click, against a limit of 3, likely blocked by something at a point it does not usually reach. S3j took the clock out of its key holds, and did not test this case.

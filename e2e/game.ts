@@ -4,6 +4,12 @@ import { expect, type Page } from '@playwright/test';
 export interface Hook {
   frames: number;
   seed: number;
+  /** The page waits for `step` instead of running its own frames (S3k). */
+  stepping: boolean;
+  /** Runs frames now, stopping early once `until` holds, and returns the frames run (S3k decision 1). */
+  step(frames: number, options?: { draw?: boolean; until?: () => boolean }): number;
+  /** A fingerprint of the whole game state (S3k). */
+  hash(): string;
   /** Saving is on for this page (S3c). */
   saving: boolean;
   saves: number;
@@ -72,38 +78,92 @@ export function watchErrors(page: Page): string[] {
   return errors;
 }
 
-/** Opens the page on the start screen, without starting a run. */
-export async function openStart(page: Page, query = 'seed=1'): Promise<void> {
-  await page.goto(`./?test&${query}`);
+/** Frames a stepped wait may run before it fails, when the test does not say: a minute of game time. */
+export const STEP_LIMIT = 1800;
+/** Frames per call into the page, so a long wait still draws now and then. */
+const BATCH = 60;
+
+/**
+ * Runs frames in a stepped page (S3k decision 1). Frames before the last skip the picture
+ * unless `draw` is set; the last always draws, so the page shows what the camera sees.
+ */
+export async function step(page: Page, frames: number, draw = false): Promise<void> {
+  await page.evaluate(([count, drawEach]) => window.__tnf.step(count, { draw: drawEach }), [frames, draw] as const);
+}
+
+/**
+ * Steps until `predicate` holds in the page, checked after every frame, and fails once
+ * `maxFrames` have run without it (S3k decision 5). `what` names the wait in the failure.
+ * The predicate runs in the page, so it may read only its argument and the page.
+ */
+export async function stepUntil<Arg>(
+  page: Page,
+  what: string,
+  predicate: (arg: Arg) => boolean,
+  arg: Arg,
+  maxFrames = STEP_LIMIT,
+  draw = false,
+): Promise<number> {
+  const code = predicate.toString();
+  let ran = 0;
+  for (;;) {
+    const { done, frames } = await page.evaluate(
+      ({ source, value, most, drawEach }) => {
+        // The predicate arrives as source, since a function cannot cross into the page.
+        const check = new Function(`return (${source});`)() as (input: unknown) => boolean;
+        const count = window.__tnf.step(most, { draw: drawEach, until: () => check(value) });
+        return { done: check(value), frames: count };
+      },
+      { source: code, value: arg as unknown, most: Math.min(BATCH, maxFrames - ran), drawEach: draw },
+    );
+    ran += frames;
+    if (done) return ran;
+    if (ran >= maxFrames) throw new Error(`Stepped ${maxFrames} frames and still waiting for ${what}.`);
+  }
+}
+
+/** Opens the page on the start screen, without starting a run. A stepped page unless `real` (S3k decision 8). */
+export async function openStart(page: Page, query = 'seed=1', real = false): Promise<void> {
+  await page.goto(`./?test${real ? '' : '&step'}&${query}`);
   await expect(page.locator('#fatal')).toBeHidden();
-  await page.waitForFunction(() => window.__tnf?.frames > 5);
+  if (real) {
+    await page.waitForFunction(() => window.__tnf?.frames > 5);
+    return;
+  }
+  await stepFresh(page);
+}
+
+/** Readies a stepped page that has just loaded or reloaded: no frame runs until a step. */
+export async function stepFresh(page: Page): Promise<void> {
+  // The hook is there as soon as the page's script has run.
+  await page.waitForFunction(() => window.__tnf !== undefined);
+  await step(page, 6);
 }
 
 /** Opens the page and presses Start, as a player would. */
-export async function openGame(page: Page, query = 'seed=1'): Promise<void> {
-  await openStart(page, query);
+export async function openGame(page: Page, query = 'seed=1', real = false): Promise<void> {
+  await openStart(page, query, real);
   await page.locator('#go').click();
   await expect(page.locator('#start')).toBeHidden();
-  await page.waitForFunction(() => window.__tnf.mode === 'play' && window.__tnf.view.tick > 2);
+  if (real) {
+    await page.waitForFunction(() => window.__tnf.mode === 'play' && window.__tnf.view.tick > 2);
+    return;
+  }
+  await stepUntil(page, 'the run to start', () => window.__tnf.mode === 'play' && window.__tnf.view.tick > 2, null, 30);
 }
 
+/** Steps until the game clock has run `ticks` more ticks. */
 export async function ticksPass(page: Page, ticks: number): Promise<void> {
   const from = await page.evaluate(() => window.__tnf.view.tick);
-  await page.waitForFunction((until) => window.__tnf.view.tick >= until, from + ticks);
-}
-
-/** Waits for whole frames to be drawn, so what the page reports is what the camera now shows. */
-export async function framesPass(page: Page, frames = 2): Promise<void> {
-  const from = await page.evaluate(() => window.__tnf.frames);
-  await page.waitForFunction((until) => window.__tnf.frames >= until, from + frames);
+  await stepUntil(page, `${ticks} ticks to pass`, (until) => window.__tnf.view.tick >= until, from + ticks, ticks * 4 + 30);
 }
 
 /** Holds an arrow key until the camera has panned and let go of the squad, so it holds still. */
 export async function stillCamera(page: Page): Promise<void> {
   await page.keyboard.down('ArrowUp');
-  await page.waitForFunction(() => !window.__tnf.camera.follow);
+  await stepUntil(page, 'the camera to stop following', () => !window.__tnf.camera.follow, null, 30);
   await page.keyboard.up('ArrowUp');
-  await framesPass(page);
+  await step(page, 1);
 }
 
 /** Where a ground point shows on the page, if it shows on the game itself and not under the HUD. */
@@ -129,9 +189,12 @@ export async function rightClickGround(page: Page, points: readonly { x: number;
   throw new Error('None of the points is on screen.');
 }
 
+/** Frames one arrow-key hold may last in `bringIntoView`, and how many holds it may try. */
+const PAN = { frames: 40, holds: 20 };
+
 /** Pans with the arrow keys until a ground point shows, as a player would look for it. */
 export async function bringIntoView(page: Page, point: { x: number; z: number }): Promise<void> {
-  for (let step = 0; step < 20 && !(await onScreen(page, point)); step += 1) {
+  for (let hold = 0; hold < PAN.holds && !(await onScreen(page, point)); hold += 1) {
     const at = await page.evaluate(({ x, z }) => window.__tnf.world.screenOf({ x, y: window.__tnf.world.heightAt(x, z), z }), point);
     const keys = [
       ...(at.x < 320 ? ['ArrowLeft'] : at.x > 960 ? ['ArrowRight'] : []),
@@ -140,15 +203,33 @@ export async function bringIntoView(page: Page, point: { x: number; z: number })
     if (keys.length === 0) return;
     for (const key of keys) await page.keyboard.down(key);
     // Held until the point shows, or for a stretch of frames if the zone's edge stops the camera.
-    const until = (await page.evaluate(() => window.__tnf.frames)) + 40;
-    while ((await page.evaluate(() => window.__tnf.frames)) < until && !(await onScreen(page, point)));
+    // The pan moves the camera without drawing; whether the point shows is worked out from it.
+    await page.evaluate(
+      ([{ x, z }, most]) =>
+        window.__tnf.step(most, {
+          until: () => {
+            const { world } = window.__tnf;
+            const seen = world.screenOf({ x, y: world.heightAt(x, z), z });
+            const under = document.elementFromPoint(seen.x, seen.y);
+            return seen.visible && seen.x > 0 && seen.y > 0 && seen.x < innerWidth && seen.y < innerHeight && (under?.id === 'game' || under?.id === 'overlay');
+          },
+        }),
+      [point, PAN.frames] as const,
+    );
     for (const key of keys) await page.keyboard.up(key);
-    await framesPass(page);
+    await step(page, 1);
   }
+  if (!(await onScreen(page, point))) throw new Error(`Panning never brought (${point.x}, ${point.z}) into view.`);
 }
 
-/** Waits for the core to report the crossing into a zone, then for the fade to finish. Only the test's own time limit bounds it. */
-export async function crossInto(page: Page, zoneId: string): Promise<void> {
-  await page.waitForFunction((id) => window.__tnf.events.filter(({ type }) => type === 'zone-changed').at(-1)?.to === id, zoneId);
-  await page.waitForFunction(() => !window.__tnf.fading);
+/** Steps until the core reports the crossing into a zone, then until the fade has finished. */
+export async function crossInto(page: Page, zoneId: string, maxFrames = STEP_LIMIT): Promise<void> {
+  await stepUntil(
+    page,
+    `the crossing into ${zoneId}`,
+    (id) => window.__tnf.events.filter(({ type }) => type === 'zone-changed').at(-1)?.to === id,
+    zoneId,
+    maxFrames,
+  );
+  await stepUntil(page, 'the fade to end', () => !window.__tnf.fading, null, 60);
 }

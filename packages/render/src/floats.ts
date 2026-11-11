@@ -64,6 +64,16 @@ export class Floats {
     }
   }
 
+  /** Ages the text by real seconds without drawing it, as `draw` does (S3k decision 4). */
+  age(dt: number): void {
+    for (let index = this.list.length - 1; index >= 0; index -= 1) {
+      const float = this.list[index];
+      if (!float) continue;
+      float.age += dt;
+      if (float.age > float.life) this.list.splice(index, 1);
+    }
+  }
+
   /** Ages the text by real seconds and draws it, rising and fading. */
   draw(context: CanvasRenderingContext2D, dt: number, project: (x: number, y: number, z: number) => { x: number; y: number; visible: boolean }): void {
     context.textAlign = 'center';

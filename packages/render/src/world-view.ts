@@ -41,6 +41,11 @@ export interface ScreenState extends Marks {
   readonly box: Box | null;
   /** The NPC the pointer is over, by its place in the zone's list (S3e decision 2). */
   readonly npcHover: number | null;
+  /**
+   * Draw the picture and the overlay. Only a stepped test page sets this false (S3k decision 4);
+   * everything else in the frame still runs, and floating text still ages.
+   */
+  readonly draw?: boolean;
 }
 
 export interface ScreenPoint {
@@ -228,6 +233,10 @@ export function createWorldView(canvas: HTMLCanvasElement, overlay: HTMLCanvasEl
       // Nor an NPC, which must read as something to click (S3e decision 2).
       const seen = [...loaded.entities.drawnUnits().filter(({ alive }) => alive), ...loaded.npcs.positions()].map(({ x, y, z }) => ({ x, y: y + PICK_HEIGHT, z }));
       loaded.scene.occlude(camera.position, seen, dt);
+      if (screen.draw === false) {
+        floats.age(dt);
+        return;
+      }
       renderer.render(loaded.scene.scene, camera);
       drawOverlay(current, screen, dt);
     },

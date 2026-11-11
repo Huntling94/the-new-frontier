@@ -1,12 +1,10 @@
 import { expect, test } from '@playwright/test';
-import { bringIntoView, crossInto, openGame, rightClickGround, watchErrors } from './game';
+import { bringIntoView, crossInto, openGame, rightClickGround, stepUntil, watchErrors } from './game';
 
-/** Montclaire's gate out, and the Lande's gate back in (S3d decision 5). */
+/** Montclaire's gate out (S3d decision 5). */
 const OUT_OF_TOWN = { x: -17, z: 55 };
-const INTO_TOWN = { x: 16, z: 72 };
 
-test('a new game starts in Montclaire, walks out of the gate onto the Lande, and back in (S3d)', async ({ page }) => {
-  test.setTimeout(120_000);
+test('a new game starts in Montclaire, and walks out of the gate onto the Lande (S3d)', async ({ page }) => {
   const errors = watchErrors(page);
   await openGame(page, 'town&seed=1&speed=4');
   expect(await page.evaluate(() => window.__tnf.view.zoneId)).toBe('montclaire');
@@ -15,27 +13,24 @@ test('a new game starts in Montclaire, walks out of the gate onto the Lande, and
   expect(await page.evaluate(() => window.__tnf.view.live.enemies.length)).toBe(0);
 
   // The camera starts south of the squad, behind the houses on the plaza's south side, which fade.
-  await expect.poll(() => page.evaluate(() => window.__tnf.world.fadedBuildings()), { timeout: 0 }).toBeGreaterThan(0);
+  await stepUntil(page, 'a building to fade', () => window.__tnf.world.fadedBuildings() > 0, null, 60);
 
   const from = await page.evaluate(() => window.__tnf.events.length);
   await bringIntoView(page, OUT_OF_TOWN);
   await rightClickGround(page, [OUT_OF_TOWN]);
   // So a failure says whether the click missed or the walk was slow.
-  await expect
-    .poll(() => page.evaluate((count) => window.__tnf.events.slice(count).some(({ type, order }) => type === 'order-accepted' && order === 'move'), from), {
-      message: 'The right click on the gate gave no move order.',
-    })
-    .toBe(true);
-  // The plaza to the gate is the longest walk in the tests, and CI renders in software.
+  await stepUntil(
+    page,
+    'a move order from the right click on the gate',
+    (count) => window.__tnf.events.slice(count).some(({ type, order }) => type === 'order-accepted' && order === 'move'),
+    from,
+    10,
+  );
+  // The walk back in is the core's to prove (`town.test`), so one crossing is enough here (S3k).
   await crossInto(page, 'lande');
   await expect(page.locator('#ban')).toContainText('Lande de Montclaire');
   const walked = await page.evaluate((count) => window.__tnf.events.slice(count).map(({ type }) => type), from);
   expect(walked).not.toContain('unit-gave-up');
-
-  await bringIntoView(page, INTO_TOWN);
-  await rightClickGround(page, [INTO_TOWN]);
-  await crossInto(page, 'montclaire');
-  await expect(page.locator('#ban')).toContainText('Montclaire');
   expect(errors).toEqual([]);
 });
 

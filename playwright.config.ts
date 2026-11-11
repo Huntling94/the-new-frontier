@@ -7,6 +7,8 @@ const PATH = '/the-new-frontier/';
 export default defineConfig({
   testDir: 'e2e',
   forbidOnly: true,
+  // Each test's time in the log, so CI shows where the time goes (S3k).
+  reporter: 'list',
   // WebGL runs in software, so tests sharing the machine slow each other to timeouts.
   workers: 1,
   use: {

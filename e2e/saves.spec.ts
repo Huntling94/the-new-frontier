@@ -1,6 +1,6 @@
 import { readFile } from 'node:fs/promises';
 import { expect, test, type Page } from '@playwright/test';
-import { bringIntoView, crossInto, openGame, openStart, rightClickGround, ticksPass, watchErrors } from './game';
+import { bringIntoView, crossInto, openGame, openStart, rightClickGround, step, stepFresh, ticksPass, watchErrors } from './game';
 
 /** Saving is off on test pages unless the address asks for it (S3c decision 9). */
 const SAVING = 'seed=1&save';
@@ -51,7 +51,7 @@ async function saveNow(page: Page): Promise<Snapshot> {
       return (await window.__tnf.saveNow()) ? copy : null;
     });
     if (saved) return saved;
-    await page.waitForTimeout(200);
+    await step(page, 30);
   }
   throw new Error('A fight never ended, so the game never saved.');
 }
@@ -85,7 +85,7 @@ const storedSave = (page: Page): Promise<string | null> => page.evaluate((key) =
  */
 async function reload(page: Page): Promise<Snapshot> {
   await page.reload();
-  await page.waitForFunction(() => window.__tnf?.frames > 5);
+  await stepFresh(page);
   return fromText(await storedSave(page));
 }
 
@@ -97,7 +97,7 @@ async function reloadAndContinue(page: Page): Promise<Snapshot> {
   await expect(page.locator('#go')).toHaveText('New game');
   await page.locator('#continue').click();
   await expect(page.locator('#start')).toBeHidden();
-  await page.waitForFunction(() => window.__tnf.mode === 'play');
+  expect(await page.evaluate(() => window.__tnf.mode)).toBe('play');
   return stored;
 }
 
@@ -150,36 +150,24 @@ test.describe('saves (S3c)', () => {
     expect(errors).toEqual([]);
   });
 
-  test('play, walk into the cave, reload and Continue: the same levels, XP, marks, gear, zone, positions, health and mana', async ({ page }) => {
-    test.setTimeout(150_000);
+  // XP and marks surviving a save is the core's to prove (`save.test`), so there is no fight here (S3k note 3).
+  test('play, walk into the cave, reload and Continue: the same levels, marks, gear, zone, positions, health and mana', async ({ page }) => {
     await openGame(page, `${SAVING}&speed=4`);
     expect(await page.evaluate(() => window.__tnf.saving)).toBe(true);
     await equipCap(page);
-
-    // Auto-combat fights the nearest camp until it is cleared: XP, marks and some damage.
-    await page.keyboard.press('Space');
-    await page.waitForFunction(
-      () => {
-        const { view, events } = window.__tnf;
-        return events.some(({ type }) => type === 'enemy-down') && !view.live.enemies.some((enemy) => enemy.alive && enemy.awake);
-      },
-      undefined,
-      { timeout: 90_000, polling: 'raf' },
-    );
-    await page.keyboard.press('Space');
 
     // Into the cave: arriving through a gate saves at once.
     const saves = await page.evaluate(() => window.__tnf.saves);
     await bringIntoView(page, INTO_CAVE);
     await rightClickGround(page, [INTO_CAVE]);
     await crossInto(page, 'lande-cave');
-    await expect.poll(() => page.evaluate(() => window.__tnf.saves), { timeout: 0 }).toBeGreaterThan(saves);
+    // The save itself finishes outside the frames, as the browser's storage answers.
+    await expect.poll(() => page.evaluate(() => window.__tnf.saves)).toBeGreaterThan(saves);
     await expect(page.locator('#saved')).toContainText('Saved');
     await ticksPass(page, 30);
 
     const saved = await saveNow(page);
     expect(saved.zoneId).toBe('lande-cave');
-    expect((saved.characters as { xp: number }[]).some(({ xp }) => xp > 0)).toBe(true);
     const stored = await reloadAndContinue(page);
     expect(lasting(stored)).toEqual(lasting(saved));
     await expectSameGame(page, stored);
@@ -222,11 +210,12 @@ test.describe('saves (S3c)', () => {
     await page.locator('#askYes').click();
     await expect(page.locator('#start')).toBeHidden();
     expect(await page.evaluate(() => window.__tnf.view.family.characters[0]?.items.head)).toBeNull();
-    await expect.poll(() => storedSave(page), { timeout: 0 }).not.toBe(exported);
+    // The new game's save finishes outside the frames, as the browser's storage answers.
+    await expect.poll(() => storedSave(page)).not.toBe(exported);
 
     // Import asks too, then plays the exported game.
     await page.reload();
-    await page.waitForFunction(() => window.__tnf?.frames > 5);
+    await stepFresh(page);
     await page.locator('#importFile').setInputFiles(file);
     await expect(page.locator('#startAsk')).toBeVisible();
     await expect(page.locator('#askText')).toContainText('Replace your saved game with this one?');
@@ -261,7 +250,6 @@ test.describe('saves (S3c)', () => {
   });
 
   test('a ?bot=careful run leaves an existing save untouched', async ({ page }) => {
-    test.setTimeout(90_000);
     await openGame(page, SAVING);
     await saveNow(page);
 

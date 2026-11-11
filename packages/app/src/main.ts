@@ -6,6 +6,7 @@ import '@fontsource/vt323/latin-400.css';
 import {
   currentZone,
   GARGANTA_SCENARIO,
+  hashState,
   ISLAND_SCENARIO,
   TOWN_SCENARIO,
   whyNotTalk,
@@ -13,6 +14,7 @@ import {
   type GameEvent,
   type GameState,
   type LoadResult,
+  TICK_RATE,
 } from '@new-frontier/core';
 import { createWorldView, zoneLook, type CameraPose, type WorldView } from '@new-frontier/render';
 import {
@@ -75,6 +77,15 @@ const bot: BotKind | null = botParam === 'careful' || botParam === 'sloppy' ? bo
 const stillMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 /** How long the HUD's "Saved" line stays lit after a save. */
 const SAVED_GLOW_MS = 1500;
+/**
+ * A test page with `?step` runs no frames of its own: the test steps it, each step one
+ * tick's worth of time (S3k decisions 1 and 3). `?step` does nothing without `?test`.
+ */
+const stepping = params.has('test') && params.has('step');
+const STEP_SECONDS = 1 / TICK_RATE;
+/** Milliseconds of stepped time, read in place of `performance.now()` when stepping (S3k decision 7). */
+let steppedNow = 0;
+const pageNow = (): number => (stepping ? steppedNow : performance.now());
 
 /** The browser store, unless this is a test or bot run (S3c decision 9) or the browser blocks storage. */
 function openStore(): BrowserSaveStore | null {
@@ -151,7 +162,7 @@ function start(world: WorldView): void {
       }
       // A save follows every result, so a reload never undoes one (D-024, S3e decision 10).
       if (events.some(({ type }) => type === 'upgraded' || type === 'item-broken' || type === 'repaired')) {
-        void saver?.saveNow(session.view, performance.now(), true);
+        void saver?.saveNow(session.view, pageNow(), true);
       }
       return events;
     },
@@ -261,7 +272,7 @@ function start(world: WorldView): void {
       )
     : null;
   document.addEventListener('visibilitychange', () => {
-    if (document.hidden && mode !== 'start') void saver?.saveNow(session.view, performance.now());
+    if (document.hidden && mode !== 'start') void saver?.saveNow(session.view, pageNow());
   });
 
   const hook = params.has('test')
@@ -303,7 +314,7 @@ function start(world: WorldView): void {
       void (async () => {
         if (storedText !== null && !(await startScreen.ask('Start a new game? It replaces your saved game.', 'Replace it'))) return;
         begin(null, inTown ? `Head out to ${zoneLook('lande').name}` : 'Clear the camps, then visit the smith');
-        void saver?.saveNow(session.view, performance.now(), true);
+        void saver?.saveNow(session.view, pageNow(), true);
       })();
     },
     onExport: () => {
@@ -397,11 +408,11 @@ function start(world: WorldView): void {
     };
   };
 
-  let last = performance.now();
-  const frame = (now: number): void => {
-    requestAnimationFrame(frame);
-    const real = Math.max(0, (now - last) / 1000);
-    last = now;
+  /**
+   * One frame's work, the same whether the browser or a test step calls it (S3k decision 2).
+   * `real` is seconds since the last frame, and `draw` false skips only the picture.
+   */
+  const runFrame = (now: number, real: number, draw: boolean): void => {
     const dt = Math.min(real, FEEL.longestFrame);
     shown += dt;
     if (fade) fade.seconds += dt;
@@ -452,7 +463,7 @@ function start(world: WorldView): void {
     if (running) session.frame(dt);
     const npcHover = input.hoveredNpc();
     canvas.style.cursor = npcHover === null ? '' : 'pointer';
-    world.frame(session.view, clock.alpha, running ? dt : 0, { selected: session.selected, move: session.move, box: input.box, npcHover });
+    world.frame(session.view, clock.alpha, running ? dt : 0, { selected: session.selected, move: session.move, box: input.box, npcHover, draw });
     hud.ageBanner(dt);
     hudIn -= dt;
     if (mode !== 'start' && hudIn <= 0) {
@@ -467,14 +478,55 @@ function start(world: WorldView): void {
     }
     if (hook) hook.frames += 1;
   };
-  requestAnimationFrame(frame);
+
+  if (hook && stepping) {
+    hook.step = (frames, options) => {
+      const draw = options?.draw ?? true;
+      const until = options?.until;
+      let ran = 0;
+      let drawn = false;
+      while (ran < frames && !until?.()) {
+        ran += 1;
+        steppedNow += STEP_SECONDS * 1000;
+        drawn = draw || ran === frames;
+        runFrame(steppedNow, STEP_SECONDS, drawn);
+      }
+      // The last frame of a step always draws, so the page shows what the camera sees. When
+      // `until` stopped it early, a frame of no time draws the picture without moving the game.
+      if (!drawn) runFrame(steppedNow, 0, true);
+      return ran;
+    };
+  } else {
+    let last = performance.now();
+    const frame = (now: number): void => {
+      requestAnimationFrame(frame);
+      const real = Math.max(0, (now - last) / 1000);
+      last = now;
+      runFrame(now, real, true);
+    };
+    requestAnimationFrame(frame);
+  }
 }
 
-/** A read-only window onto the game, only when `?test` is in the address. */
-function exposeHook(world: WorldView, camera: Camera, recent: readonly GameEvent[], page: () => PageState): { frames: number } {
+/** Runs frames on demand in a stepped test page, stopping early once `until` holds. Returns the frames run. */
+type Step = (frames: number, options?: { readonly draw?: boolean; readonly until?: () => boolean }) => number;
+
+/**
+ * A window onto the game, only when `?test` is in the address. It reads, except that a
+ * stepped page's `step` drives the game (S3k decision 10).
+ */
+function exposeHook(world: WorldView, camera: Camera, recent: readonly GameEvent[], page: () => PageState): { frames: number; step: Step } {
   const hook = {
     frames: 0,
     seed,
+    /** The page waits for `step` instead of running its own frames. */
+    stepping,
+    /** Runs frames now. Set only on a stepped page; anywhere else it refuses. */
+    step: ((): number => {
+      throw new Error('This page runs its own frames. Add ?step to the address to step it.');
+    }) as Step,
+    /** A fingerprint of the whole game state, to show stepping plays the same game (S3k). */
+    hash: () => hashState(session.view),
     /** Saving is on for this page (S3c decision 9). */
     get saving() {
       return page().saver !== null;
@@ -483,7 +535,7 @@ function exposeHook(world: WorldView, camera: Camera, recent: readonly GameEvent
       return page().saver?.count ?? 0;
     },
     /** Saves now if no fight is on, as the automatic save does. Resolves to whether it saved. */
-    saveNow: () => page().saver?.saveNow(session.view, performance.now()) ?? Promise.resolve(false),
+    saveNow: () => page().saver?.saveNow(session.view, pageNow()) ?? Promise.resolve(false),
     get view() {
       return session.view;
     },

@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
-import { framesPass, openGame, stillCamera, ticksPass, watchErrors } from './game';
+import { openGame, step, stepUntil, stillCamera, ticksPass, watchErrors } from './game';
 
 const CENTRE = { x: 640, y: 360 };
 
@@ -23,10 +23,6 @@ async function camera(page: Page): Promise<Window['__tnf']['camera']> {
   return page.evaluate(() => ({ ...window.__tnf.camera }));
 }
 
-async function allArrived(page: Page): Promise<void> {
-  await page.waitForFunction(() => window.__tnf.view.bodies.every((unit) => unit.dest === null));
-}
-
 test.describe('commanding the squad', () => {
   let errors: string[] = [];
   test.beforeEach(async ({ page }) => {
@@ -38,7 +34,6 @@ test.describe('commanding the squad', () => {
   });
 
   test('a right click moves the squad to the point under the cursor, at four rotations', async ({ page }) => {
-    test.setTimeout(90_000);
     await stillCamera(page);
     const yaws: number[] = [];
     const offsets = [
@@ -60,17 +55,7 @@ test.describe('commanding the squad', () => {
       // nearest walkable cell (S3a decision 7), which is never more than a stone's margin away.
       const moved = Math.hypot(anchor.x - (under?.x ?? NaN), anchor.z - (under?.z ?? NaN));
       expect(moved).toBeLessThan(3.5);
-
-      // The anchor check above is the precise one. The bodies only settle round the
-      // point: the slots sit 0.93 behind it, each body stops within 0.9 of its slot,
-      // and bodies push apart or give up when blocked.
-      await allArrived(page);
-      const units = await unitsAt(page);
-      const centre = {
-        x: units.reduce((sum, unit) => sum + unit.x, 0) / units.length,
-        z: units.reduce((sum, unit) => sum + unit.z, 0) / units.length,
-      };
-      expect(Math.hypot(centre.x - anchor.x, centre.z - anchor.z)).toBeLessThan(3);
+      // How the bodies settle round the point is a rule, proved in `movement.test` (S3k note 1).
 
       // An order turns follow back on, so the camera goes with the squad (D-034).
       expect((await camera(page)).follow).toBe(true);
@@ -78,9 +63,9 @@ test.describe('commanding the squad', () => {
 
       // Turn for the next round, with a rotation key.
       await page.keyboard.down('Period');
-      await page.waitForFunction((from) => Math.abs(window.__tnf.camera.yaw - from) >= 0.7, before.yaw);
+      await stepUntil(page, 'the camera to turn', (from) => Math.abs(window.__tnf.camera.yaw - from) >= 0.7, before.yaw, 120);
       await page.keyboard.up('Period');
-      await framesPass(page);
+      await step(page, 1);
     }
     expect(new Set(yaws.map((yaw) => yaw.toFixed(2))).size).toBe(4);
   });
@@ -143,13 +128,13 @@ test.describe('commanding the squad', () => {
     await stillCamera(page);
     await page.keyboard.press('F2');
     await rightClick(page, CENTRE.x - 120, CENTRE.y + 40);
-    await page.waitForFunction(() => window.__tnf.view.bodies[1]?.hold === true);
+    await stepUntil(page, 'the Sniper to hold', () => window.__tnf.view.bodies[1]?.hold === true, null, 10);
     await ticksPass(page, 30);
     await page.keyboard.press('KeyG');
     await ticksPass(page, 2);
     expect((await page.evaluate(() => window.__tnf.selected)).sort()).toEqual([1, 2, 3]);
+    // Walking back into the triangle is the core's to prove (`movement.test`), so the test stops once holds clear (S3k).
     expect(await page.evaluate(() => window.__tnf.view.bodies.map(({ hold }) => hold))).toEqual([false, false, false]);
-    await allArrived(page);
   });
 
   test('a spell key casts for the character in that row', async ({ page }) => {
@@ -170,7 +155,6 @@ test.describe('commanding the squad', () => {
   });
 
   test('the camera grips, rotates, tilts and zooms', async ({ page }) => {
-    test.setTimeout(90_000);
     const start = await camera(page);
     await page.mouse.move(CENTRE.x, CENTRE.y);
     await page.mouse.down({ button: 'right' });
@@ -182,23 +166,23 @@ test.describe('commanding the squad', () => {
     expect(orbited.yaw).toBeGreaterThan(start.yaw - 100 * 0.006 - 1e-9);
     expect(orbited.tiltAdjust).toBeGreaterThan(0.1);
 
-    // Holding the key keeps turning the camera. Frames are slow and clamped on CI, so wait
-    // for the turn rather than for a fixed time.
+    // Holding the key keeps turning the camera.
     await page.keyboard.down('Comma');
-    await expect.poll(() => page.evaluate(() => window.__tnf.camera.yaw), { timeout: 0 }).toBeLessThan(orbited.yaw - 0.2);
+    await stepUntil(page, 'the camera to turn', (from) => window.__tnf.camera.yaw < from - 0.2, orbited.yaw, 60);
     await page.keyboard.up('Comma');
     await page.keyboard.press('Backspace');
     expect(await page.evaluate(() => [window.__tnf.camera.yaw, window.__tnf.camera.tiltAdjust])).toEqual([0, 0]);
 
     await page.mouse.wheel(0, 100);
     await page.mouse.wheel(0, 100);
-    await expect.poll(() => page.evaluate(() => window.__tnf.camera.zoomTarget)).toBeCloseTo(start.zoomTarget + 0.16, 6);
+    await step(page, 1);
+    expect(await page.evaluate(() => window.__tnf.camera.zoomTarget)).toBeCloseTo(start.zoomTarget + 0.16, 6);
 
     await page.mouse.move(CENTRE.x, CENTRE.y);
     await page.mouse.down({ button: 'middle' });
     await page.mouse.move(CENTRE.x - 150, CENTRE.y, { steps: 6 });
-    // The grip is applied when a frame is drawn, so the button stays down until one has.
-    await page.waitForFunction(({ x, z }) => Math.hypot(window.__tnf.camera.x - x, window.__tnf.camera.z - z) > 5, { x: start.x, z: start.z });
+    // The grip is applied in a frame, so the button stays down until one has run.
+    await stepUntil(page, 'the grip to move the camera', ({ x, z }) => Math.hypot(window.__tnf.camera.x - x, window.__tnf.camera.z - z) > 5, { x: start.x, z: start.z }, 10);
     await page.mouse.up({ button: 'middle' });
     const gripped = await camera(page);
     expect(gripped.follow).toBe(false);
@@ -209,10 +193,8 @@ test.describe('commanding the squad', () => {
   });
 
   test('the zone scene drops and rebuilds without errors or leaks', async ({ page }) => {
-    const settle = async (): Promise<void> => {
-      const at = await page.evaluate(() => window.__tnf.frames + 5);
-      await page.waitForFunction((until) => window.__tnf.frames > until, at);
-    };
+    // Every frame draws here, since what is drawn is what fills the GPU's memory.
+    const settle = (): Promise<void> => step(page, 6, true);
     await page.evaluate(() => window.__tnf.world.rebuildZone());
     await settle();
     const first = await page.evaluate(() => window.__tnf.world.memory());
@@ -224,25 +206,14 @@ test.describe('commanding the squad', () => {
   });
 });
 
-test('a bot clears every pack in the real page, the game carries on, and the console stays clean', async ({ page }) => {
-  test.setTimeout(240_000);
+test('a bot clears a pack in the real page, the game carries on, and the console stays clean', async ({ page }) => {
   const errors = watchErrors(page);
   await openGame(page, 'seed=1&bot=careful&speed=32');
-  // A pack that has been cleared is on the Lande's record until it comes back, so
-  // each is counted as it appears there.
-  await page.waitForFunction(
-    () => {
-      const store = window as unknown as { cleared?: Set<number> };
-      store.cleared ??= new Set();
-      for (const { packId } of window.__tnf.view.records.find(({ id }) => id === 'lande')?.returns ?? []) store.cleared.add(packId);
-      return store.cleared.size === 7;
-    },
-    undefined,
-    { timeout: 170_000, polling: 250 },
-  );
+  // A cleared pack is on the Lande's record until it comes back. Clearing every pack is the
+  // core's to prove (`bots.test`, and 100 seeds in `runs.test`), so one is enough here (S3k note 2).
+  await stepUntil(page, 'the bot to clear a pack', () => (window.__tnf.view.records.find(({ id }) => id === 'lande')?.returns.length ?? 0) > 0, null, 3000);
   // Nothing to win: no end screen, and the clock runs on.
-  const tick = await page.evaluate(() => window.__tnf.view.tick);
-  await page.waitForFunction((was) => window.__tnf.view.tick > was + 60, tick, { timeout: 30_000 });
+  await ticksPass(page, 60);
   await expect(page.locator('#end')).toHaveCount(0);
   expect(errors).toEqual([]);
 });
